@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# Copyright (C) 2021 Brian Holtz  brian@holtz.org
+#
+# This software is redistributable under the terms of the
+# Creative Commons Attribution-ShareAlike license 2.0
+# at http://creativecommons.org/licenses/by-sa/2.0/
+#
+# retouch filename - set an image file's modtime and EXIF date using datetime from the filename
+# Expects filenames with datetime prefix like: yyyy[-mm[-dd]] [hhmm]
+# e.g. "2010-12-31 2359 New Year's Countdown"
+
+imagePath=${1+"$@"}
+filename=`basename "$imagePath"`
+
+# Split filename by whitespace
+IFS=" " read -a filenameParts <<< "$filename"
+
+### Get the time, if any
+
+possibleTime=${filenameParts[1]}
+# Grab the initial series of digits
+t=$(echo "$possibleTime" | sed 's/\([0-9]*\).*/\1/g')
+# if it's not 4 digits, it's not a time, so default to noon
+if [[ ${#t} -ne 4 ]]; then t=1200; fi
+
+### Get the date
+
+IFS="-" read -a dateElements <<< "${filenameParts[0]}"
+# strip out trailing non-numeric characters e.g. 1965c 1965~
+for i in 0 1 2; do
+  dateElements[$i]=$(echo ${dateElements[$i]} | sed 's/\([0-9]*\).*/\1/g')
+done
+# year is mandatory
+y=${dateElements[0]}
+# default to 1st month of year, and 1st day of month
+m=${dateElements[1]:-01}
+d=${dateElements[2]:-01}
+
+### Run exiftool first, as it will change modtime
+echo exiftool "-alldates=${y}-${m}-${d} ${t}" -overwrite_original "$imagePath"
+exiftool "-alldates=${y}-${m}-${d} ${t}" -overwrite_original "$imagePath" | grep -v "files updated"
+
+#### Now set the file's modtime
+echo "touch -mt ${y}${m}${d}${t} $imagePath"
+touch -mt ${y}${m}${d}${t} "$imagePath"
+
+# Here is how to set filesystem time from EXIF info:
+# exiftool "-FileCreateDate<DateTimeOriginal" "-FileModifyDate<DateTimeOriginal" "$imagePath"
