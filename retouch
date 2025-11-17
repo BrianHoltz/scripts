@@ -19,10 +19,14 @@ IFS=" " read -a filenameParts <<< "$filename"
 ### Get the time, if any
 
 possibleTime=${filenameParts[1]}
-# Grab the initial series of digits
-t=$(echo "$possibleTime" | sed 's/\([0-9]*\).*/\1/g')
-# if it's not 4 digits, it's not a time, so default to noon
-if [[ ${#t} -ne 4 ]]; then t=1200; fi
+# Grab the initial series of digits like hhmm or hh_mm
+t=$(echo "$possibleTime" | sed 's/\([0-9_]*\).*/\1/g' | sed 's/_//g')
+# if it's not 4 or 6 digits, then it's not a time, so default to noon
+if [[ ${#t} -eq 6 ]]; then
+  t="${t:0:4}.${t:4:2}"
+elif [[ ${#t} -ne 4 ]]; then
+  t=1200;
+fi
 
 ### Get the date
 
@@ -38,7 +42,9 @@ m=${dateElements[1]:-01}
 d=${dateElements[2]:-01}
 
 ### Run exiftool first, as it will change modtime
-echo exiftool "-alldates=${y}-${m}-${d} ${t}" -overwrite_original "$imagePath"
+extension="${filename##*.}"
+# TODO: Only run if filename extension indicates image
+#echo "exiftool \"-alldates=${y}-${m}-${d} ${t}\" -overwrite_original \"$imagePath\""
 exiftool "-alldates=${y}-${m}-${d} ${t}" -overwrite_original "$imagePath" | grep -v "files updated"
 
 #### Now set the file's modtime
@@ -47,3 +53,6 @@ touch -mt ${y}${m}${d}${t} "$imagePath"
 
 # Here is how to set filesystem time from EXIF info:
 # exiftool "-FileCreateDate<DateTimeOriginal" "-FileModifyDate<DateTimeOriginal" "$imagePath"
+
+# Here is how to prepend EXIF date/time into existing filename
+# exiftool '-FileName<FileModifyDate' -d "%Y-%m-%d %H%M% %%f.%%e"

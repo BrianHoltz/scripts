@@ -1,0 +1,27 @@
+#!/bin/bash
+file=${1+"$@"}
+filename="$(basename $file)"
+
+
+
+exit
+
+format='%Y-%m-%d'
+read -r y m d <<< "$(date -jf "$format" '+%Y %m %d' "$filename" 2>/dev/null)"
+#for var in y m d; do echo "$var=${!var}"; done
+#touch -mt ${y}${m}${d}1200 "$file"
+exiftool "-alldates=${y}-${m}-${d} 12:00" -overwrite_original "$file"
+
+exit
+
+format='%Y-%m'
+read -r y m <<< "$(date -jf "$format" '+%Y %m' "$filename" 2>/dev/null)"
+#for var in y m; do echo "$var=${!var}"; done
+#touch -mt ${y}${m}${d}1200 "$file"
+exiftool "-alldates=${y}-${m}-01 12:00" -overwrite_original "$file"
+
+exit
+
+format='%Y'
+read -r y <<< "$(date -jf "$format" '+%Y' "$filename" 2>/dev/null)"
+exiftool "-alldates=${y}-07-15 12:00" -overwrite_original "$file"

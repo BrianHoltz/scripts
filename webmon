@@ -1,0 +1,24 @@
+#!/bin/bash
+
+while true; do
+  outageStart=0
+  if [ -f webmon_current_outage ]; then
+    #outageStart=$(date -r webmon_current_outage +%s)
+    outageStart=$(stat -f%c webmon_current_outage)
+  fi
+  if webstat > /dev/null; then
+    now=$(date)
+    if [ $outageStart -gt 0 ]; then
+      nowSecs=$(date +%s)
+      outageSecs=$((nowSecs - outageStart))
+      echo "$now outage ended after $outageSecs secs"
+      rm webmon_current_outage
+    fi
+  else
+    if [ $outageStart -eq 0 ]; then
+      echo "$now outage started"
+      touch webmon_current_outage
+    fi
+  fi
+  sleep 5
+done

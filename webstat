@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# while true; do echo -n "$(date) "; bin/webstat; sleep 5; done | tee -a internet.log
+
+curl --connect-timeout 5 --head -sSf http://google.com  > /dev/null 2>&1 & googlePid=$!
+curl --connect-timeout 5 --head -sSf http://zoom.us     > /dev/null 2>&1 & zoomPid=$!
+curl --connect-timeout 5 --head -sSf http://walmart.com > /dev/null 2>&1 & walmartPid=$!
+
+wait $googlePid
+google=$?
+wait $zoomPid
+zoom=$?
+wait $walmartPid
+walmart=$?
+
+status="google=$google zoom=$zoom walmart=$walmart"
+
+if [ $google -ne 0 -a $zoom -ne 0 -a $walmart -ne 0 ]; then
+  echo "Down $status"
+  exit 1
+else
+  echo "Up $status"
+  exit 0
+fi

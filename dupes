@@ -1,0 +1,27 @@
+#!/bin/bash
+prev_key=0 # keys are integers
+prev_name=
+copies_seen=0
+# Read input line by line
+while read line; do
+  # Split the line into the file key and file name
+  key=$(echo "$line" | cut -d' ' -f1)
+  name=$(echo "$line" | cut -d' ' -f2-)
+  # Check if the file key is the same as the previous file
+  if [ "$key" = "$prev_key" ]; then
+    # Continuing the current set
+    if [ "$prev_name" != "" ]; then
+      # We haven't yet printed the first line of this set
+      echo "key=$key"
+      echo "1 $prev_name"
+      prev_name=
+    fi
+    copies_seen=$((copies_seen + 1))
+    echo "$copies_seen $name"
+  else
+    # Starting a new set. Don't print it, as it might be a singleton.
+    prev_key=$key
+    prev_name="$name"
+    copies_seen=1
+  fi
+done
