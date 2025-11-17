@@ -1,0 +1,5 @@
+- When asked for a git commit message, check the git diff from scratch, and do not assume the conversation context is the authority for what has changed.
+- Use Conventional Commits standard
+- The commit message should be optimized for developers who are trying to find the commit that made a particular change.
+- Don't document trivial changes unless they could plausibly need to sought by future developers.
+- Show draft commmit msg as INLINE PLAINTEXT, not as rich bulleted text, and not in a file.
