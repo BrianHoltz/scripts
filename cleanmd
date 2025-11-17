@@ -1,0 +1,801 @@
+#!/bin/bash
+
+# cleanmd - Organize untracked markdown files into well-known locations with uniform naming
+#
+# Purpose: Untracked ephemeral markdown files created by AI agents are organized in 
+#          well-known locations with names that are uniform and sort temporally even 
+#          in an IDE file tree with no sorting functionality.
+#
+# Actions:
+#   - Move root & docs/ markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
+#   - Rename test-results/ text files in place → YYYY-MM-DD_HHMMSS_CamelCase.ext
+#   - Move other markdown (scripts/, src/, etc.) → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
+#   - Fix non-compliant filenames in aidocs/ and docs/
+#   - Extract timestamps from filenames when present (e.g., 20251114-135621)
+#
+# Usage: cleanmd [-y|--yes] [--untracked-only]  (run from within a git repo)
+
+set -e
+
+# Check if in git repo
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Must be run from within a git repository" >&2
+    exit 1
+fi
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+AUTO_CONFIRM=0
+UNTRACKED_ONLY=0
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -y|--yes)
+            AUTO_CONFIRM=1
+            shift
+            ;;
+        --untracked-only)
+            UNTRACKED_ONLY=1
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "Usage: logmd [-y|--yes] [--untracked-only]" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Function to extract timestamp from filename
+# Returns date in YYYY-MM-DD format and time in HHMM or HHMMSS format (or empty if not found)
+# Sets global vars: EXTRACTED_DATE, EXTRACTED_TIME, and EXTRACTED_TIME_WITH_SECONDS
+extract_timestamp_from_filename() {
+    local filename="$1"
+    EXTRACTED_DATE=""
+    EXTRACTED_TIME=""
+    EXTRACTED_TIME_WITH_SECONDS=""
+    
+    # Pattern 0: Our own format - YYYY-MM-DD_HHMMSS or YYYY-MM-DD_HHMM (already formatted)
+    if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{6}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]}"
+        EXTRACTED_TIME="${BASH_REMATCH[2]:0:4}"
+        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[2]}"
+        return 0
+    fi
+    if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{4}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]}"
+        EXTRACTED_TIME="${BASH_REMATCH[2]}"
+        EXTRACTED_TIME_WITH_SECONDS=""
+        return 0
+    fi
+    
+    # Pattern 1: YYYYMMDD-HHMMSS (e.g., 20251114-135621)
+    if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
+        EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[4]}${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
+        return 0
+    fi
+    
+    # Pattern 2: YYYYMMDDHHMMSS (no dash, e.g., 20251114135621)
+    if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
+        EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[4]}${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
+        return 0
+    fi
+    
+    # Pattern 3: YYYY-MM-DD-HHMMSS or YYYY-MM-DD-HH-MM-SS
+    if [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
+        EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[4]}${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
+        return 0
+    fi
+    
+    # Pattern 4: YYYY-MM-DD (date only)
+    if [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
+        EXTRACTED_TIME="0000"
+        EXTRACTED_TIME_WITH_SECONDS=""
+        return 0
+    fi
+    
+    # Pattern 5: YYYYMMDD (date only)
+    if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
+        EXTRACTED_TIME="0000"
+        EXTRACTED_TIME_WITH_SECONDS=""
+        return 0
+    fi
+    
+    return 1
+}
+
+# Function to convert filename to CamelCase
+# Also strips common timestamp patterns and extension from the name
+to_camel_case() {
+    local filename="$1"
+    # Remove any extension first
+    local base="${filename%.*}"
+    
+    # If no extension was removed (no dot in filename), use the whole filename
+    if [ "$base" = "$filename" ]; then
+        base="$filename"
+    fi
+    
+    # Strip common timestamp patterns before CamelCase conversion
+    # Pattern 1: YYYY-MM-DD_HHMMSS or YYYY-MM-DD_HHMM or YYYY-MM-DD (at start or anywhere with separator)
+    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{4}-[0-9]{2}-[0-9]{2}(_[0-9]{4,6})?[_-]?//g')
+    # Pattern 2: YYYYMMDD-HHMMSS
+    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}-[0-9]{6}[_-]?//g')
+    # Pattern 3: YYYYMMDDHHMMSS (no dash)
+    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{14}[_-]?//g')
+    # Pattern 4: YYYYMMDD
+    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}[_-]?//g')
+    
+    # If already CamelCase (no underscores/hyphens), keep as-is
+    if [[ ! "$base" =~ [_-] ]]; then
+        # But capitalize first letter if it's lowercase
+        echo "$(echo "${base:0:1}" | tr '[:lower:]' '[:upper:]')${base:1}"
+        return
+    fi
+    
+    # Convert to CamelCase:
+    # - Replace underscores and hyphens with spaces
+    # - Capitalize first letter of each word, lowercase the rest
+    # - Remove spaces
+    local result=$(echo "$base" | sed -e 's/[_-]/ /g' | \
+        awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | \
+        sed 's/ //g')
+    
+    # Fix common acronyms and special cases (order matters - more specific first)
+    result=$(echo "$result" | sed \
+        -e 's/Alloydb/AlloyDB/g' \
+        -e 's/Isam/ISAM/g' \
+        -e 's/Iqs/IQS/g' \
+        -e 's/Isbn/ISBN/g' \
+        -e 's/Usitem/USItem/g' \
+        -e 's/Gtin/GTIN/g' \
+        -e 's/Upc/UPC/g' \
+        -e 's/Wpid/WPID/g' \
+        -e 's/Dgid/DGID/g' \
+        -e 's/Vgid/VGID/g' \
+        -e 's/\bIds$/IDs/g' \
+        -e 's/\bId$/ID/g' \
+        -e 's/\bId\b/ID/g' \
+        -e 's/Api/API/g' \
+        -e 's/Url/URL/g' \
+        -e 's/Http/HTTP/g' \
+        -e 's/Pr\([A-Z]\)/PR\1/g' \
+        -e 's/\bGec\b/GEC/g' \
+        -e 's/\bAdr\b/ADR/g' \
+        -e 's/\bDb\b/DB/g' \
+        -e 's/Sql/SQL/g' \
+        -e 's/Json/JSON/g' \
+        -e 's/Xml/XML/g' \
+        -e 's/Ui/UI/g' \
+        -e 's/Vp\b/VP/g' \
+        -e 's/Virtualpack/VirtualPack/g' \
+        -e 's/Hardbundle/HardBundle/g')
+    
+    echo "$result"
+}
+
+# Function to normalize an aidocs filename to proper format
+normalize_aidocs_filename() {
+    local filename="$1"
+    local base="${filename%.md}"
+    
+    # Check if it already matches the pattern hhmm_CamelCase
+    if [[ "$base" =~ ^[0-9]{4}_[A-Z][A-Za-z0-9]*$ ]]; then
+        # Already compliant
+        echo "$filename"
+        return
+    fi
+    
+    # Extract time prefix if present
+    local time_prefix=""
+    local descriptive=""
+    
+    if [[ "$base" =~ ^([0-9]{4})_(.+)$ ]]; then
+        time_prefix="${BASH_REMATCH[1]}"
+        descriptive="${BASH_REMATCH[2]}"
+    else
+        # No time prefix - use file's modification time
+        descriptive="$base"
+    fi
+    
+    # Normalize the descriptive part
+    # Check if it's all lowercase with hyphens (like api-kafka-research-plan)
+    local normalized_test=$(echo "$descriptive" | sed -e 's/[-_]//g')
+    
+    if [[ "$normalized_test" =~ ^[a-z0-9]+$ ]]; then
+        # All lowercase - need to convert to CamelCase
+        normalized=$(to_camel_case "${descriptive}.md")
+    elif [[ "$normalized_test" =~ ^[A-Z0-9]+$ ]]; then
+        # All uppercase - need to convert to CamelCase
+        normalized=$(to_camel_case "${descriptive}.md")
+    else
+        # Mixed case - just remove separators, but check for all-caps words
+        # Replace sequences like "BREAKTHROUGH-" or "SUMMARY_" with proper case
+        normalized="$descriptive"
+        
+        # For each all-caps word followed by separator, convert to proper case
+        while [[ "$normalized" =~ ([A-Z]{3,})([-_]) ]]; do
+            local caps_word="${BASH_REMATCH[1]}"
+            local separator="${BASH_REMATCH[2]}"
+            local proper_word=$(echo "$caps_word" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
+            normalized=$(echo "$normalized" | sed "s/${caps_word}${separator}/${proper_word}/")
+        done
+        
+        # Also handle all-caps words at the end
+        if [[ "$normalized" =~ ([A-Z]{3,})$ ]]; then
+            local caps_word="${BASH_REMATCH[1]}"
+            local proper_word=$(echo "$caps_word" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
+            normalized=$(echo "$normalized" | sed "s/${caps_word}$/${proper_word}/")
+        fi
+        
+        # Now remove remaining separators
+        normalized=$(echo "$normalized" | sed -e 's/[-_]//g')
+    fi
+    
+    # If we have a time prefix, use it; otherwise return just the normalized part
+    if [ -n "$time_prefix" ]; then
+        echo "${time_prefix}_${normalized}.md"
+    else
+        echo "${normalized}.md"
+    fi
+}
+
+# Function to check and fix non-compliant filenames in aidocs/
+check_aidocs_filenames() {
+    cd "$REPO_ROOT"
+    
+    # Find all .md files in aidocs/ subdirectories (exclude aidocs/README.md)
+    local aidocs_files=$(find aidocs -type f -name "*.md" | grep -v "^aidocs/README.md$" | sort)
+    
+    if [ -z "$aidocs_files" ]; then
+        echo "No .md files found in aidocs/ subdirectories."
+        echo ""
+        return 0
+    fi
+    
+    declare -a RENAMES
+    
+    while IFS= read -r filepath; do
+        local dirname=$(dirname "$filepath")
+        local filename=$(basename "$filepath")
+        local base="${filename%.md}"
+        
+        # Check if filename is compliant: hhmm_CamelCase.md pattern
+        # Compliant = starts with 4 digits, underscore, then CamelCase (no hyphens, underscores, or all-caps)
+        local is_compliant=1
+        
+        # Missing time prefix
+        if [[ ! "$base" =~ ^[0-9]{4}_ ]]; then
+            is_compliant=0
+        # Has hyphens in descriptive part
+        elif [[ "$base" =~ ^[0-9]{4}_.*- ]]; then
+            is_compliant=0
+        # Has underscores in descriptive part (after the first separator)
+        elif [[ "$base" =~ ^[0-9]{4}_.*_ ]]; then
+            is_compliant=0
+        # All-caps words (multiple consecutive uppercase letters that aren't acronyms)
+        elif [[ "$base" =~ ^[0-9]{4}_.*[A-Z]{3,} ]]; then
+            is_compliant=0
+        fi
+        
+        if [ $is_compliant -eq 0 ]; then
+            # Generate normalized filename
+            local new_filename=$(normalize_aidocs_filename "$filename")
+            
+            # If no time prefix in original, need to extract from file mtime
+            if [[ ! "$base" =~ ^[0-9]{4}_ ]]; then
+                local file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
+                local hhmm=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
+                new_filename="${hhmm}_${new_filename}"
+            fi
+            
+            local new_path="${dirname}/${new_filename}"
+            
+            # Only add if the name actually changes
+            if [ "$filepath" != "$new_path" ]; then
+                RENAMES+=("$filepath|$new_path")
+            fi
+        fi
+    done <<< "$aidocs_files"
+    
+    if [ ${#RENAMES[@]} -eq 0 ]; then
+        echo "All aidocs filenames are compliant!"
+        echo ""
+        return 0
+    fi
+    
+    # Display proposed renames
+    echo "Non-compliant filenames found in aidocs/:"
+    echo "--------------------------------------------"
+    for rename in "${RENAMES[@]}"; do
+        local src="${rename%%|*}"
+        local dst="${rename##*|}"
+        echo "  $src"
+        echo "    → $(basename "$dst")"
+        echo ""
+    done
+    
+    # Ask for confirmation unless -y flag
+    if [ $AUTO_CONFIRM -eq 0 ]; then
+        read -p "Proceed with these renames? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Cancelled."
+            echo ""
+            return 0
+        fi
+    fi
+    
+    # Execute renames
+    echo "Renaming files..."
+    for rename in "${RENAMES[@]}"; do
+        local src="${rename%%|*}"
+        local dst="${rename##*|}"
+        
+        # Check if destination already exists
+        if [ -f "$dst" ]; then
+            echo "  ⚠ Skipped (destination exists): $src"
+            continue
+        fi
+        
+        # Rename file
+        mv "$src" "$dst"
+        echo "  ✓ Renamed: $(basename "$src") → $(basename "$dst")"
+    done
+    
+    echo ""
+    echo "Done! Renamed ${#RENAMES[@]} file(s) in aidocs/."
+    return 0
+}
+
+# Function to check and fix non-compliant filenames in docs/
+check_docs_filenames() {
+    cd "$REPO_ROOT"
+    
+    # Find all .md files in docs/ (exclude docs/README.md)
+    local docs_files=$(find docs -type f -name "*.md" 2>/dev/null | grep -v "^docs/README.md$" | sort)
+    
+    if [ -z "$docs_files" ]; then
+        echo "No .md files found in docs/."
+        echo ""
+        return 0
+    fi
+    
+    declare -a RENAMES
+    
+    while IFS= read -r filepath; do
+        local dirname=$(dirname "$filepath")
+        local filename=$(basename "$filepath")
+        local base="${filename%.md}"
+        
+        # Check if filename is compliant: CamelCase.md pattern (no hyphens, underscores, or all-caps words)
+        # Compliant = starts with uppercase, uses CamelCase, no hyphens/underscores
+        local is_compliant=1
+        
+        # Has hyphens
+        if [[ "$base" =~ - ]]; then
+            is_compliant=0
+        # Has underscores
+        elif [[ "$base" =~ _ ]]; then
+            is_compliant=0
+        # All-caps words (multiple consecutive uppercase letters that aren't acronyms like API, DB, etc.)
+        # We'll be lenient with 3-letter acronyms but flag longer all-caps sequences
+        elif [[ "$base" =~ [A-Z]{4,} ]]; then
+            is_compliant=0
+        # All lowercase
+        elif [[ "$base" =~ ^[a-z] ]]; then
+            is_compliant=0
+        fi
+        
+        if [ $is_compliant -eq 0 ]; then
+            # Generate normalized filename - just CamelCase, no time prefix
+            local new_filename=$(to_camel_case "$filename")
+            local new_path="${dirname}/${new_filename}.md"
+            
+            # Only add if the name actually changes
+            if [ "$filepath" != "$new_path" ]; then
+                RENAMES+=("$filepath|$new_path")
+            fi
+        fi
+    done <<< "$docs_files"
+    
+    if [ ${#RENAMES[@]} -eq 0 ]; then
+        echo "All docs filenames are compliant!"
+        echo ""
+        return 0
+    fi
+    
+    # Display proposed renames
+    echo "Non-compliant filenames found in docs/:"
+    echo "---------------------------------------"
+    for rename in "${RENAMES[@]}"; do
+        local src="${rename%%|*}"
+        local dst="${rename##*|}"
+        echo "  $src"
+        echo "    → $(basename "$dst")"
+        echo ""
+    done
+    
+    # Ask for confirmation unless -y flag
+    if [ $AUTO_CONFIRM -eq 0 ]; then
+        read -p "Proceed with these renames? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Cancelled."
+            echo ""
+            return 0
+        fi
+    fi
+    
+    # Execute renames
+    echo "Renaming files..."
+    for rename in "${RENAMES[@]}"; do
+        local src="${rename%%|*}"
+        local dst="${rename##*|}"
+        
+        # Check if destination already exists
+        if [ -f "$dst" ]; then
+            echo "  ⚠ Skipped (destination exists): $src"
+            continue
+        fi
+        
+        # Rename file
+        mv "$src" "$dst"
+        echo "  ✓ Renamed: $(basename "$src") → $(basename "$dst")"
+    done
+    
+    echo ""
+    echo "Done! Renamed ${#RENAMES[@]} file(s) in docs/."
+    return 0
+}
+
+# By default, check both aidocs compliance AND untracked files
+# Only skip aidocs check if --untracked-only is specified
+
+AIDOCS_RENAMED=0
+DOCS_RENAMED=0
+UNTRACKED_MOVED=0
+
+# First, check aidocs/ for non-compliant filenames (unless --untracked-only)
+if [ $UNTRACKED_ONLY -eq 0 ]; then
+    echo "=== Checking aidocs/ for non-compliant filenames ==="
+    echo ""
+    check_aidocs_filenames
+    AIDOCS_RENAMED=$?
+    echo ""
+    
+    echo "=== Checking docs/ for non-compliant filenames ==="
+    echo ""
+    check_docs_filenames
+    DOCS_RENAMED=$?
+    echo ""
+fi
+
+# Then, find untracked files
+echo "=== Checking for untracked files ==="
+echo ""
+cd "$REPO_ROOT"
+
+# Get all untracked .md files (exclude only aidocs/)
+ALL_UNTRACKED_MD=$(git ls-files --others --exclude-standard | grep '\.md$' | grep -v '^aidocs/' || true)
+
+# Get all untracked text files in test-results/ (any extension)
+ALL_UNTRACKED_TEST_RESULTS=$(git ls-files --others --exclude-standard | grep '^test-results/' || true)
+
+if [ -z "$ALL_UNTRACKED_MD" ] && [ -z "$ALL_UNTRACKED_TEST_RESULTS" ]; then
+    echo "No untracked files found that need processing."
+    echo ""
+    exit 0
+fi
+
+# Categorize files by location
+declare -a ROOT_AND_DOCS_FILES  # Root level and docs/ .md → move to aidocs/
+declare -a TEST_RESULTS_FILES    # test-results/ any text files → rename in place
+declare -a OTHER_FILES           # Elsewhere (scripts/, src/, etc.) .md → move to aidocs/
+
+# Process markdown files
+while IFS= read -r file; do
+    if [ ! -f "$file" ]; then
+        continue
+    fi
+    
+    # Categorize by path
+    if [[ "$file" =~ ^test-results/ ]]; then
+        TEST_RESULTS_FILES+=("$file")
+    elif [[ "$file" =~ ^docs/ ]] || [[ ! "$file" =~ / ]]; then
+        # docs/ or root level (no slashes in path)
+        ROOT_AND_DOCS_FILES+=("$file")
+    else
+        # Elsewhere (scripts/, src/, etc.)
+        OTHER_FILES+=("$file")
+    fi
+done <<< "$ALL_UNTRACKED_MD"
+
+# Add test-results text files
+while IFS= read -r file; do
+    if [ -n "$file" ] && [ -f "$file" ]; then
+        # Skip if already added (from MD files above)
+        if [[ ! " ${TEST_RESULTS_FILES[@]} " =~ " ${file} " ]]; then
+            TEST_RESULTS_FILES+=("$file")
+        fi
+    fi
+done <<< "$ALL_UNTRACKED_TEST_RESULTS"
+
+# Build list of operations
+declare -a MOVES_TO_AIDOCS      # file|destination
+declare -a RENAMES_IN_PLACE     # file|newname
+
+# Process root, docs/, and other files → move to aidocs/
+for file in "${ROOT_AND_DOCS_FILES[@]}" "${OTHER_FILES[@]}"; do
+    # Get just the filename (no path)
+    BASENAME=$(basename "$file")
+    
+    # Try to extract timestamp from filename first
+    extract_timestamp_from_filename "$BASENAME"
+    
+    if [ -n "$EXTRACTED_DATE" ]; then
+        # Use extracted timestamp from filename
+        DATETIME="$EXTRACTED_DATE"
+        HHMM="$EXTRACTED_TIME"
+    else
+        # Fall back to file mtime
+        BIRTH_TIME=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
+        MOD_TIME=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+        
+        # Extract dates
+        BIRTH_DATE=$(date -r "$BIRTH_TIME" '+%Y-%m-%d' 2>/dev/null || echo "")
+        MOD_DATE=$(date -r "$MOD_TIME" '+%Y-%m-%d' 2>/dev/null || echo "")
+        
+        # Use modtime if it's a different date than birthtime, otherwise use birthtime
+        if [ "$BIRTH_DATE" != "$MOD_DATE" ] && [ -n "$MOD_DATE" ]; then
+            USE_TIME="$MOD_TIME"
+        else
+            USE_TIME="$BIRTH_TIME"
+        fi
+        
+        # Format datetime
+        DATETIME=$(date -r "$USE_TIME" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+        HHMM=$(date -r "$USE_TIME" '+%H%M' 2>/dev/null || echo "0000")
+    fi
+    
+    # Convert to CamelCase (this will strip timestamps from the name)
+    CAMEL=$(to_camel_case "$BASENAME")
+    
+    # Build destination path
+    DEST="aidocs/$DATETIME/${HHMM}_${CAMEL}.md"
+    
+    MOVES_TO_AIDOCS+=("$file|$DEST")
+done
+
+# Process test-results/ files → rename in place
+# First pass: collect all potential names with HHMM format and detect collisions
+declare -a POTENTIAL_NAMES
+declare -a COLLISION_FILES
+
+for file in "${TEST_RESULTS_FILES[@]}"; do
+    BASENAME=$(basename "$file")
+    extract_timestamp_from_filename "$BASENAME"
+    
+    if [ -n "$EXTRACTED_DATE" ]; then
+        DATETIME="$EXTRACTED_DATE"
+        if [ -n "$EXTRACTED_TIME" ]; then
+            TIME_HHMM="${EXTRACTED_TIME}"
+        else
+            MOD_TIME=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+            TIME_HHMM=$(date -r "$MOD_TIME" '+%H%M' 2>/dev/null || echo "0000")
+        fi
+    else
+        MOD_TIME=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+        DATETIME=$(date -r "$MOD_TIME" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+        TIME_HHMM=$(date -r "$MOD_TIME" '+%H%M' 2>/dev/null || echo "0000")
+    fi
+    
+    CAMEL=$(to_camel_case "$BASENAME")
+    POTENTIAL_NAME="${DATETIME}_${TIME_HHMM}_${CAMEL}"
+    
+    # Check if this name already exists in our list
+    FOUND_COLLISION=0
+    for existing in "${POTENTIAL_NAMES[@]}"; do
+        if [ "$existing" = "$POTENTIAL_NAME" ]; then
+            FOUND_COLLISION=1
+            # Mark this file and the previous matching file as needing seconds
+            COLLISION_FILES+=("$file")
+            break
+        fi
+    done
+    
+    if [ $FOUND_COLLISION -eq 0 ]; then
+        POTENTIAL_NAMES+=("$POTENTIAL_NAME")
+    fi
+done
+
+# Second pass: actually rename files
+for file in "${TEST_RESULTS_FILES[@]}"; do
+    DIRNAME=$(dirname "$file")
+    BASENAME=$(basename "$file")
+    FILENAME="${BASENAME%.*}"
+    EXTENSION="${BASENAME##*.}"
+    
+    # Handle files without extensions
+    if [ "$EXTENSION" = "$BASENAME" ]; then
+        EXTENSION=""
+    fi
+    
+    # Check if this file needs seconds to avoid collision
+    NEEDS_SECONDS=0
+    for collision_file in "${COLLISION_FILES[@]}"; do
+        if [ "$file" = "$collision_file" ]; then
+            NEEDS_SECONDS=1
+            break
+        fi
+    done
+    
+    # Try to extract timestamp from filename first
+    extract_timestamp_from_filename "$BASENAME"
+    
+    if [ -n "$EXTRACTED_DATE" ]; then
+        # Use extracted timestamp from filename
+        DATETIME="$EXTRACTED_DATE"
+        if [ -n "$EXTRACTED_TIME_WITH_SECONDS" ] && [ $NEEDS_SECONDS -eq 1 ]; then
+            # Has seconds and needs them for collision avoidance
+            TIME_PREFIX="${DATETIME}_${EXTRACTED_TIME_WITH_SECONDS}"
+        elif [ -n "$EXTRACTED_TIME" ] && [ "$EXTRACTED_TIME" != "0000" ]; then
+            # Use HHMM format
+            TIME_PREFIX="${DATETIME}_${EXTRACTED_TIME}"
+        else
+            # No time in filename - use modtime for time portion
+            MOD_TIME=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+            HHMM=$(date -r "$MOD_TIME" '+%H%M' 2>/dev/null || echo "0000")
+            TIME_PREFIX="${DATETIME}_${HHMM}"
+        fi
+    else
+        # Fall back to file mtime for both date and time
+        MOD_TIME=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+        DATETIME=$(date -r "$MOD_TIME" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+        HHMM=$(date -r "$MOD_TIME" '+%H%M' 2>/dev/null || echo "0000")
+        TIME_PREFIX="${DATETIME}_${HHMM}"
+    fi
+    
+    # Convert filename to CamelCase (this will strip timestamps from the name)
+    CAMEL=$(to_camel_case "$BASENAME")
+    
+    # Build new filename with extension
+    if [ -n "$EXTENSION" ]; then
+        NEW_BASENAME="${TIME_PREFIX}_${CAMEL}.${EXTENSION}"
+    else
+        NEW_BASENAME="${TIME_PREFIX}_${CAMEL}"
+    fi
+    
+    # Check if already compliant AND optimal (can't be simplified)
+    # Compliant format: YYYY-MM-DD_HHMM_CamelCase.ext or YYYY-MM-DD_HHMMSS_CamelCase.ext
+    # Time portion is REQUIRED (not optional)
+    is_compliant=0
+    if [ -n "$EXTENSION" ]; then
+        # Check if filename matches and whether we can simplify it
+        if [[ "$FILENAME" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4,6}_[A-Z][A-Za-z0-9]*$ ]]; then
+            # File is compliant, but check if we can drop seconds
+            if [[ "$FILENAME" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}_ ]]; then
+                # Has seconds - only compliant if file needs seconds for collision avoidance
+                if [ $NEEDS_SECONDS -eq 1 ]; then
+                    is_compliant=1
+                else
+                    is_compliant=0  # Can be simplified
+                fi
+            else
+                # HHMM format - always compliant
+                is_compliant=1
+            fi
+        fi
+    else
+        if [[ "$BASENAME" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4,6}_[A-Z][A-Za-z0-9]*$ ]]; then
+            if [[ "$BASENAME" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}_ ]]; then
+                if [ $NEEDS_SECONDS -eq 1 ]; then
+                    is_compliant=1
+                else
+                    is_compliant=0
+                fi
+            else
+                is_compliant=1
+            fi
+        fi
+    fi
+    
+    if [ $is_compliant -eq 0 ]; then
+        NEW_PATH="${DIRNAME}/${NEW_BASENAME}"
+        
+        if [ "$file" != "$NEW_PATH" ]; then
+            RENAMES_IN_PLACE+=("$file|$NEW_PATH")
+        fi
+    fi
+done
+
+# Check if we have any operations to perform
+TOTAL_OPS=$((${#MOVES_TO_AIDOCS[@]} + ${#RENAMES_IN_PLACE[@]}))
+
+if [ $TOTAL_OPS -eq 0 ]; then
+    echo "No untracked .md files need processing."
+    echo ""
+    exit 0
+fi
+
+# Display proposed operations
+if [ ${#MOVES_TO_AIDOCS[@]} -gt 0 ]; then
+    echo "Proposed moves to aidocs/:"
+    echo "--------------------------"
+    for move in "${MOVES_TO_AIDOCS[@]}"; do
+        SRC="${move%%|*}"
+        DST="${move##*|}"
+        echo "  $SRC  →  $DST"
+    done
+    echo ""
+fi
+
+if [ ${#RENAMES_IN_PLACE[@]} -gt 0 ]; then
+    echo "Proposed renames in test-results/:"
+    echo "----------------------------------"
+    for rename in "${RENAMES_IN_PLACE[@]}"; do
+        SRC="${rename%%|*}"
+        DST="${rename##*|}"
+        echo "  $(basename "$SRC")  →  $(basename "$DST")"
+    done
+    echo ""
+fi
+
+# Ask for confirmation unless -y flag
+if [ $AUTO_CONFIRM -eq 0 ]; then
+    read -p "Proceed with these operations? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+fi
+
+# Execute moves to aidocs/
+if [ ${#MOVES_TO_AIDOCS[@]} -gt 0 ]; then
+    echo "Moving files to aidocs/..."
+    for move in "${MOVES_TO_AIDOCS[@]}"; do
+        SRC="${move%%|*}"
+        DST="${move##*|}"
+        
+        # Create destination directory
+        DEST_DIR=$(dirname "$DST")
+        mkdir -p "$DEST_DIR"
+        
+        # Move file
+        mv "$SRC" "$DST"
+        echo "  ✓ Moved: $SRC → $DST"
+    done
+    echo ""
+fi
+
+# Execute renames in place
+if [ ${#RENAMES_IN_PLACE[@]} -gt 0 ]; then
+    echo "Renaming files in place..."
+    for rename in "${RENAMES_IN_PLACE[@]}"; do
+        SRC="${rename%%|*}"
+        DST="${rename##*|}"
+        
+        # Check if destination already exists
+        if [ -f "$DST" ]; then
+            echo "  ⚠ Skipped (destination exists): $(basename "$SRC")"
+            continue
+        fi
+        
+        # Rename file
+        mv "$SRC" "$DST"
+        echo "  ✓ Renamed: $(basename "$SRC") → $(basename "$DST")"
+    done
+    echo ""
+fi
+
+echo "Done! Processed $TOTAL_OPS file(s)."
+
