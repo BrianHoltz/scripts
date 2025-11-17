@@ -18,12 +18,13 @@
 set -e
 
 # Check if in git repo
-if ! git rev-parse --git-dir > /dev/null 2>&1; then
-    echo "Error: Must be run from within a git repository" >&2
-    exit 1
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    IN_GIT_REPO=1
+    REPO_ROOT=$(git rev-parse --show-toplevel)
+else
+    IN_GIT_REPO=0
+    REPO_ROOT=$(pwd)
 fi
-
-REPO_ROOT=$(git rev-parse --show-toplevel)
 AUTO_CONFIRM=0
 UNTRACKED_ONLY=0
 
@@ -40,7 +41,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown option: $1" >&2
-            echo "Usage: logmd [-y|--yes] [--untracked-only]" >&2
+            echo "Usage: cleanmd [-y|--yes] [--untracked-only]" >&2
             exit 1
             ;;
     esac
@@ -69,6 +70,20 @@ extract_timestamp_from_filename() {
         return 0
     fi
     
+    # Pattern 0.5: YYYYMMDD_HHMMSS or YYYYMMDD_HHMM (underscore, e.g., 20251115_003000 or 20251115_0030)
+    if [[ "$filename" =~ ([0-9]{8})_([0-9]{6}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"
+        EXTRACTED_TIME="${BASH_REMATCH[2]:0:4}"
+        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[2]}"
+        return 0
+    fi
+    if [[ "$filename" =~ ([0-9]{8})_([0-9]{4}) ]]; then
+        EXTRACTED_DATE="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"
+        EXTRACTED_TIME="${BASH_REMATCH[2]}"
+        EXTRACTED_TIME_WITH_SECONDS=""
+        return 0
+    fi
+
     # Pattern 1: YYYYMMDD-HHMMSS (e.g., 20251114-135621)
     if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
@@ -264,45 +279,38 @@ check_aidocs_filenames() {
     declare -a RENAMES
     
     while IFS= read -r filepath; do
-        local dirname=$(dirname "$filepath")
         local filename=$(basename "$filepath")
         local base="${filename%.md}"
-        
-        # Check if filename is compliant: hhmm_CamelCase.md pattern
-        # Compliant = starts with 4 digits, underscore, then CamelCase (no hyphens, underscores, or all-caps)
-        local is_compliant=1
-        
-        # Missing time prefix
-        if [[ ! "$base" =~ ^[0-9]{4}_ ]]; then
-            is_compliant=0
-        # Has hyphens in descriptive part
-        elif [[ "$base" =~ ^[0-9]{4}_.*- ]]; then
-            is_compliant=0
-        # Has underscores in descriptive part (after the first separator)
-        elif [[ "$base" =~ ^[0-9]{4}_.*_ ]]; then
-            is_compliant=0
-        # All-caps words (multiple consecutive uppercase letters that aren't acronyms)
-        elif [[ "$base" =~ ^[0-9]{4}_.*[A-Z]{3,} ]]; then
-            is_compliant=0
-        fi
-        
-        if [ $is_compliant -eq 0 ]; then
-            # Generate normalized filename
-            local new_filename=$(normalize_aidocs_filename "$filename")
-            
-            # If no time prefix in original, need to extract from file mtime
-            if [[ ! "$base" =~ ^[0-9]{4}_ ]]; then
+        local dirname=$(dirname "$filepath")
+
+        # Extract date and time from filename, or fallback to mtime
+        extract_timestamp_from_filename "$base"
+        local date_part
+        local time_part
+        if [ -n "$EXTRACTED_DATE" ]; then
+            date_part="$EXTRACTED_DATE"
+            if [ -n "$EXTRACTED_TIME" ]; then
+                time_part="$EXTRACTED_TIME"
+            else
                 local file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
-                local hhmm=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
-                new_filename="${hhmm}_${new_filename}"
+                time_part=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
             fi
-            
-            local new_path="${dirname}/${new_filename}"
-            
-            # Only add if the name actually changes
-            if [ "$filepath" != "$new_path" ]; then
-                RENAMES+=("$filepath|$new_path")
-            fi
+        else
+            local file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
+            date_part=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+            time_part=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
+        fi
+        # Normalize descriptive part
+        # Remove leading date and time (YYYYMMDD[_-]HHMM[SS]_ or YYYY-MM-DD[_-]HHMM[SS]_) if present
+        local descriptive_part="$base"
+        # Remove leading date and time (YYYYMMDD[_-]HHMM[SS]_ or YYYY-MM-DD[_-]HHMM[SS]_) if present
+        descriptive_part=$(echo "$descriptive_part" | sed -E 's/^([0-9]{8}|[0-9]{4}-[0-9]{2}-[0-9]{2})[_-]?[0-9]{4,6}_//')
+        local camel_case_name=$(to_camel_case "$descriptive_part.md")
+        local new_path="aidocs/${date_part}/${time_part}_${camel_case_name}.md"
+
+        # Only add if the name or path actually changes
+        if [ "$filepath" != "$new_path" ]; then
+            RENAMES+=("$filepath|$new_path")
         fi
     done <<< "$aidocs_files"
     
@@ -312,14 +320,14 @@ check_aidocs_filenames() {
         return 0
     fi
     
-    # Display proposed renames
+    # Display proposed renames/moves
     echo "Non-compliant filenames found in aidocs/:"
     echo "--------------------------------------------"
     for rename in "${RENAMES[@]}"; do
         local src="${rename%%|*}"
         local dst="${rename##*|}"
         echo "  $src"
-        echo "    → $(basename "$dst")"
+        echo "    → $dst"
         echo ""
     done
     
@@ -334,25 +342,23 @@ check_aidocs_filenames() {
         fi
     fi
     
-    # Execute renames
-    echo "Renaming files..."
+    # Execute renames/moves
+    echo "Renaming/moving files..."
     for rename in "${RENAMES[@]}"; do
         local src="${rename%%|*}"
         local dst="${rename##*|}"
-        
-        # Check if destination already exists
+        local dst_dir=$(dirname "$dst")
+        mkdir -p "$dst_dir"
         if [ -f "$dst" ]; then
             echo "  ⚠ Skipped (destination exists): $src"
             continue
         fi
-        
-        # Rename file
         mv "$src" "$dst"
-        echo "  ✓ Renamed: $(basename "$src") → $(basename "$dst")"
+        echo "  ✓ Moved: $src → $dst"
     done
     
     echo ""
-    echo "Done! Renamed ${#RENAMES[@]} file(s) in aidocs/."
+    echo "Done! Renamed/moved ${#RENAMES[@]} file(s) in aidocs/."
     return 0
 }
 
@@ -484,16 +490,16 @@ echo "=== Checking for untracked files ==="
 echo ""
 cd "$REPO_ROOT"
 
-# Get all untracked .md files (exclude only aidocs/)
-ALL_UNTRACKED_MD=$(git ls-files --others --exclude-standard | grep '\.md$' | grep -v '^aidocs/' || true)
-
-# Get all untracked text files in test-results/ (any extension)
-ALL_UNTRACKED_TEST_RESULTS=$(git ls-files --others --exclude-standard | grep '^test-results/' || true)
-
-if [ -z "$ALL_UNTRACKED_MD" ] && [ -z "$ALL_UNTRACKED_TEST_RESULTS" ]; then
-    echo "No untracked files found that need processing."
-    echo ""
-    exit 0
+if [ $IN_GIT_REPO -eq 1 ]; then
+    # Get all untracked .md files (exclude only aidocs/)
+    ALL_UNTRACKED_MD=$(git ls-files --others --exclude-standard | grep '\.md$' | grep -v '^aidocs/' || true)
+    # Get all untracked text files in test-results/ (any extension)
+    ALL_UNTRACKED_TEST_RESULTS=$(git ls-files --others --exclude-standard | grep '^test-results/' || true)
+else
+    # Not in a git repo: treat all .md files (except aidocs/) as untracked
+    ALL_UNTRACKED_MD=$(find . -type f -name '*.md' | grep -v '^./aidocs/' || true)
+    # All files in test-results/ (any extension)
+    ALL_UNTRACKED_TEST_RESULTS=$(find ./test-results -type f 2>/dev/null || true)
 fi
 
 # Categorize files by location
@@ -520,14 +526,21 @@ while IFS= read -r file; do
 done <<< "$ALL_UNTRACKED_MD"
 
 # Add test-results text files
-while IFS= read -r file; do
+for file in $ALL_UNTRACKED_TEST_RESULTS; do
     if [ -n "$file" ] && [ -f "$file" ]; then
         # Skip if already added (from MD files above)
-        if [[ ! " ${TEST_RESULTS_FILES[@]} " =~ " ${file} " ]]; then
+        already_added=0
+        for tfile in "${TEST_RESULTS_FILES[@]}"; do
+            if [ "$tfile" = "$file" ]; then
+                already_added=1
+                break
+            fi
+        done
+        if [ $already_added -eq 0 ]; then
             TEST_RESULTS_FILES+=("$file")
         fi
     fi
-done <<< "$ALL_UNTRACKED_TEST_RESULTS"
+done
 
 # Build list of operations
 declare -a MOVES_TO_AIDOCS      # file|destination
@@ -538,7 +551,7 @@ for file in "${ROOT_AND_DOCS_FILES[@]}" "${OTHER_FILES[@]}"; do
     # Get just the filename (no path)
     BASENAME=$(basename "$file")
     
-    # Try to extract timestamp from filename first
+    # Try to extract timestamp from filename
     extract_timestamp_from_filename "$BASENAME"
     
     if [ -n "$EXTRACTED_DATE" ]; then
@@ -798,4 +811,3 @@ if [ ${#RENAMES_IN_PLACE[@]} -gt 0 ]; then
 fi
 
 echo "Done! Processed $TOTAL_OPS file(s)."
-
