@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# cleanmd - Organize untracked markdown files into well-known locations with uniform naming
+# mdar - Archive untracked markdown files into well-known locations with uniform naming
 #
-# Purpose: Untracked ephemeral markdown files created by AI agents are organized in 
+# Purpose: Untracked ephemeral markdown files created by AI agents are archived in
 #          well-known locations with names that are uniform and sort temporally even 
 #          in an IDE file tree with no sorting functionality.
 #
 # Actions:
-#   - Move root & docs/ markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
+#   - Move root & docs/ untracked markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
 #   - Rename test-results/ text files in place → YYYY-MM-DD_HHMMSS_CamelCase.ext
-#   - Move other markdown (scripts/, src/, etc.) → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
-#   - Fix non-compliant filenames in aidocs/ and docs/
+#   - With --deep, move all other untracked markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
 #   - Extract timestamps from filenames when present (e.g., 20251114-135621)
+#   - Never updates filesystem without confirmation (unless -y/--yes is given)
 #
-# Usage: cleanmd [-y|--yes] [--untracked-only]  (run from within a git repo)
+# Usage: mdar [-y|--yes] [--deep]
 
 set -e
 
@@ -26,8 +26,8 @@ else
     REPO_ROOT=$(pwd)
 fi
 AUTO_CONFIRM=0
-UNTRACKED_ONLY=0
-
+DEEP_SEARCH=0
+VERBOSE=0
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -35,17 +35,120 @@ while [[ $# -gt 0 ]]; do
             AUTO_CONFIRM=1
             shift
             ;;
-        --untracked-only)
-            UNTRACKED_ONLY=1
+        --deep)
+            DEEP_SEARCH=1
+            shift
+            ;;
+        -v|--verbose)
+            VERBOSE=1
             shift
             ;;
         *)
             echo "Unknown option: $1" >&2
-            echo "Usage: cleanmd [-y|--yes] [--untracked-only]" >&2
+            echo "Usage: mdar [-y|--yes] [--deep] [-v|--verbose]" >&2
             exit 1
             ;;
     esac
 done
+
+# After determining REPO_ROOT, switch to it so all subsequent path operations are relative and consistent
+cd "$REPO_ROOT"
+
+# Helper to print verbose commands to stderr
+verbose_log() {
+    if [ "$VERBOSE" -eq 1 ]; then
+        echo "+ $*" >&2
+    fi
+}
+
+# Find untracked markdown files in root and docs/ (always). Run commands from REPO_ROOT.
+ROOT_UNTRACKED_MD=""
+DOCS_UNTRACKED_MD=""
+if [ "$IN_GIT_REPO" -eq 1 ]; then
+    verbose_log git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard
+    ROOT_UNTRACKED_MD=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep -E '^[^/]+\.md$' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' || true)
+    DOCS_UNTRACKED_MD=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep -E '^docs/.*\.md$' | grep -v '^aidocs/' || true)
+else
+    # Use find from the repo root and strip leading ./ so results match git's output style
+    verbose_log "(cd $REPO_ROOT && find . -maxdepth 1 -type f -name '*.md' 2>/dev/null | sed 's|^./||')"
+    ROOT_UNTRACKED_MD=$(cd "$REPO_ROOT" && find . -maxdepth 1 -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' || true)
+    verbose_log "(cd $REPO_ROOT && find ./docs -type f -name '*.md' 2>/dev/null | sed 's|^./||')"
+    if [ -d "$REPO_ROOT/docs" ]; then
+        DOCS_UNTRACKED_MD=$(cd "$REPO_ROOT" && find ./docs -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' || true)
+    else
+        DOCS_UNTRACKED_MD=""
+    fi
+fi
+
+# If --deep, find untracked markdown anywhere else (excluding aidocs/)
+DEEP_UNTRACKED_MD=""
+if [ "$DEEP_SEARCH" -eq 1 ]; then
+    if [ "$IN_GIT_REPO" -eq 1 ]; then
+        verbose_log git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard '\.md$'
+        DEEP_UNTRACKED_MD=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep '\.md$' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' | grep -v '^[^/]*\.md$' || true)
+    else
+        verbose_log "(cd $REPO_ROOT && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||')"
+        DEEP_UNTRACKED_MD=$(cd "$REPO_ROOT" && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' | grep -v '^[^/]*\.md$' || true)
+    fi
+fi
+
+# Always get all untracked test-results/ files
+if [ "$IN_GIT_REPO" -eq 1 ]; then
+    verbose_log "git --no-pager -C $REPO_ROOT ls-files --others --exclude-standard | grep '^test-results/'"
+    ALL_UNTRACKED_TEST_RESULTS=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep '^test-results/' || true)
+else
+    if [ -d "$REPO_ROOT/test-results" ]; then
+        verbose_log "(cd $REPO_ROOT && find ./test-results -type f 2>/dev/null | sed 's|^./||')"
+        ALL_UNTRACKED_TEST_RESULTS=$(cd "$REPO_ROOT" && find ./test-results -type f 2>/dev/null | sed 's|^./||' || true)
+    else
+        ALL_UNTRACKED_TEST_RESULTS=""
+    fi
+fi
+
+# Build list of files to move to aidocs/
+ALL_TO_AIDOCS="${ROOT_UNTRACKED_MD}
+${DOCS_UNTRACKED_MD}"
+if [ "$DEEP_SEARCH" -eq 1 ]; then
+    ALL_TO_AIDOCS="${ALL_TO_AIDOCS}
+${DEEP_UNTRACKED_MD}"
+fi
+ALL_TO_AIDOCS=$(echo "$ALL_TO_AIDOCS" | grep -v '^$' | sort | uniq)
+
+# Normalize paths: ensure entries are relative to REPO_ROOT and not prefixed with './'
+normalize_paths() {
+    local in="$1"
+    echo "$in" | sed -e 's|^\./||' -e 's|^$||' | grep -v '^$' || true
+}
+
+ALL_TO_AIDOCS=$(normalize_paths "$ALL_TO_AIDOCS")
+ALL_UNTRACKED_TEST_RESULTS=$(normalize_paths "$ALL_UNTRACKED_TEST_RESULTS")
+
+# Categorize files by location
+ROOT_AND_DOCS_FILES=()
+TEST_RESULTS_FILES=()
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    # Make sure file path is relative to REPO_ROOT
+    if [ ! -f "$REPO_ROOT/$file" ]; then
+        continue
+    fi
+    ROOT_AND_DOCS_FILES+=("$file")
+done <<< "$ALL_TO_AIDOCS"
+
+for file in $ALL_UNTRACKED_TEST_RESULTS; do
+    [ -z "$file" ] && continue
+    if [ -f "$REPO_ROOT/$file" ]; then
+        TEST_RESULTS_FILES+=("$file")
+    fi
+done
+
+# Verbose debug: dump the discovered files to stderr
+if [ "$VERBOSE" -eq 1 ]; then
+    echo "+ DEBUG: ROOT_AND_DOCS_FILES:" >&2
+    for f in "${ROOT_AND_DOCS_FILES[@]}"; do echo "+   $f" >&2; done
+    echo "+ DEBUG: TEST_RESULTS_FILES:" >&2
+    for f in "${TEST_RESULTS_FILES[@]}"; do echo "+   $f" >&2; done
+fi
 
 # Function to extract timestamp from filename
 # Returns date in YYYY-MM-DD format and time in HHMM or HHMMSS format (or empty if not found)
@@ -266,18 +369,22 @@ normalize_aidocs_filename() {
 # Function to check and fix non-compliant filenames in aidocs/
 check_aidocs_filenames() {
     cd "$REPO_ROOT"
-    
-    # Find all .md files in aidocs/ subdirectories (exclude aidocs/README.md)
-    local aidocs_files=$(find aidocs -type f -name "*.md" | grep -v "^aidocs/README.md$" | sort)
-    
-    if [ -z "$aidocs_files" ]; then
-        echo "No .md files found in aidocs/ subdirectories."
-        echo ""
+
+    # If aidocs doesn't exist, nothing to do
+    if [ ! -d "$REPO_ROOT/aidocs" ]; then
         return 0
     fi
-    
+
+    verbose_log "(cd $REPO_ROOT && find aidocs -type f -name \"*.md\" 2>/dev/null | sed 's|^./||' | grep -v \"^aidocs/README.md\$\" | sort)"
+    local aidocs_files
+    aidocs_files=$(cd "$REPO_ROOT" && find aidocs -type f -name "*.md" 2>/dev/null | sed 's|^./||' | grep -v "^aidocs/README.md$" | sort || true)
+
+    if [ -z "$aidocs_files" ]; then
+        return 0
+    fi
+
     declare -a RENAMES
-    
+
     while IFS= read -r filepath; do
         local filename=$(basename "$filepath")
         local base="${filename%.md}"
@@ -315,14 +422,10 @@ check_aidocs_filenames() {
     done <<< "$aidocs_files"
     
     if [ ${#RENAMES[@]} -eq 0 ]; then
-        echo "All aidocs filenames are compliant!"
-        echo ""
         return 0
     fi
     
     # Display proposed renames/moves
-    echo "Non-compliant filenames found in aidocs/:"
-    echo "--------------------------------------------"
     for rename in "${RENAMES[@]}"; do
         local src="${rename%%|*}"
         local dst="${rename##*|}"
@@ -365,18 +468,22 @@ check_aidocs_filenames() {
 # Function to check and fix non-compliant filenames in docs/
 check_docs_filenames() {
     cd "$REPO_ROOT"
-    
-    # Find all .md files in docs/ (exclude docs/README.md)
-    local docs_files=$(find docs -type f -name "*.md" 2>/dev/null | grep -v "^docs/README.md$" | sort)
-    
-    if [ -z "$docs_files" ]; then
-        echo "No .md files found in docs/."
-        echo ""
+
+    # If docs doesn't exist, nothing to do
+    if [ ! -d "$REPO_ROOT/docs" ]; then
         return 0
     fi
-    
+
+    verbose_log "(cd $REPO_ROOT && find docs -type f -name \"*.md\" 2>/dev/null | sed 's|^./||' | grep -v \"^docs/README.md\$\" | sort)"
+    local docs_files
+    docs_files=$(cd "$REPO_ROOT" && find docs -type f -name "*.md" 2>/dev/null | sed 's|^./||' | grep -v "^docs/README.md$" | sort || true)
+
+    if [ -z "$docs_files" ]; then
+        return 0
+    fi
+
     declare -a RENAMES
-    
+
     while IFS= read -r filepath; do
         local dirname=$(dirname "$filepath")
         local filename=$(basename "$filepath")
@@ -414,14 +521,10 @@ check_docs_filenames() {
     done <<< "$docs_files"
     
     if [ ${#RENAMES[@]} -eq 0 ]; then
-        echo "All docs filenames are compliant!"
-        echo ""
         return 0
     fi
     
     # Display proposed renames
-    echo "Non-compliant filenames found in docs/:"
-    echo "---------------------------------------"
     for rename in "${RENAMES[@]}"; do
         local src="${rename%%|*}"
         local dst="${rename##*|}"
@@ -471,86 +574,28 @@ DOCS_RENAMED=0
 UNTRACKED_MOVED=0
 
 # First, check aidocs/ for non-compliant filenames (unless --untracked-only)
-if [ $UNTRACKED_ONLY -eq 0 ]; then
-    echo "=== Checking aidocs/ for non-compliant filenames ==="
-    echo ""
-    check_aidocs_filenames
-    AIDOCS_RENAMED=$?
-    echo ""
-    
-    echo "=== Checking docs/ for non-compliant filenames ==="
-    echo ""
-    check_docs_filenames
-    DOCS_RENAMED=$?
-    echo ""
-fi
+check_aidocs_filenames
+AIDOCS_RENAMED=$?
+
+check_docs_filenames
+DOCS_RENAMED=$?
 
 # Then, find untracked files
-echo "=== Checking for untracked files ==="
-echo ""
 cd "$REPO_ROOT"
 
-if [ $IN_GIT_REPO -eq 1 ]; then
-    # Get all untracked .md files (exclude only aidocs/)
-    ALL_UNTRACKED_MD=$(git ls-files --others --exclude-standard | grep '\.md$' | grep -v '^aidocs/' || true)
-    # Get all untracked text files in test-results/ (any extension)
-    ALL_UNTRACKED_TEST_RESULTS=$(git ls-files --others --exclude-standard | grep '^test-results/' || true)
-else
-    # Not in a git repo: treat all .md files (except aidocs/) as untracked
-    ALL_UNTRACKED_MD=$(find . -type f -name '*.md' | grep -v '^./aidocs/' || true)
-    # All files in test-results/ (any extension)
-    ALL_UNTRACKED_TEST_RESULTS=$(find ./test-results -type f 2>/dev/null || true)
-fi
-
-# Categorize files by location
-declare -a ROOT_AND_DOCS_FILES  # Root level and docs/ .md → move to aidocs/
-declare -a TEST_RESULTS_FILES    # test-results/ any text files → rename in place
-declare -a OTHER_FILES           # Elsewhere (scripts/, src/, etc.) .md → move to aidocs/
-
-# Process markdown files
-while IFS= read -r file; do
-    if [ ! -f "$file" ]; then
-        continue
-    fi
-    
-    # Categorize by path
-    if [[ "$file" =~ ^test-results/ ]]; then
-        TEST_RESULTS_FILES+=("$file")
-    elif [[ "$file" =~ ^docs/ ]] || [[ ! "$file" =~ / ]]; then
-        # docs/ or root level (no slashes in path)
-        ROOT_AND_DOCS_FILES+=("$file")
-    else
-        # Elsewhere (scripts/, src/, etc.)
-        OTHER_FILES+=("$file")
-    fi
-done <<< "$ALL_UNTRACKED_MD"
-
-# Add test-results text files
-for file in $ALL_UNTRACKED_TEST_RESULTS; do
-    if [ -n "$file" ] && [ -f "$file" ]; then
-        # Skip if already added (from MD files above)
-        already_added=0
-        for tfile in "${TEST_RESULTS_FILES[@]}"; do
-            if [ "$tfile" = "$file" ]; then
-                already_added=1
-                break
-            fi
-        done
-        if [ $already_added -eq 0 ]; then
-            TEST_RESULTS_FILES+=("$file")
-        fi
-    fi
-done
+# (All untracked files were already collected above into ROOT_AND_DOCS_FILES and TEST_RESULTS_FILES)
+# No further repo-wide find/ls invocation is needed here; avoid extra output and potential find errors.
 
 # Build list of operations
 declare -a MOVES_TO_AIDOCS      # file|destination
 declare -a RENAMES_IN_PLACE     # file|newname
 
 # Process root, docs/, and other files → move to aidocs/
-for file in "${ROOT_AND_DOCS_FILES[@]}" "${OTHER_FILES[@]}"; do
+for file in "${ROOT_AND_DOCS_FILES[@]}"; do
     # Get just the filename (no path)
     BASENAME=$(basename "$file")
     
+
     # Try to extract timestamp from filename
     extract_timestamp_from_filename "$BASENAME"
     
@@ -732,34 +777,32 @@ done
 
 # Check if we have any operations to perform
 TOTAL_OPS=$((${#MOVES_TO_AIDOCS[@]} + ${#RENAMES_IN_PLACE[@]}))
+PROPOSED_OPS=$TOTAL_OPS
+# Start executed counter at 0
+EXECUTED_OPS=0
 
+# If nothing to do, print summary to stderr and exit
 if [ $TOTAL_OPS -eq 0 ]; then
-    echo "No untracked .md files need processing."
-    echo ""
+    SUMMARY_PRINTED=1
+    echo "Executed $EXECUTED_OPS of $PROPOSED_OPS proposed file moves/renames" >&2
     exit 0
 fi
 
 # Display proposed operations
 if [ ${#MOVES_TO_AIDOCS[@]} -gt 0 ]; then
-    echo "Proposed moves to aidocs/:"
-    echo "--------------------------"
     for move in "${MOVES_TO_AIDOCS[@]}"; do
         SRC="${move%%|*}"
         DST="${move##*|}"
         echo "  $SRC  →  $DST"
     done
-    echo ""
 fi
 
 if [ ${#RENAMES_IN_PLACE[@]} -gt 0 ]; then
-    echo "Proposed renames in test-results/:"
-    echo "----------------------------------"
     for rename in "${RENAMES_IN_PLACE[@]}"; do
         SRC="${rename%%|*}"
         DST="${rename##*|}"
         echo "  $(basename "$SRC")  →  $(basename "$DST")"
     done
-    echo ""
 fi
 
 # Ask for confirmation unless -y flag
@@ -767,14 +810,15 @@ if [ $AUTO_CONFIRM -eq 0 ]; then
     read -p "Proceed with these operations? [y/N] " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Cancelled."
+        # User cancelled; print summary to stderr and exit
+        SUMMARY_PRINTED=1
+        echo "Executed $EXECUTED_OPS of $PROPOSED_OPS proposed file moves/renames" >&2
         exit 0
     fi
 fi
 
 # Execute moves to aidocs/
 if [ ${#MOVES_TO_AIDOCS[@]} -gt 0 ]; then
-    echo "Moving files to aidocs/..."
     for move in "${MOVES_TO_AIDOCS[@]}"; do
         SRC="${move%%|*}"
         DST="${move##*|}"
@@ -783,31 +827,39 @@ if [ ${#MOVES_TO_AIDOCS[@]} -gt 0 ]; then
         DEST_DIR=$(dirname "$DST")
         mkdir -p "$DEST_DIR"
         
-        # Move file
-        mv "$SRC" "$DST"
-        echo "  ✓ Moved: $SRC → $DST"
+        # Move file (use REPO_ROOT-qualified paths)
+        if mv "$REPO_ROOT/$SRC" "$REPO_ROOT/$DST"; then
+            EXECUTED_OPS=$((EXECUTED_OPS+1))
+            echo "  ✓ Moved: $SRC → $DST"
+        else
+            echo "  ⚠ Failed to move: $SRC" >&2
+        fi
     done
-    echo ""
 fi
 
 # Execute renames in place
 if [ ${#RENAMES_IN_PLACE[@]} -gt 0 ]; then
-    echo "Renaming files in place..."
     for rename in "${RENAMES_IN_PLACE[@]}"; do
         SRC="${rename%%|*}"
         DST="${rename##*|}"
         
         # Check if destination already exists
-        if [ -f "$DST" ]; then
+        if [ -f "$REPO_ROOT/$DST" ]; then
             echo "  ⚠ Skipped (destination exists): $(basename "$SRC")"
             continue
         fi
         
-        # Rename file
-        mv "$SRC" "$DST"
-        echo "  ✓ Renamed: $(basename "$SRC") → $(basename "$DST")"
+        # Rename file (use REPO_ROOT-qualified paths)
+        if mv "$REPO_ROOT/$SRC" "$REPO_ROOT/$DST"; then
+            EXECUTED_OPS=$((EXECUTED_OPS+1))
+            echo "  ✓ Renamed: $(basename "$SRC") → $(basename "$DST")"
+        else
+            echo "  ⚠ Failed to rename: $(basename "$SRC")" >&2
+        fi
     done
-    echo ""
 fi
 
-echo "Done! Processed $TOTAL_OPS file(s)."
+# Final summary to stderr
+SUMMARY_PRINTED=1
+echo "Executed $EXECUTED_OPS of $PROPOSED_OPS proposed file moves/renames" >&2
+exit 0
