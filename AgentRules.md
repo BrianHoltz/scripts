@@ -44,3 +44,7 @@ When running a terminal command that may produce paged output, you need to preve
 - ALWAYS use `git --no-pager` for git commands (e.g., `git --no-pager diff`, `git --no-pager log`)
 - OR pipe commands to `cat` (e.g., `git diff | cat`, `less file.txt | cat`)
 - Never run commands that will open interactive pagers like `less`, `more`, `man` without disabling pagination
+
+## Terminal Heredocs
+
+- Be very careful when using heredocs in terminal commands. Too often, agents will run complicated commands with sophisticated (or even nested) heredocs, and the command will hang and the agent will be unable to continue.
