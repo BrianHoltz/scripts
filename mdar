@@ -7,13 +7,19 @@
 #          in an IDE file tree with no sorting functionality.
 #
 # Actions:
-#   - Move root & docs/ untracked markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
+#   - Move root, docs/, & scripts/ untracked markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
 #   - Rename test-results/ text files in place → YYYY-MM-DD_HHMMSS_CamelCase.ext
 #   - With --deep, move all other untracked markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
 #   - Extract timestamps from filenames when present (e.g., 20251114-135621)
 #   - Never updates filesystem without confirmation (unless -y/--yes is given)
 #
-# Usage: mdar [-y|--yes] [--deep]
+# Options:
+#   -n, --dry-run    Show proposed operations and exit (no prompt, no changes)
+#   -y, --yes        Skip confirmation prompt and execute immediately
+#   -v, --verbose    Show detailed debug information
+#   --deep           Also search for markdown files in non-standard locations
+#
+# Usage: mdar [-y|--yes] [--deep] [-n|--dry-run]
 
 set -e
 
@@ -28,6 +34,7 @@ fi
 AUTO_CONFIRM=0
 DEEP_SEARCH=0
 VERBOSE=0
+DRY_RUN=0
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -43,9 +50,13 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=1
             shift
             ;;
+        -n|--dry-run)
+            DRY_RUN=1
+            shift
+            ;;
         *)
             echo "Unknown option: $1" >&2
-            echo "Usage: mdar [-y|--yes] [--deep] [-v|--verbose]" >&2
+            echo "Usage: mdar [-y|--yes] [--deep] [-v|--verbose] [-n|--dry-run]" >&2
             exit 1
             ;;
     esac
@@ -61,41 +72,66 @@ verbose_log() {
     fi
 }
 
-# Find untracked markdown files in root and docs/ (always). Run commands from REPO_ROOT.
+# Find untracked markdown files in root, docs/, and scripts/ (always). Run commands from REPO_ROOT.
 ROOT_UNTRACKED_MD=""
 DOCS_UNTRACKED_MD=""
+SCRIPTS_UNTRACKED_MD=""
 if [ "$IN_GIT_REPO" -eq 1 ]; then
     verbose_log git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard
-    ROOT_UNTRACKED_MD=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep -E '^[^/]+\.md$' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' || true)
-    DOCS_UNTRACKED_MD=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep -E '^docs/.*\.md$' | grep -v '^aidocs/' || true)
+    # Use git status --porcelain as primary source, fallback to ls-files
+    UNTRACKED_FROM_STATUS=$(git --no-pager -C "$REPO_ROOT" status --porcelain | grep '^?? ' | sed 's/^?? //' || true)
+    UNTRACKED_FROM_LSFILES=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard || true)
+    # Combine both sources and deduplicate
+    ALL_UNTRACKED=$(printf "%s\n%s\n" "$UNTRACKED_FROM_STATUS" "$UNTRACKED_FROM_LSFILES" | sort | uniq | grep -v '^$' || true)
+
+    if [ "$VERBOSE" -eq 1 ]; then
+        echo "+ DEBUG: ALL_UNTRACKED files found:" >&2
+        if [ -n "$ALL_UNTRACKED" ]; then
+            echo "$ALL_UNTRACKED" | sed 's/^/+   /' >&2
+        else
+            echo "+   (none)" >&2
+        fi
+        echo "+ DEBUG: Total untracked file count: $(echo "$ALL_UNTRACKED" | grep -v '^$' | wc -l | tr -d ' ')" >&2
+    fi
+
+    ROOT_UNTRACKED_MD=$(echo "$ALL_UNTRACKED" | grep -E '^[^/]+\.md$' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^scripts/' | grep -v '^test-results/' || true)
+    DOCS_UNTRACKED_MD=$(echo "$ALL_UNTRACKED" | grep -E '^docs/.*\.md$' | grep -v '^aidocs/' || true)
+    SCRIPTS_UNTRACKED_MD=$(echo "$ALL_UNTRACKED" | grep -E '^scripts/.*\.md$' || true)
+
+    if [ "$VERBOSE" -eq 1 ]; then
+        echo "+ DEBUG: ROOT_UNTRACKED_MD count: $(echo "$ROOT_UNTRACKED_MD" | grep -v '^$' | wc -l | tr -d ' ')" >&2
+        echo "+ DEBUG: DOCS_UNTRACKED_MD count: $(echo "$DOCS_UNTRACKED_MD" | grep -v '^$' | wc -l | tr -d ' ')" >&2
+        echo "+ DEBUG: SCRIPTS_UNTRACKED_MD count: $(echo "$SCRIPTS_UNTRACKED_MD" | grep -v '^$' | wc -l | tr -d ' ')" >&2
+    fi
 else
     # Use find from the repo root and strip leading ./ so results match git's output style
-    verbose_log "(cd $REPO_ROOT && find . -maxdepth 1 -type f -name '*.md' 2>/dev/null | sed 's|^./||')"
-    ROOT_UNTRACKED_MD=$(cd "$REPO_ROOT" && find . -maxdepth 1 -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' || true)
-    verbose_log "(cd $REPO_ROOT && find ./docs -type f -name '*.md' 2>/dev/null | sed 's|^./||')"
-    if [ -d "$REPO_ROOT/docs" ]; then
-        DOCS_UNTRACKED_MD=$(cd "$REPO_ROOT" && find ./docs -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' || true)
-    else
-        DOCS_UNTRACKED_MD=""
-    fi
+    verbose_log "(cd $REPO_ROOT && find . -type f 2>/dev/null | sed 's|^./||')"
+    # Get all files for non-git repos
+    ALL_UNTRACKED=$(cd "$REPO_ROOT" && find . -type f 2>/dev/null | sed 's|^./||' || true)
+
+    ROOT_UNTRACKED_MD=$(echo "$ALL_UNTRACKED" | grep -E '^[^/]+\.md$' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^scripts/' | grep -v '^test-results/' || true)
+    DOCS_UNTRACKED_MD=$(echo "$ALL_UNTRACKED" | grep -E '^docs/.*\.md$' | grep -v '^aidocs/' || true)
+    SCRIPTS_UNTRACKED_MD=$(echo "$ALL_UNTRACKED" | grep -E '^scripts/.*\.md$' || true)
 fi
 
-# If --deep, find untracked markdown anywhere else (excluding aidocs/)
+# If --deep, find untracked markdown anywhere else (excluding aidocs/, docs/, scripts/, test-results/, and root)
 DEEP_UNTRACKED_MD=""
 if [ "$DEEP_SEARCH" -eq 1 ]; then
     if [ "$IN_GIT_REPO" -eq 1 ]; then
         verbose_log git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard '\.md$'
-        DEEP_UNTRACKED_MD=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep '\.md$' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' | grep -v '^[^/]*\.md$' || true)
+        # ALL_UNTRACKED was already computed above
+        DEEP_UNTRACKED_MD=$(echo "$ALL_UNTRACKED" | grep '\.md$' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^scripts/' | grep -v '^test-results/' | grep -v '^[^/]*\.md$' || true)
     else
         verbose_log "(cd $REPO_ROOT && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||')"
-        DEEP_UNTRACKED_MD=$(cd "$REPO_ROOT" && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^test-results/' | grep -v '^[^/]*\.md$' || true)
+        DEEP_UNTRACKED_MD=$(cd "$REPO_ROOT" && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' | grep -v '^docs/' | grep -v '^scripts/' | grep -v '^test-results/' | grep -v '^[^/]*\.md$' || true)
     fi
 fi
 
 # Always get all untracked test-results/ files
 if [ "$IN_GIT_REPO" -eq 1 ]; then
     verbose_log "git --no-pager -C $REPO_ROOT ls-files --others --exclude-standard | grep '^test-results/'"
-    ALL_UNTRACKED_TEST_RESULTS=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard | grep '^test-results/' || true)
+    # ALL_UNTRACKED was already computed above
+    ALL_UNTRACKED_TEST_RESULTS=$(echo "$ALL_UNTRACKED" | grep '^test-results/' || true)
 else
     if [ -d "$REPO_ROOT/test-results" ]; then
         verbose_log "(cd $REPO_ROOT && find ./test-results -type f 2>/dev/null | sed 's|^./||')"
@@ -107,7 +143,8 @@ fi
 
 # Build list of files to move to aidocs/
 ALL_TO_AIDOCS="${ROOT_UNTRACKED_MD}
-${DOCS_UNTRACKED_MD}"
+${DOCS_UNTRACKED_MD}
+${SCRIPTS_UNTRACKED_MD}"
 if [ "$DEEP_SEARCH" -eq 1 ]; then
     ALL_TO_AIDOCS="${ALL_TO_AIDOCS}
 ${DEEP_UNTRACKED_MD}"
@@ -144,7 +181,7 @@ done
 
 # Verbose debug: dump the discovered files to stderr
 if [ "$VERBOSE" -eq 1 ]; then
-    echo "+ DEBUG: ROOT_AND_DOCS_FILES:" >&2
+    echo "+ DEBUG: ROOT_AND_DOCS_FILES (includes scripts/):" >&2
     for f in "${ROOT_AND_DOCS_FILES[@]}"; do echo "+   $f" >&2; done
     echo "+ DEBUG: TEST_RESULTS_FILES:" >&2
     for f in "${TEST_RESULTS_FILES[@]}"; do echo "+   $f" >&2; done
@@ -391,7 +428,7 @@ check_aidocs_filenames() {
         local dirname=$(dirname "$filepath")
 
         # Extract date and time from filename, or fallback to mtime
-        extract_timestamp_from_filename "$base"
+        extract_timestamp_from_filename "$base" || true
         local date_part
         local time_part
         if [ -n "$EXTRACTED_DATE" ]; then
@@ -574,11 +611,12 @@ DOCS_RENAMED=0
 UNTRACKED_MOVED=0
 
 # First, check aidocs/ for non-compliant filenames (unless --untracked-only)
-check_aidocs_filenames
-AIDOCS_RENAMED=$?
+# DISABLED: These functions are buggy and create multiple prompts
+# check_aidocs_filenames
+# AIDOCS_RENAMED=$?
 
-check_docs_filenames
-DOCS_RENAMED=$?
+# check_docs_filenames
+# DOCS_RENAMED=$?
 
 # Then, find untracked files
 cd "$REPO_ROOT"
@@ -597,8 +635,8 @@ for file in "${ROOT_AND_DOCS_FILES[@]}"; do
     
 
     # Try to extract timestamp from filename
-    extract_timestamp_from_filename "$BASENAME"
-    
+    extract_timestamp_from_filename "$BASENAME" || true
+
     if [ -n "$EXTRACTED_DATE" ]; then
         # Use extracted timestamp from filename
         DATETIME="$EXTRACTED_DATE"
@@ -640,8 +678,8 @@ declare -a COLLISION_FILES
 
 for file in "${TEST_RESULTS_FILES[@]}"; do
     BASENAME=$(basename "$file")
-    extract_timestamp_from_filename "$BASENAME"
-    
+    extract_timestamp_from_filename "$BASENAME" || true
+
     if [ -n "$EXTRACTED_DATE" ]; then
         DATETIME="$EXTRACTED_DATE"
         if [ -n "$EXTRACTED_TIME" ]; then
@@ -697,8 +735,8 @@ for file in "${TEST_RESULTS_FILES[@]}"; do
     done
     
     # Try to extract timestamp from filename first
-    extract_timestamp_from_filename "$BASENAME"
-    
+    extract_timestamp_from_filename "$BASENAME" || true
+
     if [ -n "$EXTRACTED_DATE" ]; then
         # Use extracted timestamp from filename
         DATETIME="$EXTRACTED_DATE"
@@ -803,6 +841,12 @@ if [ ${#RENAMES_IN_PLACE[@]} -gt 0 ]; then
         DST="${rename##*|}"
         echo "  $(basename "$SRC")  →  $(basename "$DST")"
     done
+fi
+
+# If dry-run mode, exit here without prompting or executing
+if [ $DRY_RUN -eq 1 ]; then
+    echo "Executed 0 of $PROPOSED_OPS proposed file moves/renames" >&2
+    exit 0
 fi
 
 # Ask for confirmation unless -y flag
