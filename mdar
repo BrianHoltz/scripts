@@ -435,14 +435,53 @@ collect_prune_operations() {
     done <<< "$aidocs_files"
 }
 
+# Helper function to extract date/time and descriptive name from a file
+# Sets global vars: NORM_DATE, NORM_TIME, NORM_DESCRIPTIVE
+# Args: filepath, filename_base, [directory_date]
+extract_normalized_parts() {
+    local filepath="$1"
+    local base="$2"
+    local dir_date="${3:-}"  # Optional: date extracted from directory path
+    
+    # Try to extract timestamp from filename
+    extract_timestamp_from_filename "$base" || true
+    
+    # Determine date part
+    if [ -n "$dir_date" ]; then
+        # Use directory date if provided (for aidocs)
+        NORM_DATE="$dir_date"
+    elif [ -n "$EXTRACTED_DATE" ]; then
+        # Use extracted date from filename
+        NORM_DATE="$EXTRACTED_DATE"
+    else
+        # Fall back to file mtime
+        local file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
+        NORM_DATE=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+    fi
+    
+    # Determine time part
+    if [ -n "$EXTRACTED_TIME" ] && [ "$EXTRACTED_TIME" != "0000" ]; then
+        NORM_TIME="$EXTRACTED_TIME"
+    else
+        # Use file mtime for time portion
+        local file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
+        NORM_TIME=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
+    fi
+    
+    # Extract descriptive part (remove timestamp patterns)
+    NORM_DESCRIPTIVE="$base"
+    NORM_DESCRIPTIVE=$(echo "$NORM_DESCRIPTIVE" | sed -E 's/^([0-9]{8}|[0-9]{4}-[0-9]{2}-[0-9]{2})[_-]?[0-9]{4,6}_//')
+    NORM_DESCRIPTIVE=$(echo "$NORM_DESCRIPTIVE" | sed -E 's/^[0-9]{4}_//')
+}
+
 # Function to collect files in normalize directories
 # Returns operations in NORMALIZE_OPERATIONS array
 collect_normalize_operations() {
     for dir in "${NORMALIZE_DIRS[@]}"; do
         if [ ! -d "$REPO_ROOT/$dir" ]; then
-        if [ "$VERBOSE" -ge 2 ]; then
-            echo "+ DEBUG: Directory not found: $dir" >&2
-        fi
+            if [ "$VERBOSE" -ge 2 ]; then
+                echo "+ DEBUG: Directory not found: $dir" >&2
+            fi
             continue
         fi
         
@@ -456,10 +495,10 @@ collect_normalize_operations() {
             continue
         fi
 
-    while IFS= read -r filepath; do
+        while IFS= read -r filepath; do
             [ -z "$filepath" ] && continue
             
-        local dirname=$(dirname "$filepath")
+            local dirname=$(dirname "$filepath")
             local filename=$(basename "$filepath")
             local base="${filename%.*}"
             local extension="${filename##*.}"
@@ -469,42 +508,19 @@ collect_normalize_operations() {
                 extension=""
             fi
             
-            # Try to extract timestamp from filename
-        extract_timestamp_from_filename "$base" || true
-            
-        local date_part
-        local time_part
-        if [ -n "$EXTRACTED_DATE" ]; then
-            date_part="$EXTRACTED_DATE"
-                # If time was extracted and not the default, use it; otherwise use file mtime
-                if [ -n "$EXTRACTED_TIME" ] && [ "$EXTRACTED_TIME" != "0000" ]; then
-                time_part="$EXTRACTED_TIME"
-            else
-                    # Use file mtime for time portion
-                    local file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
-                time_part=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
-            fi
-        else
-                # Use file mtime for both date and time
-                local file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
-            date_part=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
-            time_part=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
-        fi
-            
-            # Remove timestamp from base if present
-        local descriptive_part="$base"
-        descriptive_part=$(echo "$descriptive_part" | sed -E 's/^([0-9]{8}|[0-9]{4}-[0-9]{2}-[0-9]{2})[_-]?[0-9]{4,6}_//')
+            # Extract normalized parts
+            extract_normalized_parts "$filepath" "$base" ""
             
             # Convert to CamelCase
-            local camel_case_name=$(to_camel_case "$descriptive_part.txt")
+            local camel_case_name=$(to_camel_case "$NORM_DESCRIPTIVE.txt")
             camel_case_name="${camel_case_name%.txt}"
             
             # Build new filename
             local new_filename
             if [ -n "$extension" ]; then
-                new_filename="${date_part}_${time_part}_${camel_case_name}.${extension}"
+                new_filename="${NORM_DATE}_${NORM_TIME}_${camel_case_name}.${extension}"
             else
-                new_filename="${date_part}_${time_part}_${camel_case_name}"
+                new_filename="${NORM_DATE}_${NORM_TIME}_${camel_case_name}"
             fi
             
             local new_path="${dirname}/${new_filename}"
@@ -564,54 +580,30 @@ collect_aidocs_operations() {
             continue
         fi
         
-        # File needs normalization - determine correct date and time
-        local date_part
+        # Determine descriptive part and time (special handling for already-compliant filenames)
+        local descriptive_part
         local time_part
         
-        # Use directory date if available, otherwise extract from filename or use mtime
-        if [ -n "$dir_date" ]; then
-            date_part="$dir_date"
-        else
-            extract_timestamp_from_filename "$base" || true
-        if [ -n "$EXTRACTED_DATE" ]; then
-            date_part="$EXTRACTED_DATE"
-            else
-                local file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
-                date_part=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
-            fi
-        fi
-        
-        # Extract time from filename if present
         if [ $is_filename_compliant -eq 1 ]; then
-            # Filename is HHMM_CamelCase, extract the time
+            # Already HHMM_CamelCase, extract parts directly
             time_part="${base:0:4}"
-        else
-            # Try to extract timestamp from filename
-            extract_timestamp_from_filename "$base" || true
-            # If time was extracted and not the default, use it; otherwise use file mtime
-            if [ -n "$EXTRACTED_TIME" ] && [ "$EXTRACTED_TIME" != "0000" ]; then
-                time_part="$EXTRACTED_TIME"
-            else
-                local file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
-                time_part=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
-            fi
-        fi
-        
-        # Determine descriptive part
-        local descriptive_part
-        if [ $is_filename_compliant -eq 1 ]; then
-            # Already HHMM_CamelCase, extract the CamelCase part after underscore
             descriptive_part="${base#*_}"
         else
-            # Remove leading timestamp patterns from base
-            descriptive_part="$base"
-            descriptive_part=$(echo "$descriptive_part" | sed -E 's/^([0-9]{8}|[0-9]{4}-[0-9]{2}-[0-9]{2})[_-]?[0-9]{4,6}_//')
-            # Also try to remove just HHMM_ pattern at start
-            descriptive_part=$(echo "$descriptive_part" | sed -E 's/^[0-9]{4}_//')
+            # Extract normalized parts using helper (pass dir_date if available)
+            extract_normalized_parts "$filepath" "$base" "$dir_date"
+            time_part="$NORM_TIME"
+            
             # Convert to CamelCase
-            descriptive_part=$(to_camel_case "$descriptive_part.md")
-            # Remove .md extension that to_camel_case added
+            descriptive_part=$(to_camel_case "$NORM_DESCRIPTIVE.md")
             descriptive_part="${descriptive_part%.md}"
+        fi
+        
+        # Build new path (use NORM_DATE or dir_date)
+        local date_part="${NORM_DATE:-$dir_date}"
+        if [ -z "$date_part" ]; then
+            # Fallback if somehow no date was determined
+            local file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
+            date_part=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
         fi
         
         local new_path="aidocs/${date_part}/${time_part}_${descriptive_part}.md"
