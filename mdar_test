@@ -221,7 +221,6 @@ run_tests() {
 # Parse arguments
 SETUP_ONLY=0
 KEEP_ARTIFACTS=0
-VERBOSE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --setup-only)
@@ -229,9 +228,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --keep-artifacts)
       KEEP_ARTIFACTS=1
-      ;;
-    -v|--verbose)
-      VERBOSE=1
       ;;
     -h|--help)
       show_help
@@ -248,6 +244,5 @@ if [[ $SETUP_ONLY -eq 1 ]]; then
   setup_only "./mdar_test_tree"
 fi
 if [[ $SETUP_ONLY -eq 0 ]]; then
-  VERBOSE=1
   run_tests
 fi
