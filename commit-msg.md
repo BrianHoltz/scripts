@@ -1,5 +1,11 @@
-- When asked for a git commit message, check the git diff from scratch, and do not assume the conversation context is the authority for what has changed.
-- Use Conventional Commits standard
-- The commit message should be optimized for developers who are trying to find the commit that made a particular change.
-- Don't document trivial changes unless they could plausibly need to sought by future developers.
-- Show draft commmit msg as INLINE PLAINTEXT, not as rich bulleted text, and not in a file.
+- Create a commit message describing the current staged changes.
+- If there are no staged changes, describe the unstaged changes.
+- Agents must use git commands as necessary to determine what changes are staged or unstaged.
+  - For example, use git --no-pager diff --cached to inspect staged changes and git --no-pager diff for unstaged changes.
+- Do not rely solely on editor context or conversation history to infer the state of the working directory or index.
+- Do not assume the conversation context is the authority for what has changed.
+- Use Conventional Commits standard.
+- Don't document trivial changes that a future developers would not search for.
+- Show draft commit msg as plain text that is easy to copy and paste.
+- Do not write in run-on paragraphs. Use newlines and bullets as appropriate.
+- Show the draft in an editable tab only if that doesn't involve creating a temp file in the repo, and that any backing temp file elsewhere will be cleaned up after use.
