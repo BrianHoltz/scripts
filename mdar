@@ -617,7 +617,7 @@ collect_aidocs_operations() {
 
 
 # Collect all operations into a single list
-    cd "$REPO_ROOT"
+cd "$REPO_ROOT"
 
 # Arrays to hold operations
 declare -a AIDOCS_OPERATIONS    # Existing aidocs/ files to normalize: file|destination
@@ -754,27 +754,27 @@ fi
 for op in "${AIDOCS_OPERATIONS[@]}" "${UNTRACKED_OPERATIONS[@]}" "${NORMALIZE_OPERATIONS[@]}"; do
     SRC="${op%%|*}"
     DST="${op##*|}"
-        
-        # Create destination directory
-        DEST_DIR=$(dirname "$DST")
+
+    # Create destination directory
+    DEST_DIR=$(dirname "$DST")
     verbose_log 1 "mkdir -p $DEST_DIR"
-        mkdir -p "$DEST_DIR"
-        
-        # Check if destination already exists
-        if [ -f "$REPO_ROOT/$DST" ]; then
+    mkdir -p "$DEST_DIR"
+
+    # Check if destination already exists
+    if [ -f "$REPO_ROOT/$DST" ]; then
         printf "  ⚠ %-${MAX_LEN}s  (destination exists)\n" "$SRC"
-            continue
-        fi
-        
+        continue
+    fi
+
     # Move/rename file
     verbose_log 1 "mv $REPO_ROOT/$SRC $REPO_ROOT/$DST"
-        if mv "$REPO_ROOT/$SRC" "$REPO_ROOT/$DST"; then
-            EXECUTED_OPS=$((EXECUTED_OPS+1))
+    if mv "$REPO_ROOT/$SRC" "$REPO_ROOT/$DST"; then
+        EXECUTED_OPS=$((EXECUTED_OPS+1))
         printf "  ✓ %-${MAX_LEN}s  →  %s\n" "$SRC" "$DST"
-        else
+    else
         printf "  ⚠ %-${MAX_LEN}s  (failed to move)\n" "$SRC" >&2
-        fi
-    done
+    fi
+done
 
 # Execute deletions (prune)
 for file in "${PRUNE_OPERATIONS[@]}"; do
