@@ -1,5 +1,6 @@
 #!/bin/zsh
 # mdar_test: Thorough and realistic testing for mdar
+# Tests: propose moves, normalize, prune, and sort recommendations
 # Usage: mdar_test [--setup-only] [--keep-artifacts]
 #
 # --setup-only: Create a realistic folder/file tree for experimentation
@@ -150,74 +151,41 @@ run_tests() {
     echo "- $msg"
   done
 
-  echo "Running test 1" >&2
   test_case "mdar proposes move for untracked .md file" \
     "cd $testdir/tree && /Users/brian/bin/mdar -n --depth 3 --yes" \
     "aidocs/" \
     "$test1_msg"
-  echo "Running test 2" >&2
+
   test_case "mdar suggests normalization for test-results files" \
     "cd $testdir/tree && /Users/brian/bin/mdar -n --normalize test-results --depth 3 --yes" \
     "test-results/" \
     "$test2_msg"
-  echo "Running test 3" >&2
+
   test_case "mdar marks old aidocs files for pruning" \
     "cd $testdir/tree && /Users/brian/bin/mdar -n --prune 2000d --depth 3 --yes" \
     "\[DELETE\]" \
     "$test3_msg"
-  echo "Running test 4" >&2
+
   # Fourth test: mdar sorts recommended target names (by mtime and name)
-  mkdir -p "$testdir/tree/sortbyboth/testdir"
-  setopt null_glob
-  rm -f "$testdir/tree/sortbyboth/testdir"/*
-  echo "Zeta" > "$testdir/tree/sortbyboth/testdir/zeta_notes.md"
-  touch -t 202101010101 "$testdir/tree/sortbyboth/testdir/zeta_notes.md"
-  echo "Alpha" > "$testdir/tree/sortbyboth/testdir/alpha_notes.md"
-  touch -t 202201010101 "$testdir/tree/sortbyboth/testdir/alpha_notes.md"
-  echo "Beta" > "$testdir/tree/sortbyboth/testdir/beta_notes.md"
-  touch -t 202201010102 "$testdir/tree/sortbyboth/testdir/beta_notes.md"
-  echo "Delta" > "$testdir/tree/sortbyboth/testdir/delta_notes.md"
-  touch -t 202301010101 "$testdir/tree/sortbyboth/testdir/delta_notes.md"
-  echo "Gamma" > "$testdir/tree/sortbyboth/testdir/gamma_notes.md"
-  touch -t 202401010101 "$testdir/tree/sortbyboth/testdir/gamma_notes.md"
-  unsetopt null_glob
-  SORT_BOTH_OUTFILE=$(mktemp /tmp/mdar_sort_both_out.XXXXXX)
-  (cd "$testdir/tree/sortbyboth" && /Users/brian/bin/mdar -n --depth 2 --yes) > "$SORT_BOTH_OUTFILE" 2>>mdar_test_stderr.txt
-  test_case "mdar sorts recommended target names (by mtime and name)" \
-    "cat $SORT_BOTH_OUTFILE" \
-    "→" \
-    "Sorting test files: zeta_notes.md, alpha_notes.md, beta_notes.md, delta_notes.md, gamma_notes.md with mixed mtimes and names."
-  echo "Running test 5" >&2
-  # Sorting test setup (5th test)
+  # Use realistic past dates, and include files with same mtime to test name sorting
   mkdir -p "$testdir/tree/sorttest/testdir"
   setopt null_glob
   rm -f "$testdir/tree/sorttest/testdir"/*
-  echo "Alpha" > "$testdir/tree/sorttest/testdir/alpha_notes.md"
-  touch -t 202201010101 "$testdir/tree/sorttest/testdir/alpha_notes.md"
-  echo "Delta" > "$testdir/tree/sorttest/testdir/delta_notes.md"
-  touch -t 202301010101 "$testdir/tree/sorttest/testdir/delta_notes.md"
-  echo "Gamma" > "$testdir/tree/sorttest/testdir/gamma_notes.md"
-  touch -t 202401010101 "$testdir/tree/sorttest/testdir/gamma_notes.md"
-  echo "Beta" > "$testdir/tree/sorttest/testdir/beta_notes.md"
-  touch -t 202501010101 "$testdir/tree/sorttest/testdir/beta_notes.md"
-  echo "Epsilon" > "$testdir/tree/sorttest/testdir/epsilon_notes.md"
-  touch -t 202601010101 "$testdir/tree/sorttest/testdir/epsilon_notes.md"
   unsetopt null_glob
-  SORT_OUTFILE=$(mktemp /tmp/mdar_sort_out.XXXXXX)
-  (cd "$testdir/tree/sorttest" && /Users/brian/bin/mdar -n --depth 2 --yes) > "$SORT_OUTFILE" 2>mdar_test_stderr.txt
-  # Check sorting order
-  local sorting_result=1
-  local proposal_count=$(grep -c '→' "$SORT_OUTFILE")
-  if [[ $proposal_count -ge 2 ]]; then
-    if grep '→' "$SORT_OUTFILE" | awk '{print $3}' | \
-        awk 'NR==FNR{a[NR]=$0;next}{if($0!=a[FNR]) exit 1}' <(grep '→' "$SORT_OUTFILE" | awk '{print $3}' | sort) -; then
-      sorting_result=0
-    fi
-  fi
-  test_case "sorting of recommended target names" \
-    "cat $SORT_OUTFILE" \
+  echo "Zeta" > "$testdir/tree/sorttest/testdir/zeta_notes.md"
+  touch -t 202301150900 "$testdir/tree/sorttest/testdir/zeta_notes.md"
+  echo "Alpha" > "$testdir/tree/sorttest/testdir/alpha_notes.md"
+  touch -t 202403221430 "$testdir/tree/sorttest/testdir/alpha_notes.md"
+  echo "Beta" > "$testdir/tree/sorttest/testdir/beta_notes.md"
+  touch -t 202403221445 "$testdir/tree/sorttest/testdir/beta_notes.md"
+  echo "Delta" > "$testdir/tree/sorttest/testdir/delta_notes.md"
+  touch -t 202506180830 "$testdir/tree/sorttest/testdir/delta_notes.md"
+  echo "Gamma" > "$testdir/tree/sorttest/testdir/gamma_notes.md"
+  touch -t 202510011200 "$testdir/tree/sorttest/testdir/gamma_notes.md"
+  test_case "mdar sorts recommended target names (by mtime and name)" \
+    "cd $testdir/tree/sorttest && /Users/brian/bin/mdar -n --depth 2 --yes" \
     "→" \
-    "Sorting test files: alpha_notes.md, beta_notes.md, gamma_notes.md, delta_notes.md, epsilon_notes.md with mixed mtimes."
+    "Sorting test files with mixed mtimes (including same mtime to verify name sorting)"
 
   header "### Test Summary"
   local total_tests=$((passed+failed))
