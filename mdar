@@ -16,13 +16,14 @@
 # Options:
 #   -n, --dry-run       Show proposed operations and exit (no prompt, no changes)
 #   -y, --yes           Skip confirmation prompt and execute immediately
-#   -v, -vv, -vvv       Increase verbosity: -v=key commands, -vv=all commands, -vvv=+debug info
+#   -v, -vv, -vvv       Increase verbosity: -v=key commands, -vv=+debug info, -vvv=+shell tracing
+#   -x                  Enable shell tracing (set -x)
 #   -r, --recursive     Search all subdirectories recursively (unlimited depth)
 #   --depth N           Directory depth to search (0=root only, 1=root+immediate subdirs, default: 2)
 #   --normalize DIR     Normalize files in DIR in-place (can be repeated, default: test-results)
 #   --prune DURATION    Delete aidocs files older than DURATION (e.g., 14d, 2w, 3m, 1y)
 #
-# Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-n|--dry-run]
+# Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]
 
 set -e
 
@@ -37,6 +38,7 @@ fi
 AUTO_CONFIRM=0
 DEPTH=2
 VERBOSE=0
+TRACE_MODE=0
 DRY_RUN=0
 NORMALIZE_DIRS=()
 NORMALIZE_EXPLICIT=0
@@ -84,10 +86,19 @@ while [[ $# -gt 0 ]]; do
             # Count number of v's (e.g., -v=1, -vv=2, -vvv=3)
             OPT="$1"
             VERBOSE=$(echo "$OPT" | tr -cd 'v' | wc -c | tr -d ' ')
+            # If -vvv (3 or more), enable trace mode and set verbose to 2
+            if [ "$VERBOSE" -ge 3 ]; then
+                TRACE_MODE=1
+                VERBOSE=2
+            fi
             shift
             ;;
         --verbose)
             VERBOSE=1
+            shift
+            ;;
+        -x)
+            TRACE_MODE=1
             shift
             ;;
         -n|--dry-run)
@@ -96,20 +107,24 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown option: $1" >&2
-            echo "Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|--verbose] [-n|--dry-run]" >&2
+            echo "Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]" >&2
             exit 1
             ;;
     esac
 done
+
+# Enable shell tracing if requested
+if [ "$TRACE_MODE" -eq 1 ]; then
+    set -x
+fi
 
 # After determining REPO_ROOT, switch to it so all subsequent path operations are relative and consistent
 cd "$REPO_ROOT"
 
 # Helper to print verbose commands to stderr
 # Usage: verbose_log LEVEL "command"
-# LEVEL 1: Key commands (git, find for untracked)
-# LEVEL 2: All commands (stat, mv, etc.)
-# LEVEL 3: Debug output (file counts, arrays)
+# LEVEL 1: Key commands (git, find, mkdir, mv, rm)
+# LEVEL 2: Debug output (file counts, arrays, warnings)
 verbose_log() {
     local level=$1
     shift
@@ -128,7 +143,7 @@ if [ "$IN_GIT_REPO" -eq 1 ]; then
     # Combine both sources and deduplicate
     ALL_UNTRACKED=$(printf "%s\n%s\n" "$UNTRACKED_FROM_STATUS" "$UNTRACKED_FROM_LSFILES" | sort | uniq | grep -v '^$' || true)
 
-    if [ "$VERBOSE" -ge 3 ]; then
+    if [ "$VERBOSE" -ge 2 ]; then
         echo "+ DEBUG: ALL_UNTRACKED files found:" >&2
         if [ -n "$ALL_UNTRACKED" ]; then
             echo "$ALL_UNTRACKED" | sed 's/^/+   /' >&2
@@ -150,7 +165,7 @@ if [ "$IN_GIT_REPO" -eq 1 ]; then
         ALL_TO_AIDOCS=$(echo "$ALL_UNTRACKED" | grep '\.md$' | grep -v '^aidocs/' | awk -F'/' -v depth="$DEPTH" 'NF <= depth + 1' || true)
     fi
 
-    if [ "$VERBOSE" -ge 3 ]; then
+    if [ "$VERBOSE" -ge 2 ]; then
         echo "+ DEBUG: ALL_TO_AIDOCS count (depth=$DEPTH): $(echo "$ALL_TO_AIDOCS" | grep -v '^$' | wc -l | tr -d ' ')" >&2
     fi
 else
@@ -184,7 +199,7 @@ while IFS= read -r file; do
 done <<< "$ALL_TO_AIDOCS"
 
 # Verbose debug: dump the discovered files to stderr
-if [ "$VERBOSE" -ge 3 ]; then
+if [ "$VERBOSE" -ge 2 ]; then
     echo "+ DEBUG: MARKDOWN_FILES to move to aidocs/:" >&2
     for f in "${MARKDOWN_FILES[@]}"; do echo "+   $f" >&2; done
 fi
@@ -425,7 +440,7 @@ collect_prune_operations() {
 collect_normalize_operations() {
     for dir in "${NORMALIZE_DIRS[@]}"; do
         if [ ! -d "$REPO_ROOT/$dir" ]; then
-        if [ "$VERBOSE" -ge 3 ]; then
+        if [ "$VERBOSE" -ge 2 ]; then
             echo "+ DEBUG: Directory not found: $dir" >&2
         fi
             continue
