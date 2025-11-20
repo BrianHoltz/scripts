@@ -206,24 +206,21 @@ fi
 
 # Function to extract timestamp from filename
 # Returns date in YYYY-MM-DD format and time in HHMM or HHMMSS format (or empty if not found)
-# Sets global vars: EXTRACTED_DATE, EXTRACTED_TIME, and EXTRACTED_TIME_WITH_SECONDS
+# Sets global vars: EXTRACTED_DATE, EXTRACTED_TIME
 extract_timestamp_from_filename() {
     local filename="$1"
     EXTRACTED_DATE=""
     EXTRACTED_TIME=""
-    EXTRACTED_TIME_WITH_SECONDS=""
-    
+
     # Pattern 0: Our own format - YYYY-MM-DD_HHMMSS or YYYY-MM-DD_HHMM (already formatted)
     if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{6}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}"
         EXTRACTED_TIME="${BASH_REMATCH[2]:0:4}"
-        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[2]}"
         return 0
     fi
     if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{4}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}"
         EXTRACTED_TIME="${BASH_REMATCH[2]}"
-        EXTRACTED_TIME_WITH_SECONDS=""
         return 0
     fi
     
@@ -231,13 +228,11 @@ extract_timestamp_from_filename() {
     if [[ "$filename" =~ ([0-9]{8})_([0-9]{6}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"
         EXTRACTED_TIME="${BASH_REMATCH[2]:0:4}"
-        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[2]}"
         return 0
     fi
     if [[ "$filename" =~ ([0-9]{8})_([0-9]{4}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"
         EXTRACTED_TIME="${BASH_REMATCH[2]}"
-        EXTRACTED_TIME_WITH_SECONDS=""
         return 0
     fi
 
@@ -245,7 +240,6 @@ extract_timestamp_from_filename() {
     if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
         EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[4]}${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
         return 0
     fi
     
@@ -253,7 +247,6 @@ extract_timestamp_from_filename() {
     if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
         EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[4]}${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
         return 0
     fi
     
@@ -261,7 +254,6 @@ extract_timestamp_from_filename() {
     if [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
         EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        EXTRACTED_TIME_WITH_SECONDS="${BASH_REMATCH[4]}${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
         return 0
     fi
     
@@ -269,7 +261,6 @@ extract_timestamp_from_filename() {
     if [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
         EXTRACTED_TIME="0000"
-        EXTRACTED_TIME_WITH_SECONDS=""
         return 0
     fi
     
@@ -277,7 +268,6 @@ extract_timestamp_from_filename() {
     if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2}) ]]; then
         EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
         EXTRACTED_TIME="0000"
-        EXTRACTED_TIME_WITH_SECONDS=""
         return 0
     fi
     
@@ -405,13 +395,9 @@ collect_prune_operations() {
     fi
     
     # Parse duration to seconds
-    local max_age_seconds
-    max_age_seconds=$(parse_duration_to_seconds "$duration") || return 1
-    
-    # Get current time
-    local now=$(date +%s)
-    local cutoff_time=$((now - max_age_seconds))
-    
+    local cutoff_time
+    cutoff_time=$(($(date +%s) - $(parse_duration_to_seconds "$duration")))
+
     verbose_log 1 "find aidocs -type f -name '*.md' (prune check)"
     
     # Find all markdown files in aidocs/
@@ -426,8 +412,9 @@ collect_prune_operations() {
         [ -z "$filepath" ] && continue
         
         # Get file modification time
-        local file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
-        
+        local file_mtime
+        file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
+
         # If file is older than cutoff, mark for deletion
         if [ "$file_mtime" -lt "$cutoff_time" ]; then
             PRUNE_OPERATIONS+=("$filepath")
@@ -455,7 +442,8 @@ extract_normalized_parts() {
         NORM_DATE="$EXTRACTED_DATE"
     else
         # Fall back to file mtime
-        local file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
+        local file_mtime
+        file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
         NORM_DATE=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
     fi
     
@@ -464,7 +452,8 @@ extract_normalized_parts() {
         NORM_TIME="$EXTRACTED_TIME"
     else
         # Use file mtime for time portion
-        local file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
+        local file_mtime
+        file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
         NORM_TIME=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
     fi
     
@@ -498,8 +487,10 @@ collect_normalize_operations() {
         while IFS= read -r filepath; do
             [ -z "$filepath" ] && continue
             
-            local dirname=$(dirname "$filepath")
-            local filename=$(basename "$filepath")
+            local dirname
+            dirname=$(dirname "$filepath")
+            local filename
+            filename=$(basename "$filepath")
             local base="${filename%.*}"
             local extension="${filename##*.}"
             
@@ -512,7 +503,8 @@ collect_normalize_operations() {
             extract_normalized_parts "$filepath" "$base" ""
             
             # Convert to CamelCase
-            local camel_case_name=$(to_camel_case "$NORM_DESCRIPTIVE.txt")
+            local camel_case_name
+            camel_case_name=$(to_camel_case "$NORM_DESCRIPTIVE.txt")
             camel_case_name="${camel_case_name%.txt}"
             
             # Build new filename
@@ -558,8 +550,10 @@ collect_aidocs_operations() {
     fi
 
     while IFS= read -r filepath; do
-        local dirname=$(dirname "$filepath")
-        local filename=$(basename "$filepath")
+        local dirname
+        dirname=$(dirname "$filepath")
+        local filename
+        filename=$(basename "$filepath")
         local base="${filename%.md}"
         
         # Check if filename already matches the compliant pattern: HHMM_CamelCase
@@ -602,7 +596,8 @@ collect_aidocs_operations() {
         local date_part="${NORM_DATE:-$dir_date}"
         if [ -z "$date_part" ]; then
             # Fallback if somehow no date was determined
-            local file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
+            local file_mtime
+            file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
             date_part=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
         fi
         
@@ -719,17 +714,16 @@ for file in "${PRUNE_OPERATIONS[@]}"; do
 done
 
 # Sort by destination (first field) and display
-IFS=$'\n' SORTED_OPS=($(sort <<<"${ALL_DISPLAY_OPS[*]}"))
-unset IFS
-
-for op in "${SORTED_OPS[@]}"; do
-    # Parse: DST|SRC|DST_OR_DELETE
-    DST_SORT="${op%%|*}"
+tmp_sorted_ops=$(mktemp)
+printf '%s\n' "${ALL_DISPLAY_OPS[@]}" | sort > "$tmp_sorted_ops"
+while IFS= read -r op; do
+    # Each op is stored as DST|SRC|DST_OR_DELETE
     REMAINDER="${op#*|}"
     SRC="${REMAINDER%%|*}"
     DST="${REMAINDER#*|}"
     printf "  %-${MAX_LEN}s  →  %s\n" "$SRC" "$DST"
-done
+done < "$tmp_sorted_ops"
+rm -f "$tmp_sorted_ops"
 
 # If dry-run mode, exit here without prompting or executing
 if [ $DRY_RUN -eq 1 ]; then
