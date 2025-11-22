@@ -38,13 +38,19 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 - Never add files to VCS without user confirmation.
 - Never switch branches or switch to a commit without user confirmation.
 
-## Terminal Pagers
+## Terminals
+
+### Pagers
 
 When running a terminal command that may produce paged output, you need to prevent the command from hanging in a pager:
 - ALWAYS use `git --no-pager` for git commands (e.g., `git --no-pager diff`, `git --no-pager log`)
 - OR pipe commands to `cat` (e.g., `git diff | cat`, `less file.txt | cat`)
 - Never run commands that will open interactive pagers like `less`, `more`, `man` without disabling pagination
 
-## Terminal Heredocs
+### Heredocs
 
 - Be very careful when using heredocs in terminal commands. Too often, agents will run complicated commands with sophisticated (or even nested) heredocs, and the command will hang and the agent will be unable to continue.
+
+### Unresponsive Terminals
+
+If your connection to your terminal is unresponsive, don't waste time working around the problem. Alert the user and suggest they restart their IDE.
