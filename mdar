@@ -1,89 +1,84 @@
 #!/bin/bash
 
-# mdar - Archive untracked markdown files into well-known locations with uniform naming
-# Purpose: Archive ntracked ephemeral markdown files created by AI agents
-#          using hierarchical datetime'd names that sort temporally even
-#          when viewed in an IDE file tree with no sorting functionality.
-#
-# Actions:
-#   - Move untracked markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
-#   - By default, depth=2 and so will fix any misnamed files under aidocs/
-#   - Normalizes filenames in-place in specified folders (by default: test-results/)
-#   - Reuses timestamps in filenames when present (e.g., 20251114-135621)
-#   - Reports proposed renames/moves, but NEVER PERFORMS THEM without -y or terminal confirmation
-#
-# Options:
-#   -n, --dry-run       Show proposed operations and exit (no prompt, no changes)
-#   -y, --yes           Skip confirmation prompt and execute immediately
-#   -v, -vv, -vvv       Increase verbosity: -v=key commands, -vv=+debug info, -vvv=+shell tracing
-#   -x                  Enable shell tracing (set -x)
-#   -r, --recursive     Search all subdirectories recursively (unlimited depth)
-#   --depth N           Directory depth to search (0=root only, 1=root+immediate subdirs, default: 2)
-#   --normalize DIR     Normalize files in DIR in-place (can be repeated, default: test-results)
-#   --prune DURATION    Delete aidocs files older than DURATION (e.g., 14d, 2w, 3m, 1y)
-#
-# Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]
+usageMsg="\
+mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/HHMM_CamelCase.md
 
-set -e
+Usage: mdar [--archive-dir DIR] [--no-timestamp] [--no-camelcase] [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]
+
+Options:
+  --archive-dir DIR   Archive directory (default: aidocs)
+  --no-timestamp      Do not add HHMM time prefix to archived filenames
+  --no-camelcase      Do not convert filenames to CamelCase
+  -n, --dry-run       Show proposed operations and exit (no prompt, no changes)
+  -y, --yes           Skip confirmation prompt and execute immediately
+  -v, -vv, -vvv       Verbosity: -v=search/change files, -vv=+debug info, -vvv=+shell tracing
+  -x                  Enable shell tracing (set -x)
+  -r, --recursive     Search all subdirectories recursively (unlimited depth)
+  --depth N           Directory depth to search (0=root only, default: 2)
+  --normalize DIR     Normalize files in DIR in-place (can be repeated, default: test-results)
+  --prune DURATION    Delete target files older than DURATION (e.g., 14d, 2w, 3m, 1y)
+"
+
+set -e # Exit on error
 
 main() {
     local autoConfirm=0
     local depth=2
     local verbose=0
-    local traceMode=0
     local dryRun=0
     local normalizeDirs=()
     local normalizeExplicit=0
     local pruneDuration=""
     local repoRoot
     local inGitRepo=0
+    local archiveDir="aidocs"
+    local noTimestamp=0
+    local noCamelCase=0
 
-    # Parse arguments
+    showUsage() {
+        cat <<EOF
+$usageMsg
+EOF
+    }
+
+    # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
     while [[ $# -gt 0 ]]; do
-        case $1 in
+        case "$1" in
+            --archive-dir)
+                archiveDir="$2"; shift 2 ;;
+            --no-timestamp)
+                noTimestamp=1; shift ;;
+            --no-camelcase)
+                noCamelCase=1; shift ;;
+            -n|--dry-run)
+                dryRun=1; shift ;;
             -y|--yes)
                 autoConfirm=1; shift ;;
             -r|--recursive)
                 depth=-1; shift ;;
             --depth)
-                if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
-                    depth="$2"; shift 2
-                else
-                    echo "Error: --depth requires a non-negative integer" >&2; exit 1
-                fi ;;
+                depth="$2"; shift 2 ;;
             --normalize)
-                if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                    normalizeDirs+=("$2"); normalizeExplicit=1; shift 2
-                else
-                    echo "Error: --normalize requires a directory argument" >&2; exit 1
-                fi ;;
+                normalizeDirs+=("$2"); normalizeExplicit=1; shift 2 ;;
             --prune)
-                if [[ -n "$2" && "$2" =~ ^[0-9]+[dwmy]?$ ]]; then
-                    pruneDuration="$2"; shift 2
-                else
-                    echo "Error: --prune requires a duration (e.g., 14d, 2w, 3m, 1y)" >&2; exit 1
-                fi ;;
-            -v*)
-                local opt="$1"
-                verbose=$(echo "$opt" | tr -cd 'v' | wc -c | tr -d ' ')
-                if [ "$verbose" -ge 3 ]; then traceMode=1; verbose=2; fi
-                shift ;;
-            --verbose)
-                verbose=1; shift ;;
+                pruneDuration="$2"; shift 2 ;;
+            -v|--verbose)
+                verbose=$((verbose+1)); shift ;;
             -x)
-                traceMode=1; shift ;;
-            -n|--dry-run)
-                dryRun=1; shift ;;
-            *)
+                set -x; shift ;;
+            -h|--help)
+                showUsage; exit 0 ;;
+            --)
+                shift; break ;;
+            -*)
                 echo "Unknown option: $1" >&2
-                echo "Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]" >&2
+                showUsage >&2
                 exit 1 ;;
+            *)
+                break ;;
         esac
     done
 
-    [ "$traceMode" -eq 1 ] && set -x
-
-    # Check if in git repo
     if git rev-parse --git-dir > /dev/null 2>&1; then
         inGitRepo=1
         repoRoot=$(git rev-parse --show-toplevel)
@@ -134,22 +129,33 @@ main() {
     extractTimestamp() {
         local filename="$1"
         local date="" time=""
+        # BASH_REMATCH is a bash array containing the full match and capture groups from the last successful regex match in [[ ... =~ ... ]].
+        # BASH_REMATCH[0] is the full match, BASH_REMATCH[1] is the first capture group, BASH_REMATCH[2] is the second, etc.
+        # Regex: Matches YYYY-MM-DD_HHMMSS or YYYY-MM-DD_HHMM
         if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{6}) ]]; then
             date="${BASH_REMATCH[1]}"; time="${BASH_REMATCH[2]:0:4}"
+        # Regex: Matches YYYY-MM-DD_HHMM
         elif [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{4}) ]]; then
             date="${BASH_REMATCH[1]}"; time="${BASH_REMATCH[2]}"
+        # Regex: Matches YYYYMMDD_HHMMSS
         elif [[ "$filename" =~ ([0-9]{8})_([0-9]{6}) ]]; then
             date="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"; time="${BASH_REMATCH[2]:0:4}"
+        # Regex: Matches YYYYMMDD_HHMM
         elif [[ "$filename" =~ ([0-9]{8})_([0-9]{4}) ]]; then
             date="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"; time="${BASH_REMATCH[2]}"
+        # Regex: Matches YYYYMMDD-HHMMSS
         elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        # Regex: Matches YYYYMMDDHHMMSS
         elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        # Regex: Matches YYYY-MM-DD-HHMMSS
         elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        # Regex: Matches YYYY-MM-DD
         elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="0000"
+        # Regex: Matches YYYYMMDD
         elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="0000"
         fi
@@ -192,11 +198,12 @@ main() {
 
     # Collect files to prune
     collectPruneOps() {
-        local repoRoot="$1" duration="$2"
+        local repoRoot="$1" duration="$2" archiveDir="$3"
         local cutoffTime
         cutoffTime=$(($(date +%s) - $(parseDurationToSeconds "$duration")))
         local files
-        files=$(cd "$repoRoot" && find aidocs -type f -name "*.md" 2>/dev/null | sed 's|^./||' | grep -v "^aidocs/README.md$")
+        # Find all files in the archive directory, excluding README.md
+        files=$(cd "$repoRoot" && find "$archiveDir" -type f 2>/dev/null | sed 's|^./||' | grep -v "^${archiveDir}/README.md$" || true)
         local pruneOps=()
         for f in $files; do
             local mtime
@@ -239,7 +246,8 @@ main() {
                 fi
                 newPath="${dirname}/${newFilename}"
                 # Compliance: filename matches normalized pattern (yyyy-mm-dd_hhmm_CamelCase.ext)
-                local compliantPattern='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
+                # Regex: Matches filenames like 2025-11-22_1234_MyFile.md or 2025-11-22_1234_MyFile.txt
+                local compliantPattern='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$' # yyyy-mm-dd_hhmm_CamelCase.ext
                 if [[ ! "$filename" =~ $compliantPattern ]] && [ "$filepath" != "$newPath" ]; then
                     normalizeOps+=("$filepath|$newPath")
                 fi
@@ -249,29 +257,50 @@ main() {
     }
 
     # Main logic
+    verboseLog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[@]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase"
+    verboseLog 1 "Searching for untracked markdown files..."
     local markdownFiles
     markdownFiles=$(findUntrackedMarkdown "$repoRoot" "$depth" "$inGitRepo")
+    verboseLog 1 "Found markdown files: $markdownFiles"
     markdownFiles=$(normalizePaths "$markdownFiles")
-    local untrackedOps=()
-    while IFS= read -r file; do
-        [ -z "$file" ] && continue
-        local base
-        base=$(basename "$file")
-        local ts
-        ts=$(extractTimestamp "$base")
-        local date="${ts%%|*}" time="${ts##*|}"
-        if [ -z "$date" ]; then
-            local btime mtime
-            btime=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
-            mtime=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
-            date=$(date -r "${btime:-$mtime}" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
-            time=$(date -r "${btime:-$mtime}" '+%H%M' 2>/dev/null || echo "0000")
-        fi
-        local camel
-        camel=$(toCamelCase "$base")
-        local dest="aidocs/$date/${time}_${camel}.md"
-        untrackedOps+=("$file|$dest")
-    done <<< "$markdownFiles"
+    verboseLog 1 "Normalized markdown file paths: $markdownFiles"
+
+    if [ -z "$markdownFiles" ]; then
+        verboseLog 1 "No markdown files found, skipping untrackedOps loop."
+    else
+        local untrackedOps=()
+        verboseLog 1 "Building untrackedOps array..."
+        while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            local base ext
+            base=$(basename "$file")
+            ext="${base##*.}"
+            local ts date time
+            ts=$(extractTimestamp "$base")
+            date="${ts%%|*}"; time="${ts##*|}"
+            if [ -z "$date" ]; then
+                local btime mtime
+                btime=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
+                mtime=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+                date=$(date -r "${btime:-$mtime}" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+                time=$(date -r "${btime:-$mtime}" '+%H%M' 2>/dev/null || echo "0000")
+            fi
+            local namePart
+            if [ "$noCamelCase" -eq 1 ]; then
+                namePart="${base%.*}"
+            else
+                namePart=$(toCamelCase "${base%.*}")
+            fi
+            local dest
+            if [ "$noTimestamp" -eq 1 ]; then
+                dest="$archiveDir/$namePart.$ext"
+            else
+                dest="$archiveDir/$date/${time}_${namePart}.$ext"
+            fi
+            untrackedOps+=("$file|$dest")
+        done <<< "$markdownFiles"
+        verboseLog 1 "Built untrackedOps: ${untrackedOps[@]}"
+    fi
 
     local normalizeOps=()
     if [ "$normalizeExplicit" -eq 1 ] && [ ${#normalizeDirs[@]} -gt 0 ]; then
@@ -279,7 +308,7 @@ main() {
     fi
 
     local pruneOps=()
-    [ -n "$pruneDuration" ] && pruneOps=($(collectPruneOps "$repoRoot" "$pruneDuration"))
+    [ -n "$pruneDuration" ] && pruneOps=($(collectPruneOps "$repoRoot" "$pruneDuration" "$archiveDir"))
 
     local totalOps=$(( ${#untrackedOps[@]} + ${#normalizeOps[@]} + ${#pruneOps[@]} ))
     [ "$totalOps" -eq 0 ] && echo "Executed 0 of 0 proposed operations" >&2 && exit 0
@@ -308,12 +337,22 @@ main() {
         printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
     done
 
-    [ "$dryRun" -eq 1 ] && echo "Executed 0 of $totalOps proposed operations" >&2 && exit 0
+    # If dry-run was requested, never prompt: print summary and exit immediately.
+    if [ "${dryRun:-0}" -eq 1 ]; then
+        echo "Dry-run: Executed 0 of $totalOps proposed operations" >&2
+        exit 0
+    fi
 
-    if [ "$autoConfirm" -eq 0 ]; then
+    # If autoConfirm was not set, ask the user. Note: dry-run already returned above.
+    if [ "${autoConfirm:-0}" -eq 0 ]; then
+        # Prompt for single-character confirmation (y/Y to proceed)
         read -p "Proceed with these operations? [y/N] " -n 1 -r
         echo
-        [[ ! $REPLY =~ ^[Yy]$ ]] && echo "Cancelled." >&2 && echo "Executed 0 of $totalOps proposed operations" >&2 && exit 0
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Cancelled." >&2
+            echo "Executed 0 of $totalOps proposed operations" >&2
+            exit 0
+        fi
     fi
 
     local executedOps=0

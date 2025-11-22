@@ -110,11 +110,20 @@ test_case() {
   return $result
 }
 
+# Global test directory for all test cases
+# Must be set before run_tests so all test_case invocations use the correct path
+TESTDIR=""
+
 # Main test suite
+if [[ $verboseTest -eq 1 ]]; then
+  echo "mdar_test script started"
+fi
+
 run_tests() {
   set +e  # Disable exit-on-error so all tests run
-  local testdir
-  testdir=$(mktemp -d)
+  TESTDIR=$(mktemp -d)
+  [ "$verboseTest" -eq 1 ] && echo "Created TESTDIR: $TESTDIR"
+  local testdir="$TESTDIR"
   local setup_msgs=()
   setup_only "$testdir/tree"
   setup_msgs+=("Created folder tree at $testdir/tree")
@@ -146,25 +155,79 @@ run_tests() {
   touch -t 201701010000 "$testdir/tree/aidocs/2019-01-01/0000_Old.md"
   local test3_msg="Created old aidocs file for prune test: $testdir/tree/aidocs/2019-01-01/0000_Old.md"
 
+  # Per-test setup for test 4 (prune in test-results)
+  mkdir -p "$testdir/tree/test-results"
+  echo "Old test result" > "$testdir/tree/test-results/old_result.txt"
+  touch -t 201701010000 "$testdir/tree/test-results/old_result.txt"
+  local test4_msg="Created old test-results file for prune test: $testdir/tree/test-results/old_result.txt"
+
   header "### Test Setup"
   for msg in "${setup_msgs[@]}"; do
     echo "- $msg"
   done
 
+  testDescriptions=(
+    "mdar proposes move for untracked .md file"
+    "mdar suggests normalization for test-results files"
+    "mdar marks old aidocs files for pruning"
+    "mdar prunes old files in test-results/"
+    "mdar sorts recommended target names (by mtime and name)"
+  )
+  testCommands=(
+    "cd $testdir/tree && $mdar_cmd -n --depth 3 --yes"
+    "cd $testdir/tree && $mdar_cmd -n --normalize test-results --depth 3 --yes"
+    "cd $testdir/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes"
+    "cd $testdir/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes --archive-dir test-results"
+    "cd $testdir/tree/sorttest && $mdar_cmd -n --depth 2 --yes"
+  )
+  testExpects=(
+    "aidocs/"
+    "test-results/"
+    "\[DELETE\]"
+    "\[DELETE\]"
+    "→"
+  )
+  testBullets=(
+    "$test1_msg"
+    "$test2_msg"
+    "$test3_msg"
+    "$test4_msg"
+    "Sorting test files with mixed mtimes (including same mtime to verify name sorting)"
+  )
+
+  [ "$verboseTest" -eq 1 ] && echo "Files in $TESTDIR/tree before test 1:" && find $TESTDIR/tree -type f
+  if [[ $mdarTrace -eq 1 ]]; then
+    mdar_cmd="$HOME/bin/mdar -x"
+  else
+    mdar_cmd="$HOME/bin/mdar"
+  fi
+  [ "$verboseTest" -eq 1 ] && mdar_cmd+=" -v"
   test_case "mdar proposes move for untracked .md file" \
-    "cd $testdir/tree && /Users/brian/bin/mdar -n --depth 3 --yes" \
+    "cd $TESTDIR/tree && $mdar_cmd -n --depth 3 --yes" \
     "aidocs/" \
     "$test1_msg"
+  [ "$verboseTest" -eq 1 ] && echo "Completed test 1"
 
+  [ "$verboseTest" -eq 1 ] && echo "Files in $TESTDIR/tree before test 2:" && find $TESTDIR/tree -type f
   test_case "mdar suggests normalization for test-results files" \
-    "cd $testdir/tree && /Users/brian/bin/mdar -n --normalize test-results --depth 3 --yes" \
+    "cd $TESTDIR/tree && $mdar_cmd -n --normalize test-results --depth 3 --yes" \
     "test-results/" \
     "$test2_msg"
+  [ "$verboseTest" -eq 1 ] && echo "Completed test 2"
 
+  [ "$verboseTest" -eq 1 ] && echo "Files in $TESTDIR/tree before test 3:" && find $TESTDIR/tree -type f
   test_case "mdar marks old aidocs files for pruning" \
-    "cd $testdir/tree && /Users/brian/bin/mdar -n --prune 2000d --depth 3 --yes" \
+    "cd $TESTDIR/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes" \
     "\[DELETE\]" \
     "$test3_msg"
+  [ "$verboseTest" -eq 1 ] && echo "Completed test 3"
+
+  [ "$verboseTest" -eq 1 ] && echo "Files in $TESTDIR/tree before test 4:" && find $TESTDIR/tree -type f
+  test_case "mdar prunes old files in test-results/" \
+    "cd $TESTDIR/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes --archive-dir test-results" \
+    "\[DELETE\]" \
+    "$test4_msg"
+  [ "$verboseTest" -eq 1 ] && echo "Completed test 4"
 
   # Fourth test: mdar sorts recommended target names (by mtime and name)
   # Use realistic past dates, and include files with same mtime to test name sorting
@@ -182,19 +245,21 @@ run_tests() {
   touch -t 202506180830 "$testdir/tree/sorttest/testdir/delta_notes.md"
   echo "Gamma" > "$testdir/tree/sorttest/testdir/gamma_notes.md"
   touch -t 202510011200 "$testdir/tree/sorttest/testdir/gamma_notes.md"
+  [ "$verboseTest" -eq 1 ] && echo "Files in $testdir/tree/sorttest before sorting test:" && find $testdir/tree/sorttest -type f
   test_case "mdar sorts recommended target names (by mtime and name)" \
-    "cd $testdir/tree/sorttest && /Users/brian/bin/mdar -n --depth 2 --yes" \
+    "cd $testdir/tree/sorttest && $mdar_cmd -n --depth 2 --yes" \
     "→" \
     "Sorting test files with mixed mtimes (including same mtime to verify name sorting)"
+  [ "$verboseTest" -eq 1 ] && echo "Completed sorting test"
 
   header "### Test Summary"
-  local total_tests=$((passed+failed))
-  local summary="Results: Tests run: $total_tests, Failures: $failed, Successes: $passed"
+  total_tests=$((passed+failed))
+  summary="Results: Tests run: $total_tests, Failures: $failed, Successes: $passed"
   if [ -t 1 ]; then
-    local color_reset='\033[0m'
-    local color_green='\033[1;32m'
-    local color_red='\033[1;31m'
-    local summary_colored="Results: Tests run: $((passed+failed)), "
+    color_reset='\033[0m'
+    color_green='\033[1;32m'
+    color_red='\033[1;31m'
+    summary_colored="Results: Tests run: $((passed+failed)), "
     if [[ $failed -gt 0 ]]; then
       summary_colored+="${color_red}Failures${color_reset}: ${color_red}$failed${color_reset}"
     else
@@ -219,30 +284,53 @@ run_tests() {
 }
 
 # Parse arguments
-SETUP_ONLY=0
-KEEP_ARTIFACTS=0
+setupOnly=0
+keepArtifacts=0
+shellTrace=0
+mdarTrace=0
+verboseTest=0
+listTests=0
+ignoreTests=()
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --setup-only)
-      SETUP_ONLY=1
-      ;;
+      setupOnly=1 ;;
     --keep-artifacts)
-      KEEP_ARTIFACTS=1
-      ;;
+      keepArtifacts=1 ;;
+    -x)
+      shellTrace=1 ;;
+    -xx)
+      mdarTrace=1 ;;
+    -v)
+      verboseTest=1 ;;
+    --list-tests)
+      listTests=1 ;;
+    --ignore-tests)
+      shift
+      IFS="," read -r -A ignoreTests <<< "$1" ;;
     -h|--help)
-      show_help
-      ;;
+      show_help ;;
     *)
       echo "Unknown option: $1"
-      show_help
-      ;;
+      show_help ;;
   esac
   shift
 done
 
-if [[ $SETUP_ONLY -eq 1 ]]; then
+# Export KEEP_ARTIFACTS so run_tests can read it (it checks this env var)
+if [[ $keepArtifacts -eq 1 ]]; then
+  export KEEP_ARTIFACTS=1
+fi
+
+if [[ $shellTrace -eq 1 ]]; then
+  set -x
+fi
+
+if [[ $setupOnly -eq 1 ]]; then
   setup_only "./mdar_test_tree"
+  exit 0
 fi
-if [[ $SETUP_ONLY -eq 0 ]]; then
-  run_tests
-fi
+
+# Now run the main test suite. run_tests creates TESTDIR and executes tests.
+run_tests
