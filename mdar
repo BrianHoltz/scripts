@@ -1,24 +1,54 @@
 #!/bin/bash
-
 usageMsg="\
-mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/HHMM_CamelCase.md
+NAME
+    mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/HHMM_CamelCase.md
 
-Usage: mdar [--archive-dir DIR] [--no-timestamp] [--no-camelcase] [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]
+SYNOPSIS
+    mdar [--archive-dir DIR] [--no-timestamp] [--no-camelcase] [-y|--yes]
+         [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION]
+         [-v|-vv|-vvv] [-x] [-n|--dry-run]
 
-Options:
-  --archive-dir DIR   Archive directory (default: aidocs)
-  --no-timestamp      Do not add HHMM time prefix to archived filenames
-  --no-camelcase      Do not convert filenames to CamelCase
-  -n, --dry-run       Show proposed operations and exit (no prompt, no changes)
-  -y, --yes           Skip confirmation prompt and execute immediately
-  -v, -vv, -vvv       Verbosity: -v=search/change files, -vv=+debug info, -vvv=+shell tracing
-  -x                  Enable shell tracing (set -x)
-  -r, --recursive     Search all subdirectories recursively (unlimited depth)
-  --depth N           Directory depth to search (0=root only, default: 2)
-  --normalize DIR     Normalize files in DIR in-place (can be repeated, default: test-results)
-  --prune DURATION    Delete target files older than DURATION (e.g., 14d, 2w, 3m, 1y)
+DESCRIPTION
+    Archive untracked markdown files into a dated directory structure with
+    normalized filenames. By default, files are moved to aidocs/YYYY-MM-DD/
+    with HHMM_CamelCase.md naming convention.
+
+OPTIONS
+    --archive-dir DIR
+        Archive directory (default: aidocs)
+
+    --no-timestamp
+        Do not add HHMM time prefix to archived filenames
+
+    --no-camelcase
+        Do not convert filenames to CamelCase
+
+    -n, --dry-run
+        Show proposed operations and exit (no prompt, no changes)
+
+    -y, --yes
+        Skip confirmation prompt and execute immediately
+
+    -v, -vv, -vvv
+        Verbosity: -v=search/change files, -vv=+debug info, -vvv=+shell tracing
+
+    -x
+        Enable shell tracing (set -x)
+
+    -r, --recursive
+        Search all subdirectories recursively (unlimited depth)
+
+    --depth N
+        Directory depth to search (0=root only, default: 2)
+
+    --normalize DIR
+        Normalize files in DIR in-place (can be repeated, default: test-results)
+
+    --prune DURATION
+        Delete target files older than DURATION (e.g., 14d, 2w, 3m, 1y)
 "
-
+# usageMsg is intentionally placed at the very top for human readers and future agents.
+# Do not move it inside functions.
 set -e # Exit on error
 
 main() {
@@ -36,9 +66,111 @@ main() {
     local noCamelCase=0
 
     showUsage() {
-        cat <<EOF
-$usageMsg
-EOF
+        # Terminal formatting codes - using bright/bold ANSI colors for maximum visibility
+        local BOLD=$'\033[1m'
+        local UNDERLINE=$'\033[4m'
+        local BRIGHT_BLUE=$'\033[1;94m'
+        local CHERRY_GREEN=$'\033[1;92m'
+        local BRIGHT_ORANGE=$'\033[1;38;5;208m'
+        local BRIGHT_MAGENTA=$'\033[1;95m'
+        local RESET=$'\033[0m'
+
+        # Process and colorize the usage message line by line
+        while IFS= read -r line; do
+            case "$line" in
+                NAME|SYNOPSIS|DESCRIPTION|OPTIONS)
+                    # Section headers: bold + underline (no color - plain black)
+                    printf '%b%b%s%b\n' "$BOLD" "$UNDERLINE" "$line" "$RESET"
+                    ;;
+                "    mdar "*)
+                    # Synopsis line: color mdar, brackets, options, and args
+                    line="${line/mdar/@@MDAR@@}"
+                    # Replace all [content] with placeholders first
+                    local counter=0
+                    local bracket_contents=()
+                    while [[ "$line" =~ \[([^]]+)\] ]]; do
+                        local content="${BASH_REMATCH[1]}"
+                        local placeholder="@@BRACKET${counter}@@"
+                        bracket_contents+=("$content")
+                        line="${line/\[${content}\]/$placeholder}"
+                        ((counter++))
+                    done
+
+                    # Now replace placeholders with colored versions
+                    line="${line//@@MDAR@@/${BRIGHT_BLUE}mdar${RESET}}"
+                    for i in "${!bracket_contents[@]}"; do
+                        local content="${bracket_contents[$i]}"
+                        local placeholder="@@BRACKET${i}@@"
+                        local replacement
+
+                        # Check if content has an ARG (uppercase word at end)
+                        if [[ "$content" =~ (.+)\ ([A-Z]+)$ ]]; then
+                            local opts="${BASH_REMATCH[1]}"
+                            local arg="${BASH_REMATCH[2]}"
+                            replacement="${CHERRY_GREEN}[${opts}${RESET} ${BRIGHT_ORANGE}${arg}${CHERRY_GREEN}]${RESET}"
+                        else
+                            replacement="${CHERRY_GREEN}[${content}]${RESET}"
+                        fi
+
+                        line="${line//$placeholder/$replacement}"
+                    done
+                    printf '%s\n' "$line"
+                    ;;
+                "         "*)
+                    # Synopsis continuation lines - same approach
+                    local counter=0
+                    local bracket_contents=()
+                    while [[ "$line" =~ \[([^]]+)\] ]]; do
+                        local content="${BASH_REMATCH[1]}"
+                        local placeholder="@@BRACKET${counter}@@"
+                        bracket_contents+=("$content")
+                        line="${line/\[${content}\]/$placeholder}"
+                        ((counter++))
+                    done
+
+                    for i in "${!bracket_contents[@]}"; do
+                        local content="${bracket_contents[$i]}"
+                        local placeholder="@@BRACKET${i}@@"
+                        local replacement
+
+                        if [[ "$content" =~ (.+)\ ([A-Z]+)$ ]]; then
+                            local opts="${BASH_REMATCH[1]}"
+                            local arg="${BASH_REMATCH[2]}"
+                            replacement="${CHERRY_GREEN}[${opts}${RESET} ${BRIGHT_ORANGE}${arg}${CHERRY_GREEN}]${RESET}"
+                        else
+                            replacement="${CHERRY_GREEN}[${content}]${RESET}"
+                        fi
+
+                        line="${line//$placeholder/$replacement}"
+                    done
+                    printf '%s\n' "$line"
+                    ;;
+                "    -"*)
+                    # Option lines: color flags and args using sed (one pass, no loops)
+                    # First color option flags, then ARG placeholders
+                    line=$(printf '%s\n' "$line" | sed -E "s/(--[a-z-]+|-[a-z]+)/$(printf '%b' "$CHERRY_GREEN")\\1$(printf '%b' "$RESET")/g")
+                    line=$(printf '%s\n' "$line" | sed -E "s/ ([A-Z]+)(\$|,)/ $(printf '%b' "$BRIGHT_ORANGE")\\1$(printf '%b' "$RESET")\\2/g")
+                    printf '%s\n' "$line"
+                    ;;
+                *"default:"*)
+                    if echo "$line" | grep -q "(default:"; then
+                        line=$(printf '%s\n' "$line" | sed -E "s/(\(default: [^)]+\))/$(printf '%b' "$BRIGHT_MAGENTA")\1$(printf '%b' "$RESET")/g")
+                        printf '%s\n' "$line"
+                    else
+                        printf '%s\n' "$line"
+                    fi
+                    ;;
+                *"(e.g."*)
+                    # Lines with examples
+                    line=$(printf '%s\n' "$line" | sed -E "s/(\(e\.g\.[^)]+\))/$(printf '%b' "$BRIGHT_ORANGE")\\1$(printf '%b' "$RESET")/g")
+                    printf '%s\n' "$line"
+                    ;;
+                *)
+                    # Regular lines
+                    printf '%s\n' "$line"
+                    ;;
+            esac
+        done <<< "$usageMsg"
     }
 
     # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
