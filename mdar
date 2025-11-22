@@ -1,17 +1,16 @@
 #!/bin/bash
 
 # mdar - Archive untracked markdown files into well-known locations with uniform naming
-#
-# Purpose: Untracked ephemeral markdown files created by AI agents are archived
-#          with hierarchical datetime'd names that sort temporally even 
+# Purpose: Archive ntracked ephemeral markdown files created by AI agents
+#          using hierarchical datetime'd names that sort temporally even
 #          when viewed in an IDE file tree with no sorting functionality.
 #
 # Actions:
 #   - Move untracked markdown → aidocs/YYYY-MM-DD/HHMM_CamelCase.md
-#   - By default, depth=2 so fixes any misnamed files under aidocs/
-#   - Normalizes filenames in-place in special folders (by default: test-results/)
-#   - Uses timestamps in filenames when present (e.g., 20251114-135621)
-#   - Reports proposed renames/moves, but never performs them without -y or terminal confirmation 
+#   - By default, depth=2 and so will fix any misnamed files under aidocs/
+#   - Normalizes filenames in-place in specified folders (by default: test-results/)
+#   - Reuses timestamps in filenames when present (e.g., 20251114-135621)
+#   - Reports proposed renames/moves, but NEVER PERFORMS THEM without -y or terminal confirmation
 #
 # Options:
 #   -n, --dry-run       Show proposed operations and exit (no prompt, no changes)
@@ -27,764 +26,338 @@
 
 set -e
 
-# Check if in git repo
-if git rev-parse --git-dir > /dev/null 2>&1; then
-    IN_GIT_REPO=1
-    REPO_ROOT=$(git rev-parse --show-toplevel)
-else
-    IN_GIT_REPO=0
-    REPO_ROOT=$(pwd)
-fi
-AUTO_CONFIRM=0
-DEPTH=2
-VERBOSE=0
-TRACE_MODE=0
-DRY_RUN=0
-NORMALIZE_DIRS=()
-NORMALIZE_EXPLICIT=0
-PRUNE_DURATION=""
-# Parse arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -y|--yes)
-            AUTO_CONFIRM=1
-            shift
-            ;;
-        -r|--recursive)
-            DEPTH=-1
-            shift
-            ;;
-        --depth)
-            if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
-                DEPTH="$2"
-                shift 2
-            else
-                echo "Error: --depth requires a non-negative integer" >&2
-                exit 1
-            fi
-            ;;
-        --normalize)
-            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                NORMALIZE_DIRS+=("$2")
-                NORMALIZE_EXPLICIT=1
-                shift 2
-            else
-                echo "Error: --normalize requires a directory argument" >&2
-                exit 1
-            fi
-            ;;
-        --prune)
-            if [[ -n "$2" && "$2" =~ ^[0-9]+[dwmy]?$ ]]; then
-                PRUNE_DURATION="$2"
-                shift 2
-            else
-                echo "Error: --prune requires a duration (e.g., 14d, 2w, 3m, 1y)" >&2
-                exit 1
-            fi
-            ;;
-        -v*)
-            # Count number of v's (e.g., -v=1, -vv=2, -vvv=3)
-            OPT="$1"
-            VERBOSE=$(echo "$OPT" | tr -cd 'v' | wc -c | tr -d ' ')
-            # If -vvv (3 or more), enable trace mode and set verbose to 2
-            if [ "$VERBOSE" -ge 3 ]; then
-                TRACE_MODE=1
-                VERBOSE=2
-            fi
-            shift
-            ;;
-        --verbose)
-            VERBOSE=1
-            shift
-            ;;
-        -x)
-            TRACE_MODE=1
-            shift
-            ;;
-        -n|--dry-run)
-            DRY_RUN=1
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1" >&2
-            echo "Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]" >&2
-            exit 1
-            ;;
-    esac
-done
+main() {
+    local autoConfirm=0
+    local depth=2
+    local verbose=0
+    local traceMode=0
+    local dryRun=0
+    local normalizeDirs=()
+    local normalizeExplicit=0
+    local pruneDuration=""
+    local repoRoot
+    local inGitRepo=0
 
-# Enable shell tracing if requested
-if [ "$TRACE_MODE" -eq 1 ]; then
-    set -x
-fi
-
-# After determining REPO_ROOT, switch to it so all subsequent path operations are relative and consistent
-cd "$REPO_ROOT"
-
-# Helper to print verbose commands to stderr
-# Usage: verbose_log LEVEL "command"
-# LEVEL 1: Key commands (git, find, mkdir, mv, rm)
-# LEVEL 2: Debug output (file counts, arrays, warnings)
-verbose_log() {
-    local level=$1
-    shift
-    if [ "$VERBOSE" -ge "$level" ]; then
-        echo "+ $*" >&2
-    fi
-}
-
-# Find untracked markdown files based on depth setting
-ALL_TO_AIDOCS=""
-if [ "$IN_GIT_REPO" -eq 1 ]; then
-    verbose_log 1 "git --no-pager -C $REPO_ROOT ls-files --others --exclude-standard"
-    # Use git status --porcelain as primary source, fallback to ls-files
-    UNTRACKED_FROM_STATUS=$(git --no-pager -C "$REPO_ROOT" status --porcelain | grep '^?? ' | sed 's/^?? //' || true)
-    UNTRACKED_FROM_LSFILES=$(git --no-pager -C "$REPO_ROOT" ls-files --others --exclude-standard || true)
-    # Combine both sources and deduplicate
-    ALL_UNTRACKED=$(printf "%s\n%s\n" "$UNTRACKED_FROM_STATUS" "$UNTRACKED_FROM_LSFILES" | sort | uniq | grep -v '^$' || true)
-
-    if [ "$VERBOSE" -ge 2 ]; then
-        echo "+ DEBUG: ALL_UNTRACKED files found:" >&2
-        if [ -n "$ALL_UNTRACKED" ]; then
-            echo "$ALL_UNTRACKED" | sed 's/^/+   /' >&2
-        else
-            echo "+   (none)" >&2
-        fi
-        echo "+ DEBUG: Total untracked file count: $(echo "$ALL_UNTRACKED" | grep -v '^$' | wc -l | tr -d ' ')" >&2
-    fi
-
-    # Filter markdown files by depth (exclude aidocs/)
-    if [ "$DEPTH" -eq 0 ]; then
-        # Only root level
-        ALL_TO_AIDOCS=$(echo "$ALL_UNTRACKED" | grep -E '^[^/]+\.md$' | grep -v '^aidocs/' || true)
-    elif [ "$DEPTH" -eq -1 ]; then
-        # Unlimited depth - get all markdown files
-        ALL_TO_AIDOCS=$(echo "$ALL_UNTRACKED" | grep '\.md$' | grep -v '^aidocs/' || true)
-    else
-        # Filter by depth: count slashes to determine directory level
-        ALL_TO_AIDOCS=$(echo "$ALL_UNTRACKED" | grep '\.md$' | grep -v '^aidocs/' | awk -F'/' -v depth="$DEPTH" 'NF <= depth + 1' || true)
-    fi
-
-    if [ "$VERBOSE" -ge 2 ]; then
-        echo "+ DEBUG: ALL_TO_AIDOCS count (depth=$DEPTH): $(echo "$ALL_TO_AIDOCS" | grep -v '^$' | wc -l | tr -d ' ')" >&2
-    fi
-else
-    # Use find from the repo root for non-git repos
-    if [ "$DEPTH" -eq -1 ]; then
-        verbose_log 1 "find . -type f -name '*.md' (non-git repo, unlimited depth)"
-        ALL_TO_AIDOCS=$(cd "$REPO_ROOT" && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' || true)
-    else
-        verbose_log 1 "find . -maxdepth $((DEPTH + 1)) -type f -name '*.md' (non-git repo)"
-        ALL_TO_AIDOCS=$(cd "$REPO_ROOT" && find . -maxdepth $((DEPTH + 1)) -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/' || true)
-    fi
-fi
-
-# Normalize paths: ensure entries are relative to REPO_ROOT and not prefixed with './'
-normalize_paths() {
-    local in="$1"
-    echo "$in" | sed -e 's|^\./||' -e 's|^$||' | grep -v '^$' || true
-}
-
-ALL_TO_AIDOCS=$(normalize_paths "$ALL_TO_AIDOCS")
-
-# Categorize files by location
-MARKDOWN_FILES=()
-while IFS= read -r file; do
-    [ -z "$file" ] && continue
-    # Make sure file path is relative to REPO_ROOT
-    if [ ! -f "$REPO_ROOT/$file" ]; then
-        continue
-    fi
-    MARKDOWN_FILES+=("$file")
-done <<< "$ALL_TO_AIDOCS"
-
-# Verbose debug: dump the discovered files to stderr
-if [ "$VERBOSE" -ge 2 ]; then
-    echo "+ DEBUG: MARKDOWN_FILES to move to aidocs/:" >&2
-    for f in "${MARKDOWN_FILES[@]}"; do echo "+   $f" >&2; done
-fi
-
-# Function to extract timestamp from filename
-# Returns date in YYYY-MM-DD format and time in HHMM or HHMMSS format (or empty if not found)
-# Sets global vars: EXTRACTED_DATE, EXTRACTED_TIME
-extract_timestamp_from_filename() {
-    local filename="$1"
-    EXTRACTED_DATE=""
-    EXTRACTED_TIME=""
-
-    # Pattern 0: Our own format - YYYY-MM-DD_HHMMSS or YYYY-MM-DD_HHMM (already formatted)
-    if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{6}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]}"
-        EXTRACTED_TIME="${BASH_REMATCH[2]:0:4}"
-        return 0
-    fi
-    if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{4}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]}"
-        EXTRACTED_TIME="${BASH_REMATCH[2]}"
-        return 0
-    fi
-    
-    # Pattern 0.5: YYYYMMDD_HHMMSS or YYYYMMDD_HHMM (underscore, e.g., 20251115_003000 or 20251115_0030)
-    if [[ "$filename" =~ ([0-9]{8})_([0-9]{6}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"
-        EXTRACTED_TIME="${BASH_REMATCH[2]:0:4}"
-        return 0
-    fi
-    if [[ "$filename" =~ ([0-9]{8})_([0-9]{4}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"
-        EXTRACTED_TIME="${BASH_REMATCH[2]}"
-        return 0
-    fi
-
-    # Pattern 1: YYYYMMDD-HHMMSS (e.g., 20251114-135621)
-    if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
-        EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        return 0
-    fi
-    
-    # Pattern 2: YYYYMMDDHHMMSS (no dash, e.g., 20251114135621)
-    if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
-        EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        return 0
-    fi
-    
-    # Pattern 3: YYYY-MM-DD-HHMMSS or YYYY-MM-DD-HH-MM-SS
-    if [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
-        EXTRACTED_TIME="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        return 0
-    fi
-    
-    # Pattern 4: YYYY-MM-DD (date only)
-    if [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
-        EXTRACTED_TIME="0000"
-        return 0
-    fi
-    
-    # Pattern 5: YYYYMMDD (date only)
-    if [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2}) ]]; then
-        EXTRACTED_DATE="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"
-        EXTRACTED_TIME="0000"
-        return 0
-    fi
-    
-    return 1
-}
-
-# Function to convert filename to CamelCase
-# Also strips common timestamp patterns and extension from the name
-to_camel_case() {
-    local filename="$1"
-    # Remove any extension first
-    local base="${filename%.*}"
-    
-    # If no extension was removed (no dot in filename), use the whole filename
-    if [ "$base" = "$filename" ]; then
-        base="$filename"
-    fi
-    
-    # Strip common timestamp patterns before CamelCase conversion
-    # Pattern 1: YYYY-MM-DD_HHMMSS or YYYY-MM-DD_HHMM or YYYY-MM-DD (at start or anywhere with separator)
-    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{4}-[0-9]{2}-[0-9]{2}(_[0-9]{4,6})?[_-]?//g')
-    # Pattern 2: YYYYMMDD-HHMMSS
-    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}-[0-9]{6}[_-]?//g')
-    # Pattern 3: YYYYMMDDHHMMSS (no dash)
-    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{14}[_-]?//g')
-    # Pattern 4: YYYYMMDD
-    base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}[_-]?//g')
-    
-    # If no underscores/hyphens, check if it needs conversion
-    local result
-    if [[ ! "$base" =~ [_-] ]]; then
-        # Check if it's all uppercase (like SUMMARY) - needs conversion
-        if [[ "$base" =~ ^[A-Z0-9]+$ ]]; then
-            # Convert all caps to CamelCase
-            result=$(echo "$base" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
-        else
-            # Already in good format, just capitalize first letter if needed
-            result="$(echo "${base:0:1}" | tr '[:lower:]' '[:upper:]')${base:1}"
-        fi
-        echo "$result"
-        return
-    fi
-    
-    # Convert to CamelCase:
-    # - Replace underscores and hyphens with spaces
-    # - Capitalize first letter of each word, lowercase the rest
-    # - Remove spaces
-    result=$(echo "$base" | sed -e 's/[_-]/ /g' | \
-        awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | \
-        sed 's/ //g')
-    
-    # Fix common acronyms and special cases (order matters - more specific first)
-    result=$(echo "$result" | sed \
-        -e 's/Alloydb/AlloyDB/g' \
-        -e 's/Isam/ISAM/g' \
-        -e 's/Iqs/IQS/g' \
-        -e 's/Isbn/ISBN/g' \
-        -e 's/Usitem/USItem/g' \
-        -e 's/Gtin/GTIN/g' \
-        -e 's/Upc/UPC/g' \
-        -e 's/Wpid/WPID/g' \
-        -e 's/Dgid/DGID/g' \
-        -e 's/Vgid/VGID/g' \
-        -e 's/\bIds$/IDs/g' \
-        -e 's/\bId$/ID/g' \
-        -e 's/\bId\b/ID/g' \
-        -e 's/^Dr\([A-Z]\)/DR\1/g' \
-        -e 's/Dr\([A-Z]\)/DR\1/g' \
-        -e 's/Us$/US/g' \
-        -e 's/Us\([A-Z]\)/US\1/g' \
-        -e 's/Uk$/UK/g' \
-        -e 's/Uk\([A-Z]\)/UK\1/g' \
-        -e 's/Api/API/g' \
-        -e 's/Url/URL/g' \
-        -e 's/Http/HTTP/g' \
-        -e 's/Pr\([A-Z]\)/PR\1/g' \
-        -e 's/\bGec\b/GEC/g' \
-        -e 's/\bAdr\b/ADR/g' \
-        -e 's/\bDb\b/DB/g' \
-        -e 's/Sql/SQL/g' \
-        -e 's/Json/JSON/g' \
-        -e 's/Xml/XML/g' \
-        -e 's/Ui/UI/g' \
-        -e 's/Vp\b/VP/g' \
-        -e 's/Virtualpack/VirtualPack/g' \
-        -e 's/Hardbundle/HardBundle/g')
-    
-    echo "$result"
-}
-
-# Parse duration string to seconds
-# Supports: 14, 14d (days), 2w (weeks), 3m (months), 1y (years)
-parse_duration_to_seconds() {
-    local duration="$1"
-    local num="${duration%[dwmy]}"  # Extract number
-    local unit="${duration#$num}"    # Extract unit suffix
-    
-    # Default to days if no unit specified
-    if [ -z "$unit" ]; then
-        unit="d"
-    fi
-    
-    local seconds
-    case "$unit" in
-        d) seconds=$((num * 86400)) ;;           # days
-        w) seconds=$((num * 7 * 86400)) ;;       # weeks
-        m) seconds=$((num * 30 * 86400)) ;;      # months (30 days)
-        y) seconds=$((num * 365 * 86400)) ;;     # years (365 days)
-        *) 
-            echo "Invalid duration unit: $unit" >&2
-            return 1
-            ;;
-    esac
-    
-    echo "$seconds"
-}
-
-# Function to collect files to prune (older than threshold)
-# Returns operations in PRUNE_OPERATIONS array
-collect_prune_operations() {
-    local duration="$1"
-    
-    if [ ! -d "$REPO_ROOT/aidocs" ]; then
-        return 0
-    fi
-    
-    # Parse duration to seconds
-    local cutoff_time
-    cutoff_time=$(($(date +%s) - $(parse_duration_to_seconds "$duration")))
-
-    verbose_log 1 "find aidocs -type f -name '*.md' (prune check)"
-    
-    # Find all markdown files in aidocs/
-    local aidocs_files
-    aidocs_files=$(cd "$REPO_ROOT" && find aidocs -type f -name "*.md" 2>/dev/null | sed 's|^./||' | grep -v "^aidocs/README.md$" || true)
-    
-    if [ -z "$aidocs_files" ]; then
-        return 0
-    fi
-    
-    while IFS= read -r filepath; do
-        [ -z "$filepath" ] && continue
-        
-        # Get file modification time
-        local file_mtime
-        file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
-
-        # If file is older than cutoff, mark for deletion
-        if [ "$file_mtime" -lt "$cutoff_time" ]; then
-            PRUNE_OPERATIONS+=("$filepath")
-        fi
-    done <<< "$aidocs_files"
-}
-
-# Helper function to extract date/time and descriptive name from a file
-# Sets global vars: NORM_DATE, NORM_TIME, NORM_DESCRIPTIVE
-# Args: filepath, filename_base, [directory_date]
-extract_normalized_parts() {
-    local filepath="$1"
-    local base="$2"
-    local dir_date="${3:-}"  # Optional: date extracted from directory path
-    
-    # Try to extract timestamp from filename
-    extract_timestamp_from_filename "$base" || true
-    
-    # Determine date part
-    if [ -n "$dir_date" ]; then
-        # Use directory date if provided (for aidocs)
-        NORM_DATE="$dir_date"
-    elif [ -n "$EXTRACTED_DATE" ]; then
-        # Use extracted date from filename
-        NORM_DATE="$EXTRACTED_DATE"
-    else
-        # Fall back to file mtime
-        local file_mtime
-        file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
-        NORM_DATE=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
-    fi
-    
-    # Determine time part
-    if [ -n "$EXTRACTED_TIME" ] && [ "$EXTRACTED_TIME" != "0000" ]; then
-        NORM_TIME="$EXTRACTED_TIME"
-    else
-        # Use file mtime for time portion
-        local file_mtime
-        file_mtime=$(stat -f "%m" "$REPO_ROOT/$filepath" 2>/dev/null || echo 0)
-        NORM_TIME=$(date -r "$file_mtime" '+%H%M' 2>/dev/null || echo "0000")
-    fi
-    
-    # Extract descriptive part (remove timestamp patterns)
-    NORM_DESCRIPTIVE="$base"
-    NORM_DESCRIPTIVE=$(echo "$NORM_DESCRIPTIVE" | sed -E 's/^([0-9]{8}|[0-9]{4}-[0-9]{2}-[0-9]{2})[_-]?[0-9]{4,6}_//')
-    NORM_DESCRIPTIVE=$(echo "$NORM_DESCRIPTIVE" | sed -E 's/^[0-9]{4}_//')
-}
-
-# Function to collect files in normalize directories
-# Returns operations in NORMALIZE_OPERATIONS array
-collect_normalize_operations() {
-    for dir in "${NORMALIZE_DIRS[@]}"; do
-        if [ ! -d "$REPO_ROOT/$dir" ]; then
-            if [ "$VERBOSE" -ge 2 ]; then
-                echo "+ DEBUG: Directory not found: $dir" >&2
-            fi
-            continue
-        fi
-        
-        verbose_log 1 "find $dir -type f (normalize)"
-        
-        # Find all files in the directory
-        local files
-        files=$(cd "$REPO_ROOT" && find "$dir" -type f 2>/dev/null | sed 's|^./||' || true)
-        
-        if [ -z "$files" ]; then
-            continue
-        fi
-
-        while IFS= read -r filepath; do
-            [ -z "$filepath" ] && continue
-            
-            local dirname
-            dirname=$(dirname "$filepath")
-            local filename
-            filename=$(basename "$filepath")
-            local base="${filename%.*}"
-            local extension="${filename##*.}"
-            
-            # Handle files without extensions
-            if [ "$extension" = "$filename" ]; then
-                extension=""
-            fi
-            
-            # Extract normalized parts
-            extract_normalized_parts "$filepath" "$base" ""
-            
-            # Convert to CamelCase
-            local camel_case_name
-            camel_case_name=$(to_camel_case "$NORM_DESCRIPTIVE.txt")
-            camel_case_name="${camel_case_name%.txt}"
-            
-            # Build new filename
-            local new_filename
-            if [ -n "$extension" ]; then
-                new_filename="${NORM_DATE}_${NORM_TIME}_${camel_case_name}.${extension}"
-            else
-                new_filename="${NORM_DATE}_${NORM_TIME}_${camel_case_name}"
-            fi
-            
-            local new_path="${dirname}/${new_filename}"
-            
-            # Check if already compliant
-            local is_compliant=0
-            if [[ "$filename" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4,6}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$ ]]; then
-                is_compliant=1
-            fi
-            
-            # Only add if the name actually changes
-            if [ $is_compliant -eq 0 ] && [ "$filepath" != "$new_path" ]; then
-                NORMALIZE_OPERATIONS+=("$filepath|$new_path")
-            fi
-        done <<< "$files"
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -y|--yes)
+                autoConfirm=1; shift ;;
+            -r|--recursive)
+                depth=-1; shift ;;
+            --depth)
+                if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
+                    depth="$2"; shift 2
+                else
+                    echo "Error: --depth requires a non-negative integer" >&2; exit 1
+                fi ;;
+            --normalize)
+                if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                    normalizeDirs+=("$2"); normalizeExplicit=1; shift 2
+                else
+                    echo "Error: --normalize requires a directory argument" >&2; exit 1
+                fi ;;
+            --prune)
+                if [[ -n "$2" && "$2" =~ ^[0-9]+[dwmy]?$ ]]; then
+                    pruneDuration="$2"; shift 2
+                else
+                    echo "Error: --prune requires a duration (e.g., 14d, 2w, 3m, 1y)" >&2; exit 1
+                fi ;;
+            -v*)
+                local opt="$1"
+                verbose=$(echo "$opt" | tr -cd 'v' | wc -c | tr -d ' ')
+                if [ "$verbose" -ge 3 ]; then traceMode=1; verbose=2; fi
+                shift ;;
+            --verbose)
+                verbose=1; shift ;;
+            -x)
+                traceMode=1; shift ;;
+            -n|--dry-run)
+                dryRun=1; shift ;;
+            *)
+                echo "Unknown option: $1" >&2
+                echo "Usage: mdar [-y|--yes] [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION] [-v|-vv|-vvv] [-x] [-n|--dry-run]" >&2
+                exit 1 ;;
+        esac
     done
-}
 
-# Function to collect non-compliant filenames in aidocs/ (doesn't prompt or execute)
-# Returns operations in the AIDOCS_OPERATIONS array
-collect_aidocs_operations() {
-    cd "$REPO_ROOT"
+    [ "$traceMode" -eq 1 ] && set -x
 
-    # If aidocs doesn't exist, nothing to do
-    if [ ! -d "$REPO_ROOT/aidocs" ]; then
-        return 0
+    # Check if in git repo
+    if git rev-parse --git-dir > /dev/null 2>&1; then
+        inGitRepo=1
+        repoRoot=$(git rev-parse --show-toplevel)
+    else
+        repoRoot=$(pwd)
+    fi
+    cd "$repoRoot"
+
+    # Helper to print verbose commands to stderr
+    verboseLog() {
+        local level="$1"; shift
+        if [ "$verbose" -ge "$level" ]; then
+            echo "+ $*" >&2
+        fi
+    }
+
+    # Normalize paths: ensure entries are relative to repoRoot and not prefixed with './'
+    normalizePaths() {
+        local in="$1"
+        echo "$in" | sed -e 's|^\./||' -e 's|^$||' | grep -v '^$' || true
+    }
+
+    # Find untracked markdown files based on depth setting
+    findUntrackedMarkdown() {
+        local repoRoot="$1"
+        local depth="$2"
+        local inGitRepo="$3"
+        local files=""
+        if [ "$inGitRepo" -eq 1 ]; then
+            local statusFiles lsFiles
+            statusFiles=$(git --no-pager -C "$repoRoot" status --porcelain | grep '^?? ' | sed 's/^?? //' || true)
+            lsFiles=$(git --no-pager -C "$repoRoot" ls-files --others --exclude-standard || true)
+            files=$(printf "%s\n%s\n" "$statusFiles" "$lsFiles" | sort | uniq | grep -v '^$' | grep '\.md$' | grep -v '^aidocs/')
+            if [ "$depth" -ge 0 ]; then
+                files=$(echo "$files" | awk -F'/' -v depth="$depth" 'NF <= depth + 1')
+            fi
+        else
+            if [ "$depth" -eq -1 ]; then
+                files=$(cd "$repoRoot" && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/')
+            else
+                files=$(cd "$repoRoot" && find . -maxdepth $((depth + 1)) -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/')
+            fi
+        fi
+        echo "$files"
+    }
+
+    # Extract timestamp from filename
+    extractTimestamp() {
+        local filename="$1"
+        local date="" time=""
+        if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{6}) ]]; then
+            date="${BASH_REMATCH[1]}"; time="${BASH_REMATCH[2]:0:4}"
+        elif [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{4}) ]]; then
+            date="${BASH_REMATCH[1]}"; time="${BASH_REMATCH[2]}"
+        elif [[ "$filename" =~ ([0-9]{8})_([0-9]{6}) ]]; then
+            date="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"; time="${BASH_REMATCH[2]:0:4}"
+        elif [[ "$filename" =~ ([0-9]{8})_([0-9]{4}) ]]; then
+            date="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"; time="${BASH_REMATCH[2]}"
+        elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+            date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+            date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+            date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
+        elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2}) ]]; then
+            date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="0000"
+        elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2}) ]]; then
+            date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="0000"
+        fi
+        echo "$date|$time"
+    }
+
+    # Convert filename to CamelCase, stripping timestamps
+    toCamelCase() {
+        local filename="$1"
+        local base="${filename%.*}"
+        base=$(echo "$base" | sed -E 's/[_-]?[0-9]{4}-[0-9]{2}-[0-9]{2}(_[0-9]{4,6})?[_-]?//g')
+        base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}-[0-9]{6}[_-]?//g')
+        base=$(echo "$base" | sed -E 's/[_-]?[0-9]{14}[_-]?//g')
+        base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}[_-]?//g')
+        if [[ ! "$base" =~ [_-] ]]; then
+            if [[ "$base" =~ ^[A-Z0-9]+$ ]]; then
+                echo "$(echo "$base" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')"
+            else
+                echo "$(echo "${base:0:1}" | tr '[:lower:]' '[:upper:]')${base:1}"
+            fi
+            return
+        fi
+        echo "$base" | sed -e 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | sed 's/ //g'
+    }
+
+    # Parse duration string to seconds
+    parseDurationToSeconds() {
+        local duration="$1"
+        local num="${duration%[dwmy]}"
+        local unit="${duration#$num}"
+        [ -z "$unit" ] && unit="d"
+        case "$unit" in
+            d) echo $((num * 86400)) ;;
+            w) echo $((num * 7 * 86400)) ;;
+            m) echo $((num * 30 * 86400)) ;;
+            y) echo $((num * 365 * 86400)) ;;
+            *) echo "Invalid duration unit: $unit" >&2; return 1 ;;
+        esac
+    }
+
+    # Collect files to prune
+    collectPruneOps() {
+        local repoRoot="$1" duration="$2"
+        local cutoffTime
+        cutoffTime=$(($(date +%s) - $(parseDurationToSeconds "$duration")))
+        local files
+        files=$(cd "$repoRoot" && find aidocs -type f -name "*.md" 2>/dev/null | sed 's|^./||' | grep -v "^aidocs/README.md$")
+        local pruneOps=()
+        for f in $files; do
+            local mtime
+            mtime=$(stat -f "%m" "$repoRoot/$f" 2>/dev/null || echo 0)
+            [ "$mtime" -lt "$cutoffTime" ] && pruneOps+=("$f")
+        done
+        echo "${pruneOps[@]}"
+    }
+
+    # Collect files to normalize in specified directories
+    collectNormalizeOps() {
+        local repoRoot="$1"
+        local dirs=("${@:2}")
+        local normalizeOps=()
+        for dir in "${dirs[@]}"; do
+            [ ! -d "$repoRoot/$dir" ] && continue
+            local files
+            files=$(cd "$repoRoot" && find "$dir" -type f 2>/dev/null | sed 's|^./||' || true)
+            for filepath in $files; do
+                [ -z "$filepath" ] && continue
+                local dirname filename base extension
+                dirname=$(dirname "$filepath")
+                filename=$(basename "$filepath")
+                base="${filename%.*}"
+                extension="${filename##*.}"
+                [ "$extension" = "$filename" ] && extension=""
+                # Extract timestamp
+                local ts date time
+                ts=$(extractTimestamp "$base")
+                date="${ts%%|*}"; time="${ts##*|}"
+                [ -z "$date" ] && date=$(date -r $(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0) '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+                [ -z "$time" ] && time=$(date -r $(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0) '+%H%M' 2>/dev/null || echo "0000")
+                local camelCaseName
+                camelCaseName=$(toCamelCase "$base")
+                local newFilename newPath
+                if [ -n "$extension" ]; then
+                    newFilename="${date}_${time}_${camelCaseName}.${extension}"
+                else
+                    newFilename="${date}_${time}_${camelCaseName}"
+                fi
+                newPath="${dirname}/${newFilename}"
+                # Compliance: filename matches normalized pattern (yyyy-mm-dd_hhmm_CamelCase.ext)
+                local compliantPattern='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
+                if [[ ! "$filename" =~ $compliantPattern ]] && [ "$filepath" != "$newPath" ]; then
+                    normalizeOps+=("$filepath|$newPath")
+                fi
+            done
+        done
+        echo "${normalizeOps[@]}"
+    }
+
+    # Main logic
+    local markdownFiles
+    markdownFiles=$(findUntrackedMarkdown "$repoRoot" "$depth" "$inGitRepo")
+    markdownFiles=$(normalizePaths "$markdownFiles")
+    local untrackedOps=()
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        local base
+        base=$(basename "$file")
+        local ts
+        ts=$(extractTimestamp "$base")
+        local date="${ts%%|*}" time="${ts##*|}"
+        if [ -z "$date" ]; then
+            local btime mtime
+            btime=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
+            mtime=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+            date=$(date -r "${btime:-$mtime}" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+            time=$(date -r "${btime:-$mtime}" '+%H%M' 2>/dev/null || echo "0000")
+        fi
+        local camel
+        camel=$(toCamelCase "$base")
+        local dest="aidocs/$date/${time}_${camel}.md"
+        untrackedOps+=("$file|$dest")
+    done <<< "$markdownFiles"
+
+    local normalizeOps=()
+    if [ "$normalizeExplicit" -eq 1 ] && [ ${#normalizeDirs[@]} -gt 0 ]; then
+        normalizeOps=($(collectNormalizeOps "$repoRoot" "${normalizeDirs[@]}"))
     fi
 
-    verbose_log 1 "find aidocs -type f -name '*.md' (validation)"
-    local aidocs_files
-    aidocs_files=$(cd "$REPO_ROOT" && find aidocs -type f -name "*.md" 2>/dev/null | sed 's|^./||' | grep -v "^aidocs/README.md$" | sort || true)
+    local pruneOps=()
+    [ -n "$pruneDuration" ] && pruneOps=($(collectPruneOps "$repoRoot" "$pruneDuration"))
 
-    if [ -z "$aidocs_files" ]; then
-        return 0
+    local totalOps=$(( ${#untrackedOps[@]} + ${#normalizeOps[@]} + ${#pruneOps[@]} ))
+    [ "$totalOps" -eq 0 ] && echo "Executed 0 of 0 proposed operations" >&2 && exit 0
+
+    local maxLen=0
+    for op in "${untrackedOps[@]}" "${normalizeOps[@]}"; do
+        local src="${op%%|*}"
+        [ ${#src} -gt $maxLen ] && maxLen=${#src}
+    done
+    for file in "${pruneOps[@]}"; do
+        [ ${#file} -gt $maxLen ] && maxLen=${#file}
+    done
+
+    # Display normalization operations first if present
+    if [ ${#normalizeOps[@]} -gt 0 ]; then
+        for op in "${normalizeOps[@]}"; do
+            local src="${op%%|*}" dst="${op##*|}"
+            printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
+        done
+    fi
+    for op in "${untrackedOps[@]}"; do
+        local src="${op%%|*}" dst="${op##*|}"
+        printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
+    done
+    for file in "${pruneOps[@]}"; do
+        printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
+    done
+
+    [ "$dryRun" -eq 1 ] && echo "Executed 0 of $totalOps proposed operations" >&2 && exit 0
+
+    if [ "$autoConfirm" -eq 0 ]; then
+        read -p "Proceed with these operations? [y/N] " -n 1 -r
+        echo
+        [[ ! $REPLY =~ ^[Yy]$ ]] && echo "Cancelled." >&2 && echo "Executed 0 of $totalOps proposed operations" >&2 && exit 0
     fi
 
-    while IFS= read -r filepath; do
-        local dirname
-        dirname=$(dirname "$filepath")
-        local filename
-        filename=$(basename "$filepath")
-        local base="${filename%.md}"
-        
-        # Check if filename already matches the compliant pattern: HHMM_CamelCase
-        local is_filename_compliant=0
-        if [[ "$base" =~ ^[0-9]{4}_[A-Z][A-Za-z0-9]*$ ]]; then
-            is_filename_compliant=1
-        fi
-        
-        # Extract date from directory path (aidocs/YYYY-MM-DD/)
-        local dir_date=""
-        if [[ "$dirname" =~ aidocs/([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
-            dir_date="${BASH_REMATCH[1]}"
-        fi
-        
-        # If filename is compliant and in correct directory structure, skip it
-        if [ $is_filename_compliant -eq 1 ] && [ -n "$dir_date" ]; then
-            # File is already in correct format: aidocs/YYYY-MM-DD/HHMM_CamelCase.md
+    local executedOps=0
+    for op in "${normalizeOps[@]}"; do
+        local src="${op%%|*}" dst="${op##*|}"
+        local destDir
+        destDir=$(dirname "$dst")
+        mkdir -p "$destDir"
+        if [ -f "$dst" ]; then
+            printf "  ⚠ %-${maxLen}s  (destination exists)\n" "$src"
             continue
         fi
-        
-        # Determine descriptive part and time (special handling for already-compliant filenames)
-        local descriptive_part
-        local time_part
-        
-        if [ $is_filename_compliant -eq 1 ]; then
-            # Already HHMM_CamelCase, extract parts directly
-            time_part="${base:0:4}"
-            descriptive_part="${base#*_}"
+        if mv "$src" "$dst"; then
+            executedOps=$((executedOps+1))
+            printf "  ✓ %-${maxLen}s  →  %s\n" "$src" "$dst"
         else
-            # Extract normalized parts using helper (pass dir_date if available)
-            extract_normalized_parts "$filepath" "$base" "$dir_date"
-            time_part="$NORM_TIME"
-            
-            # Convert to CamelCase
-            descriptive_part=$(to_camel_case "$NORM_DESCRIPTIVE.md")
-            descriptive_part="${descriptive_part%.md}"
+            printf "  ⚠ %-${maxLen}s  (failed to move)\n" "$src" >&2
         fi
-        
-        # Build new path (use NORM_DATE or dir_date)
-        local date_part="${NORM_DATE:-$dir_date}"
-        if [ -z "$date_part" ]; then
-            # Fallback if somehow no date was determined
-            local file_mtime
-            file_mtime=$(stat -f "%m" "$filepath" 2>/dev/null || echo 0)
-            date_part=$(date -r "$file_mtime" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+    done
+    for op in "${untrackedOps[@]}"; do
+        local src="${op%%|*}" dst="${op##*|}"
+        local destDir
+        destDir=$(dirname "$dst")
+        mkdir -p "$destDir"
+        if [ -f "$dst" ]; then
+            printf "  ⚠ %-${maxLen}s  (destination exists)\n" "$src"
+            continue
         fi
-        
-        local new_path="aidocs/${date_part}/${time_part}_${descriptive_part}.md"
-
-        # Only add if the path actually changes
-        if [ "$filepath" != "$new_path" ]; then
-            AIDOCS_OPERATIONS+=("$filepath|$new_path")
+        if mv "$src" "$dst"; then
+            executedOps=$((executedOps+1))
+            printf "  ✓ %-${maxLen}s  →  %s\n" "$src" "$dst"
+        else
+            printf "  ⚠ %-${maxLen}s  (failed to move)\n" "$src" >&2
         fi
-    done <<< "$aidocs_files"
+    done
+    for file in "${pruneOps[@]}"; do
+        if [ -f "$file" ] && rm "$file"; then
+            executedOps=$((executedOps+1))
+            printf "  ✓ %-${maxLen}s  →  [DELETED]\n" "$file"
+        else
+            printf "  ⚠ %-${maxLen}s  (failed to delete)\n" "$file" >&2
+        fi
+    done
+    echo "Executed $executedOps of $totalOps proposed operations" >&2
 }
 
-
-# Collect all operations into a single list
-cd "$REPO_ROOT"
-
-# Arrays to hold operations
-declare -a AIDOCS_OPERATIONS    # Existing aidocs/ files to normalize: file|destination
-declare -a UNTRACKED_OPERATIONS # Untracked files to move to aidocs/: file|destination
-declare -a NORMALIZE_OPERATIONS # Files in normalize dirs to rename in place: file|destination
-declare -a PRUNE_OPERATIONS     # Old aidocs/ files to delete: file
-
-# First: Collect aidocs normalization operations (when depth >= 2 or unlimited)
-if [ "$DEPTH" -ge 2 ] || [ "$DEPTH" -eq -1 ]; then
-    collect_aidocs_operations
-fi
-
-# Set default normalize directories if user didn't specify any
-if [ $NORMALIZE_EXPLICIT -eq 0 ]; then
-    NORMALIZE_DIRS=("test-results")
-fi
-
-# Collect normalize directory operations
-if [ ${#NORMALIZE_DIRS[@]} -gt 0 ]; then
-    collect_normalize_operations
-fi
-
-# Collect prune operations
-if [ -n "$PRUNE_DURATION" ]; then
-    collect_prune_operations "$PRUNE_DURATION"
-fi
-
-# Second: Collect untracked markdown files to move
-for file in "${MARKDOWN_FILES[@]}"; do
-    BASENAME=$(basename "$file")
-
-    # Try to extract timestamp from filename
-    extract_timestamp_from_filename "$BASENAME" || true
-
-    if [ -n "$EXTRACTED_DATE" ]; then
-        DATETIME="$EXTRACTED_DATE"
-        HHMM="$EXTRACTED_TIME"
-    else
-        # Fall back to file mtime (prefer birth time, fallback to mod time)
-        BIRTH_TIME=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
-        MOD_TIME=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
-        
-        BIRTH_DATE=$(date -r "$BIRTH_TIME" '+%Y-%m-%d' 2>/dev/null || echo "")
-        MOD_DATE=$(date -r "$MOD_TIME" '+%Y-%m-%d' 2>/dev/null || echo "")
-        
-        # Use modtime if it's a different date than birthtime
-        if [ "$BIRTH_DATE" != "$MOD_DATE" ] && [ -n "$MOD_DATE" ]; then
-            USE_TIME="$MOD_TIME"
-        else
-            USE_TIME="$BIRTH_TIME"
-        fi
-        
-        DATETIME=$(date -r "$USE_TIME" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
-        HHMM=$(date -r "$USE_TIME" '+%H%M' 2>/dev/null || echo "0000")
-    fi
-    
-    # Convert to CamelCase (strips timestamps from the name)
-    CAMEL=$(to_camel_case "$BASENAME")
-    DEST="aidocs/$DATETIME/${HHMM}_${CAMEL}.md"
-    
-    UNTRACKED_OPERATIONS+=("$file|$DEST")
-done
-
-# Check if we have any operations to perform
-TOTAL_OPS=$((${#AIDOCS_OPERATIONS[@]} + ${#UNTRACKED_OPERATIONS[@]} + ${#NORMALIZE_OPERATIONS[@]} + ${#PRUNE_OPERATIONS[@]}))
-PROPOSED_OPS=$TOTAL_OPS
-# Start executed counter at 0
-EXECUTED_OPS=0
-
-# If nothing to do, exit quietly
-if [ $TOTAL_OPS -eq 0 ]; then
-    echo "Executed 0 of 0 proposed operations" >&2
-    exit 0
-fi
-
-# Display all proposed operations with aligned arrows, sorted by destination
-# First pass: collect all operations and calculate maximum source filename length
-declare -a ALL_DISPLAY_OPS
-MAX_LEN=0
-
-for op in "${AIDOCS_OPERATIONS[@]}" "${UNTRACKED_OPERATIONS[@]}" "${NORMALIZE_OPERATIONS[@]}"; do
-    SRC="${op%%|*}"
-    DST="${op##*|}"
-    LEN=${#SRC}
-    if [ $LEN -gt $MAX_LEN ]; then
-        MAX_LEN=$LEN
-    fi
-    # Store as "DST|SRC|DST" for sorting by destination
-    ALL_DISPLAY_OPS+=("$DST|$SRC|$DST")
-done
-
-for file in "${PRUNE_OPERATIONS[@]}"; do
-    LEN=${#file}
-    if [ $LEN -gt $MAX_LEN ]; then
-        MAX_LEN=$LEN
-    fi
-    # For deletions, sort by the file path itself
-    ALL_DISPLAY_OPS+=("$file|$file|[DELETE]")
-done
-
-# Sort by destination (first field) and display
-tmp_sorted_ops=$(mktemp)
-printf '%s\n' "${ALL_DISPLAY_OPS[@]}" | sort > "$tmp_sorted_ops"
-while IFS= read -r op; do
-    # Each op is stored as DST|SRC|DST_OR_DELETE
-    REMAINDER="${op#*|}"
-    SRC="${REMAINDER%%|*}"
-    DST="${REMAINDER#*|}"
-    printf "  %-${MAX_LEN}s  →  %s\n" "$SRC" "$DST"
-done < "$tmp_sorted_ops"
-rm -f "$tmp_sorted_ops"
-
-# If dry-run mode, exit here without prompting or executing
-if [ $DRY_RUN -eq 1 ]; then
-    echo "Executed 0 of $PROPOSED_OPS proposed operations" >&2
-    exit 0
-fi
-
-# Ask for confirmation unless -y flag (single prompt for all operations)
-if [ $AUTO_CONFIRM -eq 0 ]; then
-    read -p "Proceed with these operations? [y/N] " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Cancelled." >&2
-        echo "Executed $EXECUTED_OPS of $PROPOSED_OPS proposed operations" >&2
-        exit 0
-    fi
-fi
-
-# Execute all operations
-
-# Execute moves/renames (aidocs, untracked, normalize)
-for op in "${AIDOCS_OPERATIONS[@]}" "${UNTRACKED_OPERATIONS[@]}" "${NORMALIZE_OPERATIONS[@]}"; do
-    SRC="${op%%|*}"
-    DST="${op##*|}"
-
-    # Create destination directory
-    DEST_DIR=$(dirname "$DST")
-    verbose_log 1 "mkdir -p $DEST_DIR"
-    mkdir -p "$DEST_DIR"
-
-    # Check if destination already exists
-    if [ -f "$REPO_ROOT/$DST" ]; then
-        printf "  ⚠ %-${MAX_LEN}s  (destination exists)\n" "$SRC"
-        continue
-    fi
-
-    # Move/rename file
-    verbose_log 1 "mv $REPO_ROOT/$SRC $REPO_ROOT/$DST"
-    if mv "$REPO_ROOT/$SRC" "$REPO_ROOT/$DST"; then
-        EXECUTED_OPS=$((EXECUTED_OPS+1))
-        printf "  ✓ %-${MAX_LEN}s  →  %s\n" "$SRC" "$DST"
-    else
-        printf "  ⚠ %-${MAX_LEN}s  (failed to move)\n" "$SRC" >&2
-    fi
-done
-
-# Execute deletions (prune)
-for file in "${PRUNE_OPERATIONS[@]}"; do
-    if [ -f "$REPO_ROOT/$file" ]; then
-        verbose_log 1 "rm $REPO_ROOT/$file"
-        if rm "$REPO_ROOT/$file"; then
-            EXECUTED_OPS=$((EXECUTED_OPS+1))
-            printf "  ✓ %-${MAX_LEN}s  →  %s\n" "$file" "[DELETED]"
-        else
-            printf "  ⚠ %-${MAX_LEN}s  (failed to delete)\n" "$file" >&2
-        fi
-    else
-        printf "  ⚠ %-${MAX_LEN}s  (file not found)\n" "$file" >&2
-    fi
-done
-
-# Final summary to stderr
-echo "Executed $EXECUTED_OPS of $PROPOSED_OPS proposed operations" >&2
-exit 0
+main "$@"
