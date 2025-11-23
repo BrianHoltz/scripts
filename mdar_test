@@ -115,8 +115,7 @@ test_case() {
 TESTDIR=""
 
 extract_usageMsg() {
-  local script="$HOME/bin/mdar"
-  awk '/^usageMsg="\\/{flag=1; next} /^"$/ {flag=0} flag {print substr($0,2)}' "$script"
+  "$HOME/bin/mdar" -H
 }
 
 # Main test suite
@@ -177,9 +176,8 @@ run_tests() {
   usage_raw_file=$(mktemp /tmp/mdar_usage_raw.XXXXXX)
   usage_help_file=$(mktemp /tmp/mdar_usage_help.XXXXXX)
   usage_diff_file=$(mktemp /tmp/mdar_usage_diff.XXXXXX)
-  echo "NAME" > "$usage_raw_file"
-  extract_usageMsg >> "$usage_raw_file"
-  bash "$HOME/bin/mdar" --help > "$usage_help_file"
+  extract_usageMsg > "$usage_raw_file"
+  "$HOME/bin/mdar" --help | perl -pe 's/\e\[[\d;]*[A-Za-z]//g' > "$usage_help_file"
   diff -u "$usage_raw_file" "$usage_help_file" > "$usage_diff_file"
   if [ -s "$usage_diff_file" ]; then
     color_fail "mdar usageMsg matches --help output"

@@ -9,9 +9,9 @@ SYNOPSIS
          [-v|-vv|-vvv] [-x] [-n|--dry-run]
 
 DESCRIPTION
-    Archive untracked markdown files into a dated directory structure with
-    normalized filenames. By default, files are moved to aidocs/YYYY-MM-DD/
-    with HHMM_CamelCase.md naming convention.
+    Archive untracked markdown files into dated folders, by default named
+    aidocs/YYYY-MM-DD/HHMM_CamelCasedVersionOfOriginalName.md.
+    This cleans up AI-generated docs, sorting them nicely in IDE folder viewers.
 
 OPTIONS
     --archive-dir DIR
@@ -65,6 +65,9 @@ main() {
     local noTimestamp=0
     local noCamelCase=0
 
+    # Print to terminal a colorized version of the usage message.
+    # AI agents must keep this function in sync with usageMsg above
+    # by changing this function whenever usageMsg is changed.
     showUsage() {
         # Functional color variables
         local CMD_COLOR=$'\033[1;94m'         # Command name
@@ -77,41 +80,17 @@ main() {
         local UNDERLINE=$'\033[4m'
 
         printf "%b%bNAME%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/HHMM_CamelCase.md\n\n"
+        printf "    %bmdar%b - Archive untracked markdown files as aidocs/YYYY-MM-DD/HHMM_CamelCase.md\n\n" "$CMD_COLOR" "$RESET"
 
         printf "%b%bSYNOPSIS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    [%bmdar%b] [" "$CMD_COLOR" "$RESET"
-        printf "%b--archive-dir%b %bDIR%b" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "] ["
-        printf "%b--no-timestamp%b" "$OPTION_COLOR" "$RESET"
-        printf "] ["
-        printf "%b--no-camelcase%b" "$OPTION_COLOR" "$RESET"
-        printf "] ["
-        printf "%b-y%b|%b--yes%b" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "]\n"
-        printf "         ["
-        printf "%b-r%b|%b--recursive%b" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "] ["
-        printf "%b--depth%b %bN%b" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "] ["
-        printf "%b--normalize%b %bDIR%b" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "] ["
-        printf "%b--prune%b %bDURATION%b" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "] ["
-        printf "%b-v%b|%b-vv%b|%b-vvv%b" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "] ["
-        printf "%b-x%b" "$OPTION_COLOR" "$RESET"
-        printf "] ["
-        printf "%b-n%b|%b--dry-run%b" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "]\n\n"
-
-        # DESCRIPTION section (restore color)
+        printf "    %bmdar%b [%b--archive-dir%b %bDIR%b] [%b--no-timestamp%b] [%b--no-camelcase%b] [%b-y%b|%b--yes%b]\n" "$CMD_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "         [%b-r%b|%b--recursive%b] [%b--depth%b %bN%b] [%b--normalize%b %bDIR%b] [%b--prune%b %bDURATION%b]\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
+        printf "         [%b-v%b|%b-vv%b|%b-vvv%b] [%b-x%b] [%b-n%b|%b--dry-run%b]\n\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "%b%bDESCRIPTION%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    Archive untracked markdown files into a dated directory structure with\n"
-        printf "    normalized filenames. By default, files are moved to aidocs/YYYY-MM-DD/\n"
-        printf "    with HHMM_CamelCase.md naming convention.\n\n"
+        printf "    Archive untracked markdown files into dated folders, by default named\n"
+        printf "    aidocs/YYYY-MM-DD/HHMM_CamelCasedVersionOfOriginalName.md.\n"
+        printf "    This cleans up AI-generated docs, sorting them nicely in IDE folder viewers.\n\n"
 
-        # OPTIONS section (restore color/bold/underline in header and color in flags/args/defaults)
         printf "%b%bOPTIONS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
         printf "    %b--archive-dir%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
         printf "        Archive directory (default: %baidocs%b)\n\n" "$DEFAULT_COLOR" "$RESET"
@@ -119,22 +98,22 @@ main() {
         printf "        Do not add HHMM time prefix to archived filenames\n\n"
         printf "    %b--no-camelcase%b\n" "$OPTION_COLOR" "$RESET"
         printf "        Do not convert filenames to CamelCase\n\n"
-        printf "    %b-n, --dry-run%b\n" "$OPTION_COLOR" "$RESET"
+        printf "    %b-n%b, %b--dry-run%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "        Show proposed operations and exit (no prompt, no changes)\n\n"
-        printf "    %b-y, --yes%b\n" "$OPTION_COLOR" "$RESET"
+        printf "    %b-y%b, %b--yes%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "        Skip confirmation prompt and execute immediately\n\n"
-        printf "    %b-v, -vv, -vvv%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        %b-v%b=search/change files, %b-vv%b=+debug info, %b-vvv%b=+shell tracing\n\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "    %b-v%b, %b-vv%b, %b-vvv%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "        Verbosity: %b-v%b=search/change files, %b-vv%b=+debug info, %b-vvv%b=+shell tracing\n\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "    %b-x%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Enable shell tracing (%b\`set -x\`%b)\n\n" "$EMPHASIS_COLOR" "$RESET"
-        printf "    %b-r, --recursive%b\n" "$OPTION_COLOR" "$RESET"
+        printf "        Enable shell tracing (%bset -x%b)\n\n" "$EMPHASIS_COLOR" "$RESET"
+        printf "    %b-r%b, %b--recursive%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "        Search all subdirectories recursively (unlimited depth)\n\n"
         printf "    %b--depth%b %bN%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
         printf "        Directory depth to search (0=root only, default: %b2%b)\n\n" "$DEFAULT_COLOR" "$RESET"
         printf "    %b--normalize%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
         printf "        Normalize files in DIR in-place (can be repeated, default: %btest-results%b)\n\n" "$DEFAULT_COLOR" "$RESET"
         printf "    %b--prune%b %bDURATION%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "        Delete target files older than DURATION (%be.g. 14d, 2w, 3m, 1y%b)\n" "$ARGVAL_COLOR" "$RESET"
+        printf "        Delete target files older than %bDURATION%b (e.g., %b14d%b, %b2w%b, %b3m%b, %b1y%b)\n" "$ARGVAL_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
     }
 
     # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
@@ -164,6 +143,8 @@ main() {
                 set -x; shift ;;
             -h|--help)
                 showUsage; exit 0 ;;
+            -H|--raw-help)
+                printf "%s" "$usageMsg"; exit 0 ;;
             --)
                 shift; break ;;
             -*)
