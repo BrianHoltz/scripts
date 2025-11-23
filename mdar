@@ -15,40 +15,35 @@ DESCRIPTION
 
 OPTIONS
     --archive-dir DIR
-        Archive directory (default: aidocs)
-
+        Archive directory (default: aidocs/)
     --no-timestamp
         Do not add HHMM time prefix to archived filenames
-
     --no-camelcase
         Do not convert filenames to CamelCase
-
     -n, --dry-run
         Show proposed operations and exit (no prompt, no changes)
-
     -y, --yes
-        Skip confirmation prompt and execute immediately
-
+        Skip confirmation prompt, execute filesystem operations immediately
     -v, -vv, -vvv
         Verbosity: -v=search/change files, -vv=+debug info, -vvv=+shell tracing
-
     -x
         Enable shell tracing (set -x)
-
     -r, --recursive
-        Search all subdirectories recursively (unlimited depth)
-
+        Search all subdirectories recursively (depth=∞)
     --depth N
         Directory depth to search (0=root only, default: 2)
-
     --normalize DIR
-        Normalize files in DIR in-place (can be repeated, default: test-results)
-
-    --prune DURATION
-        Delete target files older than DURATION (e.g., 14d, 2w, 3m, 1y)
+        Normalize in-place in DIR (default: test-results/, can be repeated)
+    --prune N[mhdwMy]
+        Delete target files older than e.g., 30d, 4w, 1M
 "
+
 # usageMsg is intentionally placed at the very top for human readers and future agents.
-# Do not move it inside functions.
+# It must start on the second line of the script, right below the shebang.
+# usageMsg formatting and content ALWAYS trumps showUsage. If you change usageMsg,
+# you MUST update showUsage to match it EXACTLY, including newlines and spacing.
+# Agents must not update usageMsg without explicit instructions to do so.
+
 set -e # Exit on error
 
 main() {
@@ -66,54 +61,57 @@ main() {
     local noCamelCase=0
 
     # Print to terminal a colorized version of the usage message.
-    # AI agents must keep this function in sync with usageMsg above
-    # by changing this function whenever usageMsg is changed.
+    # IMPORTANT: usageMsg formatting ALWAYS trumps showUsage. If you change usageMsg, you MUST update showUsage to match it EXACTLY, including newlines and spacing. Do NOT change showUsage formatting independently.
     showUsage() {
-        # Functional color variables
-        local CMD_COLOR=$'\033[1;94m'         # Command name
-        local OPTION_COLOR=$'\033[1;92m'      # Option flag
-        local ARGVAL_COLOR=$'\033[1;38;5;208m'   # Option argument value
-        local DEFAULT_COLOR=$'\033[1;95m'     # Default value
-        local EMPHASIS_COLOR=$'\033[1;94m'    # Emphasis (e.g., set -x)
+        local CMD_COLOR=$'\033[1;94m'
+        local OPTION_COLOR=$'\033[1;92m'
+        local ARGVAL_COLOR=$'\033[1;38;5;208m'
+        local DEFAULT_COLOR=$'\033[1;95m'
+        local EMPHASIS_COLOR=$'\033[1;94m'
         local RESET=$'\033[0m'
         local BOLD=$'\033[1m'
         local UNDERLINE=$'\033[4m'
+        local FS_COLOR=$'\033[1;94m' # Blue for filesystem entities
+        local MAGENTA_COLOR=$'\033[1;95m' # Magenta for argument values only
+        local YES_COLOR=$'\033[1;91m'      # Brightest red for -y/--yes
 
         printf "%b%bNAME%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %bmdar%b - Archive untracked markdown files as aidocs/YYYY-MM-DD/HHMM_CamelCase.md\n\n" "$CMD_COLOR" "$RESET"
-
+        printf "    %bmdar%b - Archive untracked markdown files as %baidocs/YYYY-MM-DD/HHMM_CamelCase.md%b\n\n" "$CMD_COLOR" "$RESET" "$FS_COLOR" "$RESET"
         printf "%b%bSYNOPSIS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %bmdar%b [%b--archive-dir%b %bDIR%b] [%b--no-timestamp%b] [%b--no-camelcase%b] [%b-y%b|%b--yes%b]\n" "$CMD_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "         [%b-r%b|%b--recursive%b] [%b--depth%b %bN%b] [%b--normalize%b %bDIR%b] [%b--prune%b %bDURATION%b]\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "         [%b-v%b|%b-vv%b|%b-vvv%b] [%b-x%b] [%b-n%b|%b--dry-run%b]\n\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "    %bmdar%b [%b--archive-dir%b %bDIR%b] [%b--no-timestamp%b] [%b--no-camelcase%b] [%b-y%b|%b--yes%b]\n" \
+            "$CMD_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
+        printf "         [%b-r%b|%b--recursive%b] [%b--depth%b %bN%b] [%b--normalize%b %bDIR%b] [%b--prune%b %bDURATION%b]\n" \
+            "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "         [%b-v%b|%b-vv%b|%b-vvv%b] [%b-x%b] [%b-n%b|%b--dry-run%b]\n\n" \
+            "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "%b%bDESCRIPTION%b\n" "$BOLD" "$UNDERLINE" "$RESET"
         printf "    Archive untracked markdown files into dated folders, by default named\n"
-        printf "    aidocs/YYYY-MM-DD/HHMM_CamelCasedVersionOfOriginalName.md.\n"
+        printf "    %baidocs/YYYY-MM-DD/HHMM_CamelCasedVersionOfOriginalName.md%b.\n" "$FS_COLOR" "$RESET"
         printf "    This cleans up AI-generated docs, sorting them nicely in IDE folder viewers.\n\n"
-
         printf "%b%bOPTIONS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %b--archive-dir%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "        Archive directory (default: %baidocs%b)\n\n" "$DEFAULT_COLOR" "$RESET"
+        printf "    %b--archive-dir%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "        Archive directory (default: %baidocs/%b)\n" "$FS_COLOR" "$RESET"
         printf "    %b--no-timestamp%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Do not add HHMM time prefix to archived filenames\n\n"
+        printf "        Do not add HHMM time prefix to archived filenames\n"
         printf "    %b--no-camelcase%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Do not convert filenames to CamelCase\n\n"
+        printf "        Do not convert filenames to CamelCase\n"
         printf "    %b-n%b, %b--dry-run%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Show proposed operations and exit (no prompt, no changes)\n\n"
-        printf "    %b-y%b, %b--yes%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Skip confirmation prompt and execute immediately\n\n"
+        printf "        Show proposed operations and exit (no prompt, no changes)\n"
+        printf "    %b-y%b, %b--yes%b\n" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
+        printf "        Skip confirmation prompt, execute filesystem operations immediately\n"
         printf "    %b-v%b, %b-vv%b, %b-vvv%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Verbosity: %b-v%b=search/change files, %b-vv%b=+debug info, %b-vvv%b=+shell tracing\n\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "        Verbosity: %b-v%b=search/change files, %b-vv%b=+debug info, %b-vvv%b=+shell tracing\n" \
+            "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "    %b-x%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Enable shell tracing (%bset -x%b)\n\n" "$EMPHASIS_COLOR" "$RESET"
+        printf "        Enable shell tracing (%bset -x%b)\n" "$CMD_COLOR" "$RESET"
         printf "    %b-r%b, %b--recursive%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Search all subdirectories recursively (unlimited depth)\n\n"
-        printf "    %b--depth%b %bN%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "        Directory depth to search (0=root only, default: %b2%b)\n\n" "$DEFAULT_COLOR" "$RESET"
-        printf "    %b--normalize%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "        Normalize files in DIR in-place (can be repeated, default: %btest-results%b)\n\n" "$DEFAULT_COLOR" "$RESET"
-        printf "    %b--prune%b %bDURATION%b\n" "$OPTION_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
-        printf "        Delete target files older than %bDURATION%b (e.g., %b14d%b, %b2w%b, %b3m%b, %b1y%b)\n" "$ARGVAL_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET" "$ARGVAL_COLOR" "$RESET"
+        printf "        Search all subdirectories recursively (depth=%b∞%b)\n" "$MAGENTA_COLOR" "$RESET"
+        printf "    %b--depth%b %bN%b\n" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "        Directory depth to search (0=root only, default: %b2%b)\n" "$MAGENTA_COLOR" "$RESET"
+        printf "    %b--normalize%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "        Normalize in-place in %bDIR%b (default: %btest-results/%b, can be repeated)\n" "$FS_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %b--prune%b %bN[mhdwMy]%b\n" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "        Delete target files older than e.g., %b30d%b, %b4w%b, %b1M%b\n" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
     }
 
     # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
@@ -311,8 +309,8 @@ main() {
                 local ts date time
                 ts=$(extractTimestamp "$base")
                 date="${ts%%|*}"; time="${ts##*|}"
-                [ -z "$date" ] && date=$(date -r $(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0) '+%Y-%m-%d' 2>/dev/null || echo "unknown")
-                [ -z "$time" ] && time=$(date -r $(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0) '+%H%M' 2>/dev/null || echo "0000")
+                [ -z "$date" ] && date="$(date -r "$(stat -f '%m' "$repoRoot/$filepath" 2>/dev/null || echo 0)" '+%Y-%m-%d' 2>/dev/null || echo 'unknown')"
+                [ -z "$time" ] && time="$(date -r "$(stat -f '%m' "$repoRoot/$filepath" 2>/dev/null || echo 0)" '+%H%M' 2>/dev/null || echo '0000')"
                 local camelCaseName
                 camelCaseName=$(toCamelCase "$base")
                 local newFilename newPath
@@ -334,7 +332,7 @@ main() {
     }
 
     # Main logic
-    verboseLog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[@]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase"
+    verboseLog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase"
     verboseLog 1 "Searching for untracked markdown files..."
     local markdownFiles
     markdownFiles=$(findUntrackedMarkdown "$repoRoot" "$depth" "$inGitRepo")
@@ -376,16 +374,23 @@ main() {
             fi
             untrackedOps+=("$file|$dest")
         done <<< "$markdownFiles"
-        verboseLog 1 "Built untrackedOps: ${untrackedOps[@]}"
+        verboseLog 1 "Built untrackedOps: ${untrackedOps[*]}"
     fi
 
-    local normalizeOps=()
-    if [ "$normalizeExplicit" -eq 1 ] && [ ${#normalizeDirs[@]} -gt 0 ]; then
-        normalizeOps=($(collectNormalizeOps "$repoRoot" "${normalizeDirs[@]}"))
+    # NOTE: mapfile is NOT available in macOS's default /bin/bash. Use a portable alternative below.
+    # Instead of: mapfile -t normalizeOps < <(collectNormalizeOps ...)
+    # Use:
+    normalizeOps=()
+    while IFS= read -r line; do
+        [ -n "$line" ] && normalizeOps+=("$line")
+    done < <(collectNormalizeOps "$repoRoot" "${normalizeDirs[@]}")
+    # Instead of: mapfile -t pruneOps < <(collectPruneOps ...)
+    pruneOps=()
+    if [ -n "$pruneDuration" ]; then
+        while IFS= read -r line; do
+            [ -n "$line" ] && pruneOps+=("$line")
+        done < <(collectPruneOps "$repoRoot" "$pruneDuration" "$archiveDir")
     fi
-
-    local pruneOps=()
-    [ -n "$pruneDuration" ] && pruneOps=($(collectPruneOps "$repoRoot" "$pruneDuration" "$archiveDir"))
 
     local totalOps=$(( ${#untrackedOps[@]} + ${#normalizeOps[@]} + ${#pruneOps[@]} ))
     [ "$totalOps" -eq 0 ] && echo "Executed 0 of 0 proposed operations" >&2 && exit 0
