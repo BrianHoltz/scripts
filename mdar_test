@@ -201,7 +201,7 @@ run_tests() {
     "cd $testdir/tree && $mdar_cmd -n --depth 3 --yes"
     "cd $testdir/tree && $mdar_cmd -n --normalize test-results --depth 3 --yes"
     "cd $testdir/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes"
-    "cd $testdir/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes --archive-dir test-results"
+    "cd $testdir/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes --archive test-results"
     "cd $testdir/tree/sorttest && $mdar_cmd -n --depth 2 --yes"
   )
   testExpects=(
@@ -248,7 +248,7 @@ run_tests() {
 
   [ "$verboseTest" -eq 1 ] && echo "Files in $TESTDIR/tree before test 4:" && find $TESTDIR/tree -type f
   test_case "mdar prunes old files in test-results/" \
-    "cd $TESTDIR/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes --archive-dir test-results" \
+    "cd $TESTDIR/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes --archive test-results" \
     "\[DELETE\]" \
     "$test4_msg"
   [ "$verboseTest" -eq 1 ] && echo "Completed test 4"

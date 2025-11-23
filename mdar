@@ -1,31 +1,31 @@
 #!/bin/bash
 usageMsg="\
 NAME
-    mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/HHMM_CamelCase.md
+    mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/hhmm_CamelCase.md
 
 SYNOPSIS
-    mdar [--archive-dir DIR] [--no-timestamp] [--no-camelcase] [-y|--yes]
+    mdar [--archive DIR] [--no-timestamp] [--no-camelcase] [-y|--yes]
          [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION]
          [-v|-vv|-vvv] [-x] [-n|--dry-run]
 
 DESCRIPTION
-    Archive untracked markdown files into dated folders, by default named
-    aidocs/YYYY-MM-DD/HHMM_CamelCasedVersionOfOriginalName.md.
-    This cleans up AI-generated docs, sorting them nicely in IDE folder viewers.
+    Archive untracked markdown files into dated folders, by default normalized to
+    aidocs/YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName.md.
+    This cleans up AI-generated docs, sorting them in IDE folder viewers.
 
 OPTIONS
-    --archive-dir DIR
+    --archive DIR
         Archive directory (default: aidocs/)
     --no-timestamp
-        Do not add HHMM time prefix to archived filenames
+        Do not normalize filenames with hhmm create-time prefix
     --no-camelcase
-        Do not convert filenames to CamelCase
+        Do not normalize filenames to CamelCase
     -n, --dry-run
-        Show proposed operations and exit (no prompt, no changes)
+        Show proposed mv operations and exit (no prompt, no changes)
     -y, --yes
-        Skip confirmation prompt, execute filesystem operations immediately
+        Skip confirmation prompt, execute mv operations immediately
     -v, -vv, -vvv
-        Verbosity: -v=search/change files, -vv=+debug info, -vvv=+shell tracing
+        Verbosity: -v=find/mv files, -vv=+debug, -vvv=+shell tracing
     -x
         Enable shell tracing (set -x)
     -r, --recursive
@@ -33,7 +33,7 @@ OPTIONS
     --depth N
         Directory depth to search (0=root only, default: 2)
     --normalize DIR
-        Normalize in-place in DIR (default: test-results/, can be repeated)
+        Normalize DIR in-place (default: test-results/, can be repeated)
     --prune N[mhdwMy]
         Delete target files older than e.g., 30d, 4w, 1M
 "
@@ -43,6 +43,8 @@ OPTIONS
 # usageMsg formatting and content ALWAYS trumps showUsage. If you change usageMsg,
 # you MUST update showUsage to match it EXACTLY, including newlines and spacing.
 # Agents must not update usageMsg without explicit instructions to do so.
+# When they aren't in sync, agents must update showUsage's underlying
+# non-colorized text to match usageMsg, while keeping all colorization intact.
 
 set -e # Exit on error
 
@@ -76,40 +78,37 @@ main() {
         local YES_COLOR=$'\033[1;91m'      # Brightest red for -y/--yes
 
         printf "%b%bNAME%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %bmdar%b - Archive untracked markdown files as %baidocs/YYYY-MM-DD/HHMM_CamelCase.md%b\n\n" "$CMD_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %bmdar%b - Archive untracked markdown files as %baidocs/YYYY-MM-DD/hhmm_CamelCase.md%b\n" "$CMD_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "\n"
         printf "%b%bSYNOPSIS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %bmdar%b [%b--archive-dir%b %bDIR%b] [%b--no-timestamp%b] [%b--no-camelcase%b] [%b-y%b|%b--yes%b]\n" \
-            "$CMD_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
-        printf "         [%b-r%b|%b--recursive%b] [%b--depth%b %bN%b] [%b--normalize%b %bDIR%b] [%b--prune%b %bDURATION%b]\n" \
-            "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
-        printf "         [%b-v%b|%b-vv%b|%b-vvv%b] [%b-x%b] [%b-n%b|%b--dry-run%b]\n\n" \
-            "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "    mdar [%b--archive%b %bDIR%b] [%b--no-timestamp%b] [%b--no-camelcase%b] [%b-y%b|%b--yes%b]\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
+        printf "         [%b-r%b|%b--recursive%b] [%b--depth%b %bN%b] [%b--normalize%b %bDIR%b] [%b--prune%b %bDURATION%b]\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "         [%b-v%b|%b-vv%b|%b-vvv%b] [%b-x%b] [%b-n%b|%b--dry-run%b]\n\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "%b%bDESCRIPTION%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    Archive untracked markdown files into dated folders, by default named\n"
-        printf "    %baidocs/YYYY-MM-DD/HHMM_CamelCasedVersionOfOriginalName.md%b.\n" "$FS_COLOR" "$RESET"
-        printf "    This cleans up AI-generated docs, sorting them nicely in IDE folder viewers.\n\n"
+        printf "    Archive untracked markdown files into dated folders, by default normalized to\n"
+        printf "    %baidocs/YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName.md.%b\n" "$FS_COLOR" "$RESET"
+        printf "    This cleans up AI-generated docs, sorting them in IDE folder viewers.\n\n"
         printf "%b%bOPTIONS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %b--archive-dir%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %b--archive%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
         printf "        Archive directory (default: %baidocs/%b)\n" "$FS_COLOR" "$RESET"
         printf "    %b--no-timestamp%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Do not add HHMM time prefix to archived filenames\n"
+        printf "        Do not normalize filenames with %bhhmm%b create-time prefix\n" "$FS_COLOR" "$RESET"
         printf "    %b--no-camelcase%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Do not convert filenames to CamelCase\n"
+        printf "        Do not normalize filenames to %bCamelCase%b\n" "$FS_COLOR" "$RESET"
         printf "    %b-n%b, %b--dry-run%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Show proposed operations and exit (no prompt, no changes)\n"
+        printf "        Show proposed %bmv%b operations and exit (no prompt, no changes)\n" "$FS_COLOR" "$RESET"
         printf "    %b-y%b, %b--yes%b\n" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
-        printf "        Skip confirmation prompt, execute filesystem operations immediately\n"
+        printf "        Skip confirmation prompt, execute %bmv%b operations immediately\n" "$FS_COLOR" "$RESET"
         printf "    %b-v%b, %b-vv%b, %b-vvv%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Verbosity: %b-v%b=search/change files, %b-vv%b=+debug info, %b-vvv%b=+shell tracing\n" \
-            "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "        Verbosity: %b-v%b=%bfind/mv%b files, %b-vv%b=+debug, %b-vvv%b=+shell tracing\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "    %b-x%b\n" "$OPTION_COLOR" "$RESET"
         printf "        Enable shell tracing (%bset -x%b)\n" "$CMD_COLOR" "$RESET"
         printf "    %b-r%b, %b--recursive%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "        Search all subdirectories recursively (depth=%b∞%b)\n" "$MAGENTA_COLOR" "$RESET"
         printf "    %b--depth%b %bN%b\n" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
-        printf "        Directory depth to search (0=root only, default: %b2%b)\n" "$MAGENTA_COLOR" "$RESET"
+        printf "        Directory depth to search (%b0%b=root only, default: %b2%b)\n" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
         printf "    %b--normalize%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
-        printf "        Normalize in-place in %bDIR%b (default: %btest-results/%b, can be repeated)\n" "$FS_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "        Normalize DIR in-place (default: %btest-results/%b, can be repeated)\n" "$FS_COLOR" "$RESET"
         printf "    %b--prune%b %bN[mhdwMy]%b\n" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
         printf "        Delete target files older than e.g., %b30d%b, %b4w%b, %b1M%b\n" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
     }
@@ -117,7 +116,7 @@ main() {
     # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --archive-dir)
+            --archive)
                 archiveDir="$2"; shift 2 ;;
             --no-timestamp)
                 noTimestamp=1; shift ;;
@@ -206,25 +205,25 @@ main() {
         local date="" time=""
         # BASH_REMATCH is a bash array containing the full match and capture groups from the last successful regex match in [[ ... =~ ... ]].
         # BASH_REMATCH[0] is the full match, BASH_REMATCH[1] is the first capture group, BASH_REMATCH[2] is the second, etc.
-        # Regex: Matches YYYY-MM-DD_HHMMSS or YYYY-MM-DD_HHMM
+        # Regex: Matches YYYY-MM-DD_hhmmSS or YYYY-MM-DD_hhmm
         if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{6}) ]]; then
             date="${BASH_REMATCH[1]}"; time="${BASH_REMATCH[2]:0:4}"
-        # Regex: Matches YYYY-MM-DD_HHMM
+        # Regex: Matches YYYY-MM-DD_hhmm
         elif [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{4}) ]]; then
             date="${BASH_REMATCH[1]}"; time="${BASH_REMATCH[2]}"
-        # Regex: Matches YYYYMMDD_HHMMSS
+        # Regex: Matches YYYYMMDD_hhmmSS
         elif [[ "$filename" =~ ([0-9]{8})_([0-9]{6}) ]]; then
             date="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"; time="${BASH_REMATCH[2]:0:4}"
-        # Regex: Matches YYYYMMDD_HHMM
+        # Regex: Matches YYYYMMDD_hhmm
         elif [[ "$filename" =~ ([0-9]{8})_([0-9]{4}) ]]; then
             date="${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2}"; time="${BASH_REMATCH[2]}"
-        # Regex: Matches YYYYMMDD-HHMMSS
+        # Regex: Matches YYYYMMDD-hhmmSS
         elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        # Regex: Matches YYYYMMDDHHMMSS
+        # Regex: Matches YYYYMMDDhhmmSS
         elif [[ "$filename" =~ ([0-9]{4})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
-        # Regex: Matches YYYY-MM-DD-HHMMSS
+        # Regex: Matches YYYY-MM-DD-hhmmSS
         elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
             date="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}"; time="${BASH_REMATCH[4]}${BASH_REMATCH[5]}"
         # Regex: Matches YYYY-MM-DD
@@ -259,13 +258,15 @@ main() {
     # Parse duration string to seconds
     parseDurationToSeconds() {
         local duration="$1"
-        local num="${duration%[dwmy]}"
+        local num="${duration%[mhdwMy]}"
         local unit="${duration#$num}"
         [ -z "$unit" ] && unit="d"
         case "$unit" in
+            m) echo $((num * 60)) ;;
+            h) echo $((num * 3600)) ;;
             d) echo $((num * 86400)) ;;
             w) echo $((num * 7 * 86400)) ;;
-            m) echo $((num * 30 * 86400)) ;;
+            M) echo $((num * 30 * 86400)) ;;
             y) echo $((num * 365 * 86400)) ;;
             *) echo "Invalid duration unit: $unit" >&2; return 1 ;;
         esac
