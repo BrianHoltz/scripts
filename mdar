@@ -5,7 +5,7 @@ NAME
 
 SYNOPSIS
     mdar [--archive DIR] [--no-timestamp] [--no-camelcase] [-y|--yes]
-         [-r|--recursive] [--depth N] [--normalize DIR] [--prune DURATION]
+         [-r|--recursive] [--depth N] [--normalize DIR] [--prune N<mhdwMy>]
          [-v|-vv|-vvv] [-x] [-n|--dry-run]
 
 DESCRIPTION
@@ -14,28 +14,17 @@ DESCRIPTION
     This cleans up AI-generated docs, sorting them in IDE folder viewers.
 
 OPTIONS
-    --archive DIR
-        Archive directory (default: aidocs/)
-    --no-timestamp
-        Do not normalize filenames with hhmm create-time prefix
-    --no-camelcase
-        Do not normalize filenames to CamelCase
-    -n, --dry-run
-        Show proposed mv operations and exit (no prompt, no changes)
-    -y, --yes
-        Skip confirmation prompt, execute mv operations immediately
-    -v, -vv, -vvv
-        Verbosity: -v=find/mv files, -vv=+debug, -vvv=+shell tracing
-    -x
-        Enable shell tracing (set -x)
-    -r, --recursive
-        Search all subdirectories recursively (depth=∞)
-    --depth N
-        Directory depth to search (0=root only, default: 2)
-    --normalize DIR
-        Normalize DIR in-place (default: test-results/, can be repeated)
-    --prune N[mhdwMy]
-        Delete target files older than e.g., 30d, 4w, 1M
+    --archive DIR       Archive directory (default: aidocs/)
+    --no-timestamp      Do not normalize filenames with hhmm create-time prefix
+    --no-camelcase      Do not normalize filenames to CamelCase
+    -n, --dry-run       Show proposed mv operations and exit (no prompt, no changes)
+    -y, --yes           Skip confirmation prompt, execute mv operations immediately
+    -v, -vv, -vvv       Verbosity: -v=find/mv files, -vv=+debug, -vvv=+shell tracing
+    -x                  Enable shell tracing (set -x)
+    -r, --recursive     Search all subdirectories recursively (depth=∞)
+    --depth N           Directory depth to search (0=root only, default: 2)
+    --normalize DIR     Normalize DIR in-place (default: test-results/, can be repeated)
+    --prune N<mhdwMy>   Delete target files older than e.g., 30d, 4w, 1M
 "
 
 # usageMsg is intentionally placed at the very top for human readers and future agents.
@@ -54,7 +43,6 @@ main() {
     local verbose=0
     local dryRun=0
     local normalizeDirs=()
-    local normalizeExplicit=0
     local pruneDuration=""
     local repoRoot
     local inGitRepo=0
@@ -81,36 +69,35 @@ main() {
         printf "    %bmdar%b - Archive untracked markdown files as %baidocs/YYYY-MM-DD/hhmm_CamelCase.md%b\n" "$CMD_COLOR" "$RESET" "$FS_COLOR" "$RESET"
         printf "\n"
         printf "%b%bSYNOPSIS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    mdar [%b--archive%b %bDIR%b] [%b--no-timestamp%b] [%b--no-camelcase%b] [%b-y%b|%b--yes%b]\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
-        printf "         [%b-r%b|%b--recursive%b] [%b--depth%b %bN%b] [%b--normalize%b %bDIR%b] [%b--prune%b %bDURATION%b]\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "    %bmdar%b [%b--archive%b %bDIR%b] [%b--no-timestamp%b] [%b--no-camelcase%b] [%b-y%b|%b--yes%b]\n" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
+        printf "         [%b-r%b|%b--recursive%b] [%b--depth%b %bN%b] [%b--normalize%b %bDIR%b] [%b--prune%b %bN<mhdwMy>%b]\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
         printf "         [%b-v%b|%b-vv%b|%b-vvv%b] [%b-x%b] [%b-n%b|%b--dry-run%b]\n\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
         printf "%b%bDESCRIPTION%b\n" "$BOLD" "$UNDERLINE" "$RESET"
         printf "    Archive untracked markdown files into dated folders, by default normalized to\n"
         printf "    %baidocs/YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName.md.%b\n" "$FS_COLOR" "$RESET"
         printf "    This cleans up AI-generated docs, sorting them in IDE folder viewers.\n\n"
         printf "%b%bOPTIONS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %b--archive%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
-        printf "        Archive directory (default: %baidocs/%b)\n" "$FS_COLOR" "$RESET"
-        printf "    %b--no-timestamp%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Do not normalize filenames with %bhhmm%b create-time prefix\n" "$FS_COLOR" "$RESET"
-        printf "    %b--no-camelcase%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Do not normalize filenames to %bCamelCase%b\n" "$FS_COLOR" "$RESET"
-        printf "    %b-n%b, %b--dry-run%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Show proposed %bmv%b operations and exit (no prompt, no changes)\n" "$FS_COLOR" "$RESET"
-        printf "    %b-y%b, %b--yes%b\n" "$YES_COLOR" "$RESET" "$YES_COLOR" "$RESET"
-        printf "        Skip confirmation prompt, execute %bmv%b operations immediately\n" "$FS_COLOR" "$RESET"
-        printf "    %b-v%b, %b-vv%b, %b-vvv%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Verbosity: %b-v%b=%bfind/mv%b files, %b-vv%b=+debug, %b-vvv%b=+shell tracing\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "    %b-x%b\n" "$OPTION_COLOR" "$RESET"
-        printf "        Enable shell tracing (%bset -x%b)\n" "$CMD_COLOR" "$RESET"
-        printf "    %b-r%b, %b--recursive%b\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
-        printf "        Search all subdirectories recursively (depth=%b∞%b)\n" "$MAGENTA_COLOR" "$RESET"
-        printf "    %b--depth%b %bN%b\n" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
-        printf "        Directory depth to search (%b0%b=root only, default: %b2%b)\n" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
-        printf "    %b--normalize%b %bDIR%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
-        printf "        Normalize DIR in-place (default: %btest-results/%b, can be repeated)\n" "$FS_COLOR" "$RESET"
-        printf "    %b--prune%b %bN[mhdwMy]%b\n" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
-        printf "        Delete target files older than e.g., %b30d%b, %b4w%b, %b1M%b\n" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "    %b--archive%b %bDIR%b       Archive directory (default: %baidocs/%b)\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %b--no-timestamp%b      Do not normalize filenames with %bhhmm%b create-time prefix\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %b--no-camelcase%b      Do not normalize filenames to %bCamelCase%b\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %b-n%b, %b--dry-run%b       Show proposed %bmv%b operations and exit (no prompt, no changes)\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %b-y%b, %b--yes%b           %bSkip confirmation prompt, execute%b %bmv%b %boperations immediately%b\n" \
+            "$YES_COLOR" "$RESET" \
+            "$YES_COLOR" "$RESET" \
+            "$YES_COLOR" "$RESET" \
+            "$FS_COLOR" "$RESET" \
+            "$YES_COLOR" "$RESET"
+        printf "    %b-v%b, %b-vv%b, %b-vvv%b       Verbosity: %b-v%b=%bfind/mv%b files, %b-vv%b=+debug, %b-vvv%b=+shell tracing\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET"
+        printf "    %b-x%b                  Enable shell tracing (%bset -x%b)\n" "$OPTION_COLOR" "$RESET" "$CMD_COLOR" "$RESET"
+        printf "    %b-r%b, %b--recursive%b     Search all subdirectories recursively (depth=%b∞%b)\n" "$OPTION_COLOR" "$RESET" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "    %b--depth%b %bN%b           Directory depth to search (%b0%b=root only, default: %b2%b)\n" "$OPTION_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET" "$MAGENTA_COLOR" "$RESET"
+        printf "    %b--normalize%b %bDIR%b     Normalize %bDIR%b in-place (default: %btest-results/%b, can be repeated)\n" "$OPTION_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$FS_COLOR" "$RESET" "$FS_COLOR" "$RESET"
+        printf "    %b--prune%b %bN<mhdwMy>%b   Delete target files older than e.g., %b30d%b, %b4w%b, %b1M%b\n" \
+            "$OPTION_COLOR" "$RESET" \
+            "$MAGENTA_COLOR" "$RESET" \
+            "$MAGENTA_COLOR" "$RESET" \
+            "$MAGENTA_COLOR" "$RESET" \
+            "$MAGENTA_COLOR" "$RESET"
     }
 
     # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
@@ -131,7 +118,7 @@ main() {
             --depth)
                 depth="$2"; shift 2 ;;
             --normalize)
-                normalizeDirs+=("$2"); normalizeExplicit=1; shift 2 ;;
+                normalizeDirs+=("$2"); shift 2 ;;
             --prune)
                 pruneDuration="$2"; shift 2 ;;
             -v|--verbose)
