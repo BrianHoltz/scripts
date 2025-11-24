@@ -19,7 +19,7 @@ OPTIONS
     --no-camelcase      Do not normalize filenames to CamelCase
     -n, --dry-run       Show proposed mv operations and exit (no prompt, no changes)
     -y, --yes           Skip confirmation prompt, execute mv operations immediately
-    -v, -vv, -vvv       Verbosity: -v=find/mv files, -vv=+debug, -vvv=+shell tracing
+    -v, -vv, -vvv       Loglevel 1=counts 2=+find/git/mv 3=+pipelines
     -x                  Enable shell tracing (set -x)
     -r, --recursive     Search all subdirectories recursively (depth=∞)
     --depth N           Directory depth to search (0=root only, default: 2)
@@ -97,6 +97,18 @@ main() {
         echo -e "    ${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}   Delete target files older than e.g., ${ARG_LIT_COLOR}30d${RESET}, ${ARG_LIT_COLOR}4w${RESET}, ${ARG_LIT_COLOR}1M${RESET}"
     }
 
+    # vlog: logging utility (define before any calls so it's available during option parsing and early runtime checks)
+    # Log levels:
+    # 1: Basic discovery/context, non-fatal errors (e.g., git repo status, counts of markdowns)
+    # 2: Important subcommands (describe git/find/mv commands and why they're run)
+    # 3: All interesting shell pipelines and transformations (full trace)
+    vlog() {
+        local level="$1"; shift
+        if [ "$verbose" -ge "$level" ]; then
+            echo "+ $*" >&2
+        fi
+    }
+
     # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -118,7 +130,15 @@ main() {
                 normalizeDirs+=("$2"); shift 2 ;;
             --prune)
                 pruneDuration="$2"; shift 2 ;;
-            -v|--verbose)
+            -v)
+                verbose=$((verbose+1)); shift ;;
+            -vv)
+                verbose=$((verbose+2)); shift ;;
+            -vvv)
+                verbose=$((verbose+3)); shift ;;
+            -vvvv)
+                verbose=$((verbose+4)); shift ;;
+            --verbose)
                 verbose=$((verbose+1)); shift ;;
             -x)
                 set -x; shift ;;
@@ -137,6 +157,7 @@ main() {
         esac
     done
 
+    vlog 2 "To find out if we are in a git repo, running: git rev-parse --git-dir"
     if git rev-parse --git-dir > /dev/null 2>&1; then
         inGitRepo=1
         repoRoot=$(git rev-parse --show-toplevel)
@@ -145,46 +166,48 @@ main() {
     fi
     cd "$repoRoot"
 
-    # Helper to print verbose commands to stderr
-    verboseLog() {
-        local level="$1"; shift
-        if [ "$verbose" -ge "$level" ]; then
-            echo "+ $*" >&2
-        fi
-    }
 
-    # Normalize paths: ensure entries are relative to repoRoot and not prefixed with './'
     normalizePaths() {
+        vlog 4 "normalizePaths: Strip leading './' and drop empty lines"
         local in="$1"
         echo "$in" | sed -e 's|^\./||' -e 's|^$||' | grep -v '^$' || true
     }
 
-    # Find untracked markdown files based on depth setting
     findUntrackedMarkdown() {
+        vlog 3 "findUntrackedMarkdown: repoRoot=$1, depth=$2, inGitRepo=$3"
         local repoRoot="$1"
         local depth="$2"
         local inGitRepo="$3"
         local files=""
         if [ "$inGitRepo" -eq 1 ]; then
-            local statusFiles lsFiles
+            vlog 1 "In git repo: $repoRoot"
+            vlog 2 "To find untracked markdown, running: git status --porcelain, git ls-files"
             statusFiles=$(git --no-pager -C "$repoRoot" status --porcelain | grep '^?? ' | sed 's/^?? //' || true)
             lsFiles=$(git --no-pager -C "$repoRoot" ls-files --others --exclude-standard || true)
+            vlog 3 "Combining statusFiles and lsFiles, sorting, deduping, filtering for .md files"
+            # Combine both sources, sort/dedupe, remove blank lines, keep only .md files, exclude aidocs/
             files=$(printf "%s\n%s\n" "$statusFiles" "$lsFiles" | sort | uniq | grep -v '^$' | grep '\.md$' | grep -v '^aidocs/')
             if [ "$depth" -ge 0 ]; then
+                vlog 3 "Filtering markdown files by depth: $depth"
                 files=$(echo "$files" | awk -F'/' -v depth="$depth" 'NF <= depth + 1')
             fi
         else
+            vlog 1 "Not in a git repo. Searching for markdown files in: $repoRoot"
             if [ "$depth" -eq -1 ]; then
+                vlog 2 "Running: find . -type f -name '*.md' (recursive)"
+                # Find all markdown files, strip leading './', exclude aidocs/
                 files=$(cd "$repoRoot" && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/')
             else
+                vlog 2 "Running: find . -maxdepth $((depth + 1)) -type f -name '*.md'"
+                # Find markdown files up to maxdepth, strip leading './', exclude aidocs/
                 files=$(cd "$repoRoot" && find . -maxdepth $((depth + 1)) -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/')
             fi
         fi
         echo "$files"
     }
 
-    # Extract timestamp from filename
     extractTimestamp() {
+        vlog 4 "extractTimestamp: Extract timestamp from filename: $1"
         local filename="$1"
         local date="" time=""
         # BASH_REMATCH is a bash array containing the full match and capture groups from the last successful regex match in [[ ... =~ ... ]].
@@ -220,22 +243,37 @@ main() {
         echo "$date|$time"
     }
 
-    # Convert filename to CamelCase, stripping timestamps
     toCamelCase() {
+        vlog 4 "toCamelCase: Convert filename to CamelCase, stripping timestamps: $1"
         local filename="$1"
         local base="${filename%.*}"
+        # Remove common timestamp patterns so numeric timestamps don't become words in the
+        # CamelCase result. This handles several formats (YYYY-MM-DD, YYYYMMDD, compact
+        # datetime strings with or without separators) before we split on '_' or '-'.
+        # Strip YYYY-MM-DD[_hhmm...] style timestamps
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{4}-[0-9]{2}-[0-9]{2}(_[0-9]{4,6})?[_-]?//g')
+        # Strip YYYYMMDD-hhmmss style timestamps
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}-[0-9]{6}[_-]?//g')
+        # Strip compact YYYYMMDDhhmmss timestamps
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{14}[_-]?//g')
+        # Strip compact YYYYMMDD timestamps
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}[_-]?//g')
         if [[ ! "$base" =~ [_-] ]]; then
             if [[ "$base" =~ ^[A-Z0-9]+$ ]]; then
+                # Token is ALL CAPS/alphanumeric (likely an acronym or constant).
+                # Convert to Title case (first letter uppercase, rest lowercase) so
+                # acronyms become readable names (e.g. FOO -> Foo) instead of ALLCAPS.
                 echo "$(echo "$base" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')"
             else
+                # Mixed case or lowercase token: preserve the original casing except
+                # ensure the first character is uppercase for consistency (e.g. myFile -> MyFile).
                 echo "$(echo "${base:0:1}" | tr '[:lower:]' '[:upper:]')${base:1}"
             fi
             return
         fi
+        # Multiple parts separated by '_' or '-': replace separators with spaces,
+        # Title-case each word, then remove spaces to produce CamelCase (MyFileName).
+        # Split on separators, titlecase words with awk, then join
         echo "$base" | sed -e 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | sed 's/ //g'
     }
 
@@ -256,33 +294,37 @@ main() {
         esac
     }
 
-    # Collect files to prune
     collectPruneOps() {
+        vlog 3 "collectPruneOps: find files in $archiveDir older than cutoff time $cutoffTime"
         local repoRoot="$1" duration="$2" archiveDir="$3"
         local cutoffTime
         cutoffTime=$(($(date +%s) - $(parseDurationToSeconds "$duration")))
-        local files
-        # Find all files in the archive directory, excluding README.md
-        files=$(cd "$repoRoot" && find "$archiveDir" -type f 2>/dev/null | sed 's|^./||' | grep -v "^${archiveDir}/README.md$" || true)
         local pruneOps=()
-        for f in $files; do
+        # Use NUL-delimited find to handle filenames with spaces/newlines and
+        # exclude the archive root README.md explicitly.
+        while IFS= read -r -d '' f; do
+            # Make path relative (strip leading ./ if present)
+            f="${f#./}"
+            [ "$f" = "${archiveDir}/README.md" ] && continue
             local mtime
             mtime=$(stat -f "%m" "$repoRoot/$f" 2>/dev/null || echo 0)
             [ "$mtime" -lt "$cutoffTime" ] && pruneOps+=("$f")
-        done
-        echo "${pruneOps[@]}"
+        done < <(cd "$repoRoot" && find "$archiveDir" -type f -print0 2>/dev/null)
+        # Print one operation per line for the caller to read safely
+        printf '%s\n' "${pruneOps[@]}"
     }
 
     # Collect files to normalize in specified directories
     collectNormalizeOps() {
+        vlog 3 "collectNormalizeOps: repoRoot=$1 dirs=$(printf '%s ' "${dirs[@]}")"
         local repoRoot="$1"
         local dirs=("${@:2}")
         local normalizeOps=()
         for dir in "${dirs[@]}"; do
             [ ! -d "$repoRoot/$dir" ] && continue
-            local files
-            files=$(cd "$repoRoot" && find "$dir" -type f 2>/dev/null | sed 's|^./||' || true)
-            for filepath in $files; do
+            # Use NUL-delimited find to handle spaces/newlines in names
+            while IFS= read -r -d '' filepath; do
+                filepath="${filepath#./}"
                 [ -z "$filepath" ] && continue
                 local dirname filename base extension
                 dirname=$(dirname "$filepath")
@@ -311,25 +353,25 @@ main() {
                 if [[ ! "$filename" =~ $compliantPattern ]] && [ "$filepath" != "$newPath" ]; then
                     normalizeOps+=("$filepath|$newPath")
                 fi
-            done
-        done
-        echo "${normalizeOps[@]}"
-    }
+            done < <(cd "$repoRoot" && find "$dir" -type f -print0 2>/dev/null)
+         done
+        # Print one operation per line for the caller to read safely
+        printf '%s\n' "${normalizeOps[@]}"
+     }
 
     # Main logic
-    verboseLog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase"
-    verboseLog 1 "Searching for untracked markdown files..."
+    vlog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase"
     local markdownFiles
     markdownFiles=$(findUntrackedMarkdown "$repoRoot" "$depth" "$inGitRepo")
-    verboseLog 1 "Found markdown files: $markdownFiles"
     markdownFiles=$(normalizePaths "$markdownFiles")
-    verboseLog 1 "Normalized markdown file paths: $markdownFiles"
-
+    count=$(echo "$markdownFiles" | grep -c '^')
+    vlog 1 "Discovered $count untracked markdown files in $repoRoot"
+    vlog 2 "$markdownFiles"
     if [ -z "$markdownFiles" ]; then
-        verboseLog 1 "No markdown files found, skipping untrackedOps loop."
+        vlog 1 "No markdown files found, skipping untrackedOps loop."
     else
         local untrackedOps=()
-        verboseLog 1 "Building untrackedOps array..."
+        vlog 2 "Mapping each discovered markdown file to its intended archive destination"
         while IFS= read -r file; do
             [ -z "$file" ] && continue
             local base ext
@@ -359,12 +401,10 @@ main() {
             fi
             untrackedOps+=("$file|$dest")
         done <<< "$markdownFiles"
-        verboseLog 1 "Built untrackedOps: ${untrackedOps[*]}"
     fi
 
-    # NOTE: mapfile is NOT available in macOS's default /bin/bash. Use a portable alternative below.
+    # NOTE: mapfile is NOT available in macOS's default /bin/bash.
     # Instead of: mapfile -t normalizeOps < <(collectNormalizeOps ...)
-    # Use:
     normalizeOps=()
     while IFS= read -r line; do
         [ -n "$line" ] && normalizeOps+=("$line")
@@ -404,13 +444,11 @@ main() {
         printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
     done
 
-    # If dry-run was requested, never prompt: print summary and exit immediately.
     if [ "${dryRun:-0}" -eq 1 ]; then
         echo "Dry-run: Executed 0 of $totalOps proposed operations" >&2
         exit 0
     fi
 
-    # If autoConfirm was not set, ask the user. Note: dry-run already returned above.
     if [ "${autoConfirm:-0}" -eq 0 ]; then
         # Prompt for single-character confirmation (y/Y to proceed)
         read -p "Proceed with these operations? [y/N] " -n 1 -r
