@@ -10,7 +10,7 @@ This scheme splits the content into distinct categories for clarity and consiste
 - Command: DodgerBlue
 - Flag: DeepSkyBlue
 - Filesystem Variable: MediumSeaGreen
-- Filesystem Literal: Green
+- Filesystem Literal: Lime
 - Argument Variable: Orange
 - Argument Literal: DarkOrange
 - Freeform Variable: HotPink 
@@ -33,8 +33,8 @@ This scheme splits the content into distinct categories for clarity and consiste
 
 ## Filesystem Literal
 - A concrete literal (part of a) filesystem path.
-- E.g. <span style="color:rgb(0,128,0);text-decoration:underline;">/dev/null</span>, <span style="color:rgb(0,128,0);text-decoration:underline;">~/.config</span>
-- Color: Green (RGB: 0, 128, 0)
+- E.g. <span style="color:rgb(0,255,0);text-decoration:underline;">/dev/null</span>, <span style="color:rgb(0,255,0);text-decoration:underline;">~/.config</span>
+- Color: Lime (RGB: 0, 255, 0)
 
 ## Argument Variable
 - A placeholder for a non-filesystem value (numbers, time, strings).

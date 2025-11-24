@@ -61,41 +61,40 @@ main() {
         local CMD_COLOR=$'\033[38;2;30;144;255m'           # Command: DodgerBlue
         local FLAG_COLOR=$'\033[38;2;0;191;255m'           # Flag: DeepSkyBlue
         local FS_VAR_COLOR=$'\033[38;2;60;179;113m'        # Filesystem Variable: MediumSeaGreen
-        local FS_LIT_COLOR=$'\033[38;2;0;128;0m'           # Filesystem Literal: Green
+        local FS_LIT_COLOR=$'\033[38;2;0;255;0m'           # Filesystem Literal: Lime
         local ARG_VAR_COLOR=$'\033[38;2;255;165;0m'        # Argument Variable: Orange
         local ARG_LIT_COLOR=$'\033[38;2;255;140;0m'        # Argument Literal: DarkOrange
 
-        printf "%b%bNAME%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %b - Archive untracked markdown files as %b\n" "$CMD_COLOR""mdar""$RESET" "$FS_LIT_COLOR$UNDERLINE""aidocs/YYYY-MM-DD/hhmm_CamelCase.md""$RESET"
-        printf "\n"
-        printf "%b%bSYNOPSIS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %b [%b %b] [%b] [%b] [%b|%b]\n" "$CMD_COLOR""mdar""$RESET" "$FLAG_COLOR""--archive""$RESET" "$FS_VAR_COLOR$ITALIC$UNDERLINE""DIR""$RESET" "$FLAG_COLOR""--no-timestamp""$RESET" "$FLAG_COLOR""--no-camelcase""$RESET" "$FLAG_COLOR""-y""$RESET" "$FLAG_COLOR""--yes""$RESET"
-        printf "         [%b|%b] [%b %b] [%b %b] [%b %b]\n" "$FLAG_COLOR""-r""$RESET" "$FLAG_COLOR""--recursive""$RESET" "$FLAG_COLOR""--depth""$RESET" "$ARG_VAR_COLOR$ITALIC""N""$RESET" "$FLAG_COLOR""--normalize""$RESET" "$FS_VAR_COLOR$ITALIC$UNDERLINE""DIR""$RESET" "$FLAG_COLOR""--prune""$RESET" "$ARG_VAR_COLOR$ITALIC""N<mhdwMy>""$RESET"
-        printf "         [%b|%b|%b] [%b] [%b|%b]\n\n" "$FLAG_COLOR""-v""$RESET" "$FLAG_COLOR""-vv""$RESET" "$FLAG_COLOR""-vvv""$RESET" "$FLAG_COLOR""-x""$RESET" "$FLAG_COLOR""-n""$RESET" "$FLAG_COLOR""--dry-run""$RESET"
-        printf "%b%bDESCRIPTION%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    Archive untracked markdown files into dated folders, by default normalized to\n"
-        printf "    %b.\n" "$FS_LIT_COLOR$UNDERLINE""aidocs/YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName.md""$RESET"
-        printf "    This cleans up AI-generated docs, sorting them in IDE folder viewers.\n\n"
-        printf "%b%bOPTIONS%b\n" "$BOLD" "$UNDERLINE" "$RESET"
-        printf "    %b %b       Archive directory (default: %b)\n" "$FLAG_COLOR""--archive""$RESET" "$FS_VAR_COLOR$ITALIC$UNDERLINE""DIR""$RESET" "$FS_LIT_COLOR$UNDERLINE""aidocs/""$RESET"
-        printf "    %b      Do not normalize filenames with %b create-time prefix\n" "$FLAG_COLOR""--no-timestamp""$RESET" "$ARG_VAR_COLOR$ITALIC""hhmm""$RESET"
-        printf "    %b      Do not normalize filenames to %b\n" "$FLAG_COLOR""--no-camelcase""$RESET" "$ARG_VAR_COLOR$ITALIC""CamelCase""$RESET"
-        printf "    %b, %b       Show proposed %b operations and exit (no prompt, no changes)\n" "$FLAG_COLOR""-n""$RESET" "$FLAG_COLOR""--dry-run""$RESET" "$CMD_COLOR$BOLD""mv""$RESET"
-        # --yes row all red
+        # NAME
+        echo -e "${BOLD}${UNDERLINE}NAME${RESET}"
+        echo -e "    ${CMD_COLOR}mdar${RESET} - Archive untracked markdown files as ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${UNDERLINE}YYYY-MM-DD/hhmm_CamelCase${RESET}${FS_LIT_COLOR}.md${RESET}"
+        echo
+        # SYNOPSIS
+        echo -e "${BOLD}${UNDERLINE}SYNOPSIS${RESET}"
+        echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}] [${FLAG_COLOR}--no-timestamp${RESET}] [${FLAG_COLOR}--no-camelcase${RESET}] [${FLAG_COLOR}-y${RESET}|${FLAG_COLOR}--yes${RESET}]"
+        echo -e "         [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}] [${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}]"
+        echo -e "         [${FLAG_COLOR}-v${RESET}|${FLAG_COLOR}-vv${RESET}|${FLAG_COLOR}-vvv${RESET}] [${FLAG_COLOR}-x${RESET}] [${FLAG_COLOR}-n${RESET}|${FLAG_COLOR}--dry-run${RESET}]"
+        echo
+        # DESCRIPTION
+        echo -e "${BOLD}${UNDERLINE}DESCRIPTION${RESET}"
+        echo -e "    Archive untracked markdown files into dated folders, by default normalized to"
+        echo -e "    ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${UNDERLINE}YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName${RESET}${FS_LIT_COLOR}.md${RESET}."
+        echo -e "    This cleans up AI-generated docs, sorting them in IDE folder viewers."
+        echo
+        # OPTIONS
+        echo -e "${BOLD}${UNDERLINE}OPTIONS${RESET}"
+        echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}       Archive directory (default: ${FS_LIT_COLOR}${UNDERLINE}aidocs/${RESET})"
+        echo -e "    ${FLAG_COLOR}--no-timestamp${RESET}      Do not normalize filenames with ${ARG_VAR_COLOR}${ITALIC}hhmm${RESET} create-time prefix"
+        echo -e "    ${FLAG_COLOR}--no-camelcase${RESET}      Do not normalize filenames to ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}CamelCase${RESET}"
+        echo -e "    ${FLAG_COLOR}-n${RESET}, ${FLAG_COLOR}--dry-run${RESET}       Show proposed ${CMD_COLOR}${BOLD}mv${RESET} operations and exit (no prompt, no changes)"
         local YES_COLOR=$'\033[38;2;239;83;80m' # Bright Red
-        printf "    %b, %b           %b %b %b\n" \
-            "$YES_COLOR""-y""$RESET" \
-            "$YES_COLOR""--yes""$RESET" \
-            "$YES_COLOR$BOLD""Skip confirmation prompt, execute""$RESET" \
-            "$YES_COLOR$BOLD""mv""$RESET" \
-            "$YES_COLOR$BOLD""operations immediately""$RESET"
-        # Verbosity row: all -v* flags are flag color, 'find' and 'mv' are command color, '/' is normal color
+        echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           ${YES_COLOR}${BOLD}Skip confirmation prompt, execute${RESET} ${YES_COLOR}${BOLD}mv${RESET} ${YES_COLOR}${BOLD}operations immediately${RESET}"
         echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Verbosity: ${FLAG_COLOR}-v${RESET}=${CMD_COLOR}find${RESET}/${CMD_COLOR}mv${RESET} files, ${FLAG_COLOR}-vv${RESET}=+debug, ${FLAG_COLOR}-vvv${RESET}=+shell tracing"
-        printf "    %b                  Enable shell tracing (%b)\n" "$FLAG_COLOR""-x""$RESET" "$CMD_COLOR$BOLD""set -x""$RESET"
-        printf "    %b, %b     Search all subdirectories recursively (depth=%b)\n" "$FLAG_COLOR""-r""$RESET" "$FLAG_COLOR""--recursive""$RESET" "$ARG_VAR_COLOR$ITALIC""∞""$RESET"
-        printf "    %b %b           Directory depth to search (%b=root only, default: %b)\n" "$FLAG_COLOR""--depth""$RESET" "$ARG_VAR_COLOR$ITALIC""N""$RESET" "$ARG_LIT_COLOR""0""$RESET" "$ARG_LIT_COLOR""2""$RESET"
-        printf "    %b %b     Normalize %b in-place (default: %b, can be repeated)\n" "$FLAG_COLOR""--normalize""$RESET" "$FS_VAR_COLOR$ITALIC$UNDERLINE""DIR""$RESET" "$FS_VAR_COLOR$ITALIC$UNDERLINE""DIR""$RESET" "$FS_LIT_COLOR$UNDERLINE""test-results/""$RESET"
-        printf "    %b %b   Delete target files older than e.g., %b, %b, %b\n" "$FLAG_COLOR""--prune""$RESET" "$ARG_VAR_COLOR$ITALIC""N<mhdwMy>""$RESET" "$ARG_LIT_COLOR""30d""$RESET" "$ARG_LIT_COLOR""4w""$RESET" "$ARG_LIT_COLOR""1M""$RESET"
+        echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}${BOLD}set -x${RESET})"
+        echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}${ITALIC}∞${RESET})"
+        echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (${ARG_LIT_COLOR}0${RESET}=root only, default: ${ARG_LIT_COLOR}2${RESET})"
+        echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET} in-place (default: ${FS_LIT_COLOR}${UNDERLINE}test-results/${RESET}, can be repeated)"
+        echo -e "    ${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}   Delete target files older than e.g., ${ARG_LIT_COLOR}30d${RESET}, ${ARG_LIT_COLOR}4w${RESET}, ${ARG_LIT_COLOR}1M${RESET}"
     }
 
     # Manual option parsing for macOS compatibility (BSD getopt doesn't support long options)
