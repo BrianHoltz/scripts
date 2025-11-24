@@ -11,7 +11,7 @@ SYNOPSIS
 DESCRIPTION
     Archive untracked markdown files into dated folders, by default normalized to
     aidocs/YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName.md.
-    This cleans up AI-generated docs, sorting them in IDE folder viewers.
+    This cleans up AI-generated docs, sorting them temporally in IDE folder viewers.
 
 OPTIONS
     --archive DIR       Archive directory (default: aidocs/)
@@ -19,10 +19,10 @@ OPTIONS
     --no-camelcase      Do not normalize filenames to CamelCase
     -n, --dry-run       Show proposed mv operations and exit (no prompt, no changes)
     -y, --yes           Skip confirmation prompt, execute mv operations immediately
-    -v, -vv, -vvv       Loglevel 1=counts 2=+find/git/mv 3=+pipelines
+    -v, -vv, -vvv       Logging level: 1: file counts, 2: +find/git/mv ops, 3: +shell pipelines
     -x                  Enable shell tracing (set -x)
     -r, --recursive     Search all subdirectories recursively (depth=∞)
-    --depth N           Directory depth to search (0=root only, default: 2)
+    --depth N           Directory depth to search (root only: 0, default: 2)
     --normalize DIR     Normalize DIR in-place (default: test-results/, can be repeated)
     --prune N<mhdwMy>   Delete target files older than e.g., 30d, 4w, 1M
 "
@@ -57,43 +57,38 @@ main() {
         local BOLD=$'\033[1m'
         local UNDERLINE=$'\033[4m'
         local ITALIC=$'\033[3m'
-        # Color codes (24-bit RGB)
-        local CMD_COLOR=$'\033[38;2;30;144;255m'           # Command: DodgerBlue
-        local FLAG_COLOR=$'\033[38;2;0;191;255m'           # Flag: DeepSkyBlue
-        local FS_VAR_COLOR=$'\033[38;2;60;179;113m'        # Filesystem Variable: MediumSeaGreen
-        local FS_LIT_COLOR=$'\033[38;2;0;255;0m'           # Filesystem Literal: Lime
-        local ARG_VAR_COLOR=$'\033[38;2;255;165;0m'        # Argument Variable: Orange
-        local ARG_LIT_COLOR=$'\033[38;2;255;140;0m'        # Argument Literal: DarkOrange
-
-        # NAME
+        local CMD_COLOR=$'\033[38;2;30;144;255m'
+        local FLAG_COLOR=$'\033[38;2;0;191;255m'
+        local FS_VAR_COLOR=$'\033[38;2;60;179;113m'
+        local FS_LIT_COLOR=$'\033[38;2;0;255;0m'
+        local ARG_VAR_COLOR=$'\033[38;2;255;165;0m'
+        local ARG_LIT_COLOR=$'\033[38;2;255;140;0m'
+        local YES_COLOR=$'\033[38;2;239;83;80m'
+        # Print each line exactly as in usageMsg, with color applied to tokens only
         echo -e "${BOLD}${UNDERLINE}NAME${RESET}"
-        echo -e "    ${CMD_COLOR}mdar${RESET} - Archive untracked markdown files as ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${UNDERLINE}YYYY-MM-DD/hhmm_CamelCase${RESET}${FS_LIT_COLOR}.md${RESET}"
+        echo -e "    ${CMD_COLOR}mdar${RESET} - Archive untracked markdown files as ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${ITALIC}YYYY-MM-DD/hhmm_CamelCase${RESET}${FS_LIT_COLOR}.md${RESET}"
         echo
-        # SYNOPSIS
         echo -e "${BOLD}${UNDERLINE}SYNOPSIS${RESET}"
-        echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}] [${FLAG_COLOR}--no-timestamp${RESET}] [${FLAG_COLOR}--no-camelcase${RESET}] [${FLAG_COLOR}-y${RESET}|${FLAG_COLOR}--yes${RESET}]"
-        echo -e "         [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}] [${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}]"
+        echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--no-timestamp${RESET}] [${FLAG_COLOR}--no-camelcase${RESET}] [${FLAG_COLOR}-y${RESET}|${FLAG_COLOR}--yes${RESET}]"
+        echo -e "         [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}]"
         echo -e "         [${FLAG_COLOR}-v${RESET}|${FLAG_COLOR}-vv${RESET}|${FLAG_COLOR}-vvv${RESET}] [${FLAG_COLOR}-x${RESET}] [${FLAG_COLOR}-n${RESET}|${FLAG_COLOR}--dry-run${RESET}]"
         echo
-        # DESCRIPTION
         echo -e "${BOLD}${UNDERLINE}DESCRIPTION${RESET}"
         echo -e "    Archive untracked markdown files into dated folders, by default normalized to"
-        echo -e "    ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${UNDERLINE}YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName${RESET}${FS_LIT_COLOR}.md${RESET}."
-        echo -e "    This cleans up AI-generated docs, sorting them in IDE folder viewers."
+        echo -e "    ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${ITALIC}YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName${RESET}${FS_LIT_COLOR}.md${RESET}."
+        echo -e "    This cleans up AI-generated docs, sorting them temporally in IDE folder viewers."
         echo
-        # OPTIONS
         echo -e "${BOLD}${UNDERLINE}OPTIONS${RESET}"
-        echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}       Archive directory (default: ${FS_LIT_COLOR}${UNDERLINE}aidocs/${RESET})"
+        echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}       Archive directory (default: ${FS_LIT_COLOR}aidocs/${RESET})"
         echo -e "    ${FLAG_COLOR}--no-timestamp${RESET}      Do not normalize filenames with ${ARG_VAR_COLOR}${ITALIC}hhmm${RESET} create-time prefix"
-        echo -e "    ${FLAG_COLOR}--no-camelcase${RESET}      Do not normalize filenames to ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}CamelCase${RESET}"
-        echo -e "    ${FLAG_COLOR}-n${RESET}, ${FLAG_COLOR}--dry-run${RESET}       Show proposed ${CMD_COLOR}${BOLD}mv${RESET} operations and exit (no prompt, no changes)"
-        local YES_COLOR=$'\033[38;2;239;83;80m' # Bright Red
-        echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           ${YES_COLOR}${BOLD}Skip confirmation prompt, execute${RESET} ${YES_COLOR}${BOLD}mv${RESET} ${YES_COLOR}${BOLD}operations immediately${RESET}"
-        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Verbosity: ${FLAG_COLOR}-v${RESET}=${CMD_COLOR}find${RESET}/${CMD_COLOR}mv${RESET} files, ${FLAG_COLOR}-vv${RESET}=+debug, ${FLAG_COLOR}-vvv${RESET}=+shell tracing"
-        echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}${BOLD}set -x${RESET})"
-        echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}${ITALIC}∞${RESET})"
-        echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (${ARG_LIT_COLOR}0${RESET}=root only, default: ${ARG_LIT_COLOR}2${RESET})"
-        echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}${UNDERLINE}DIR${RESET} in-place (default: ${FS_LIT_COLOR}${UNDERLINE}test-results/${RESET}, can be repeated)"
+        echo -e "    ${FLAG_COLOR}--no-camelcase${RESET}      Do not normalize filenames to ${FS_VAR_COLOR}${ITALIC}CamelCase${RESET}"
+        echo -e "    ${FLAG_COLOR}-n${RESET}, ${FLAG_COLOR}--dry-run${RESET}       Show proposed ${CMD_COLOR}mv${RESET} operations and ${CMD_COLOR}exit${RESET} (no prompt, no changes)"
+        echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           Skip confirmation prompt, execute ${CMD_COLOR}${BOLD}mv${RESET} operations immediately"
+        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: file counts, 2: +${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET} ops, 3: +shell pipelines"
+        echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}set -x${RESET})"
+        echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}∞${RESET})"
+        echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (root only: ${ARG_LIT_COLOR}0${RESET}, default: ${ARG_LIT_COLOR}2${RESET})"
+        echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}DIR${RESET} in-place (default: ${FS_LIT_COLOR}test-results/${RESET}, can be repeated)"
         echo -e "    ${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}   Delete target files older than e.g., ${ARG_LIT_COLOR}30d${RESET}, ${ARG_LIT_COLOR}4w${RESET}, ${ARG_LIT_COLOR}1M${RESET}"
     }
 
