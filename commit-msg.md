@@ -1,4 +1,3 @@
-- Create a commit message describing the current staged changes.
 - If there are no staged changes, describe the unstaged changes.
 - Agents must use git commands as necessary to determine what changes are staged or unstaged.
   - For example, use git --no-pager diff --cached to inspect staged changes and git --no-pager diff for unstaged changes.
@@ -9,3 +8,4 @@
 - Show draft commit msg as plain text that is easy to copy and paste. Do not use bullets or rich text. Make it be plain ascii text, like in a text box. Make sure that newlines get included when I copy it for pasting.
 - Do not write in run-on paragraphs. Use newlines and bullets as appropriate.
 - Show the draft in an editable tab only if that doesn't involve creating a temp file in the repo, and that any backing temp file elsewhere will be cleaned up after use.
+- If git commands show no output in the terminal, stop and advise the user to restart the IDE.
