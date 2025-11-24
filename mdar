@@ -4,9 +4,9 @@ NAME
     mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/hhmm_CamelCase.md
 
 SYNOPSIS
-    mdar [--archive DIR] [--no-timestamp] [--no-camelcase] [-y|--yes]
-         [-r|--recursive] [--depth N] [--normalize DIR] [--prune N<mhdwMy>]
-         [-v|-vv|-vvv] [-x] [-n|--dry-run]
+    mdar [--archive DIR] [--normalize DIR] [--depth N] [-r|--recursive]
+        [--no-timestamp] [--no-camelcase] [--prune N<mhdwMy>]
+        [-n|--dry-run] [-y|--yes] [-v|-vv|-vvv] [-x]
 
 DESCRIPTION
     Archive untracked markdown files into dated folders, by default normalized to
@@ -14,17 +14,23 @@ DESCRIPTION
     This cleans up AI-generated docs, sorting them temporally in IDE folder viewers.
 
 OPTIONS
-    --archive DIR       Archive directory (default: aidocs/)
-    --no-timestamp      Do not normalize filenames with hhmm create-time prefix
-    --no-camelcase      Do not normalize filenames to CamelCase
-    -n, --dry-run       Show proposed mv operations and exit (no prompt, no changes)
-    -y, --yes           Skip confirmation prompt, execute mv operations immediately
-    -v, -vv, -vvv       Logging level: 1: file counts, 2: +find/git/mv ops, 3: +shell pipelines
-    -x                  Enable shell tracing (set -x)
-    -r, --recursive     Search all subdirectories recursively (depth=∞)
-    --depth N           Directory depth to search (root only: 0, default: 2)
+    --archive DIR       Archive to this directory (default: aidocs/)
     --normalize DIR     Normalize DIR in-place (default: test-results/, can be repeated)
+    --depth N           Directory depth to search (root only: 0, default: 2)
+    -r, --recursive     Search all subdirectories recursively (depth=∞)
+    --no-timestamp      Do not normalize filenames by adding hhmm create-time prefix
+    --no-camelcase      Do not normalize filenames by changing to CamelCase
     --prune N<mhdwMy>   Delete target files older than e.g., 30d, 4w, 1M
+    -n, --dry-run       Show proposed mv/rm operations and exit (no prompt, no changes)
+    -y, --yes           Skip confirmation prompt, execute mv/rm operations immediately
+    -v, -vv, -vvv       Logging level: 1: file counts, 2: +find/git/mv/rm ops, 3: +shell ops
+    -x                  Enable shell tracing (set -x)
+
+EXAMPLE OUTPUT
+  HTTP_RESPONSE_COMPATIBILITY.md            →  aidocs/2025-11-22/1520_HTTPResponseCompatibility.md
+  test-results/HTTP_200_vs_400.md           →  test-results/2025-11-22_1530_HTTP200Vs400.md
+  aidocs/2015-11-01/request_signing_fix.md  →  [DELETE]
+Proceed with these operations? [y/N]
 "
 
 # usageMsg is intentionally placed at the very top for human readers and future agents.
@@ -64,14 +70,13 @@ main() {
         local ARG_VAR_COLOR=$'\033[38;2;255;165;0m'
         local ARG_LIT_COLOR=$'\033[38;2;255;140;0m'
         local YES_COLOR=$'\033[38;2;239;83;80m'
-        # Print each line exactly as in usageMsg, with color applied to tokens only
         echo -e "${BOLD}${UNDERLINE}NAME${RESET}"
         echo -e "    ${CMD_COLOR}mdar${RESET} - Archive untracked markdown files as ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${ITALIC}YYYY-MM-DD/hhmm_CamelCase${RESET}${FS_LIT_COLOR}.md${RESET}"
         echo
         echo -e "${BOLD}${UNDERLINE}SYNOPSIS${RESET}"
-        echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--no-timestamp${RESET}] [${FLAG_COLOR}--no-camelcase${RESET}] [${FLAG_COLOR}-y${RESET}|${FLAG_COLOR}--yes${RESET}]"
-        echo -e "         [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}]"
-        echo -e "         [${FLAG_COLOR}-v${RESET}|${FLAG_COLOR}-vv${RESET}|${FLAG_COLOR}-vvv${RESET}] [${FLAG_COLOR}-x${RESET}] [${FLAG_COLOR}-n${RESET}|${FLAG_COLOR}--dry-run${RESET}]"
+        echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}]"
+        echo -e "        [${FLAG_COLOR}--no-timestamp${RESET}] [${FLAG_COLOR}--no-camelcase${RESET}] [${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}]"
+        echo -e "        [${FLAG_COLOR}-n${RESET}|${FLAG_COLOR}--dry-run${RESET}] [${YES_COLOR}-y${RESET}|${YES_COLOR}--yes${RESET}] [${FLAG_COLOR}-v${RESET}|${FLAG_COLOR}-vv${RESET}|${FLAG_COLOR}-vvv${RESET}] [${FLAG_COLOR}-x${RESET}]"
         echo
         echo -e "${BOLD}${UNDERLINE}DESCRIPTION${RESET}"
         echo -e "    Archive untracked markdown files into dated folders, by default normalized to"
@@ -79,17 +84,23 @@ main() {
         echo -e "    This cleans up AI-generated docs, sorting them temporally in IDE folder viewers."
         echo
         echo -e "${BOLD}${UNDERLINE}OPTIONS${RESET}"
-        echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}       Archive directory (default: ${FS_LIT_COLOR}aidocs/${RESET})"
-        echo -e "    ${FLAG_COLOR}--no-timestamp${RESET}      Do not normalize filenames with ${ARG_VAR_COLOR}${ITALIC}hhmm${RESET} create-time prefix"
-        echo -e "    ${FLAG_COLOR}--no-camelcase${RESET}      Do not normalize filenames to ${FS_VAR_COLOR}${ITALIC}CamelCase${RESET}"
-        echo -e "    ${FLAG_COLOR}-n${RESET}, ${FLAG_COLOR}--dry-run${RESET}       Show proposed ${CMD_COLOR}mv${RESET} operations and ${CMD_COLOR}exit${RESET} (no prompt, no changes)"
-        echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           Skip confirmation prompt, execute ${CMD_COLOR}${BOLD}mv${RESET} operations immediately"
-        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: file counts, 2: +${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET} ops, 3: +shell pipelines"
-        echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}set -x${RESET})"
-        echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}∞${RESET})"
-        echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (root only: ${ARG_LIT_COLOR}0${RESET}, default: ${ARG_LIT_COLOR}2${RESET})"
+        echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}       Archive to this directory (default: ${FS_LIT_COLOR}aidocs/${RESET})"
         echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}DIR${RESET} in-place (default: ${FS_LIT_COLOR}test-results/${RESET}, can be repeated)"
+        echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (root only: ${ARG_LIT_COLOR}0${RESET}, default: ${ARG_LIT_COLOR}2${RESET})"
+        echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}∞${RESET})"
+        echo -e "    ${FLAG_COLOR}--no-timestamp${RESET}      Do not normalize filenames by adding ${ARG_VAR_COLOR}${ITALIC}hhmm${RESET} create-time prefix"
+        echo -e "    ${FLAG_COLOR}--no-camelcase${RESET}      Do not normalize filenames by changing to ${FS_VAR_COLOR}${ITALIC}CamelCase${RESET}"
         echo -e "    ${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}   Delete target files older than e.g., ${ARG_LIT_COLOR}30d${RESET}, ${ARG_LIT_COLOR}4w${RESET}, ${ARG_LIT_COLOR}1M${RESET}"
+        echo -e "    ${FLAG_COLOR}-n${RESET}, ${FLAG_COLOR}--dry-run${RESET}       Show proposed ${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} operations and exit (no prompt, no changes)"
+        echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           Skip confirmation prompt, execute ${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} operations immediately"
+        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: file counts, 2: +${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} ops, 3: +shell ops"
+        echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}set -x${RESET})"
+        echo
+        echo -e "${BOLD}${UNDERLINE}EXAMPLE OUTPUT${RESET}"
+        echo -e "  ${FS_LIT_COLOR}HTTP_RESPONSE_COMPATIBILITY.md${RESET}            →  ${FS_LIT_COLOR}aidocs/2025-11-22/1520_HTTPResponseCompatibility.md${RESET}"
+        echo -e "  ${FS_LIT_COLOR}test-results/HTTP_200_vs_400.md${RESET}           →  ${FS_LIT_COLOR}test-results/2025-11-22_1530_HTTP200Vs400.md${RESET}"
+        echo -e "  ${FS_LIT_COLOR}aidocs/2015-11-01/request_signing_fix.md${RESET}  →  [DELETE]"
+        echo -e "Proceed with these operations? [y/N]"
     }
 
     # vlog: logging utility (define before any calls so it's available during option parsing and early runtime checks)

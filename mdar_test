@@ -5,6 +5,7 @@
 #
 # --setup-only: Create a realistic folder/file tree for experimentation
 # --keep-artifacts: Do not clean up test directories after running
+# TODO madar_test hallucinates/lies about what mdar does. Need to fix it.
 
 set -e
 
@@ -242,7 +243,7 @@ run_tests() {
   [ "$verboseTest" -eq 1 ] && echo "Files in $TESTDIR/tree before test 3:" && find $TESTDIR/tree -type f
   test_case "mdar marks old aidocs files for pruning" \
     "cd $TESTDIR/tree && $mdar_cmd -n --prune 2000d --depth 3 --yes" \
-    "\[DELETE\]" \
+    "aidocs/2019-01-01/0000_Old.md[[:space:]]*→[[:space:]]*\[DELETE\]" \
     "$test3_msg"
   [ "$verboseTest" -eq 1 ] && echo "Completed test 3"
 
