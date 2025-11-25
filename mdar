@@ -501,17 +501,29 @@ main() {
         [ ${#file} -gt $maxLen ] && maxLen=${#file}
     done
 
-    # Display normalization operations first if present
-    if [ ${#normalizeOps[@]} -gt 0 ]; then
-        for op in "${normalizeOps[@]}"; do
-            local src="${op%%|*}" dst="${op##*|}"
-            printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
-        done
-    fi
+    # Combine normalization and untracked operations for sorting
+    local allOps=()
+    for op in "${normalizeOps[@]}"; do
+        local src="${op%%|*}" dst="${op##*|}"
+        allOps+=("$src|$dst")
+    done
     for op in "${untrackedOps[@]}"; do
         local src="${op%%|*}" dst="${op##*|}"
+        allOps+=("$src|$dst")
+    done
+    # Sort allOps by destination path (right-hand side)
+    local sortedOps=()
+    local OLDIFS="$IFS"
+    IFS=$'\n'
+    sortedOps=($(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2))
+    IFS="$OLDIFS"
+    # Print sorted normalization and untracked operations
+    for op in "${sortedOps[@]}"; do
+        local src="${op%%|*}"
+        local dst="${op##*|}"
         printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
     done
+    # Print prune operations at the end
     for file in "${pruneOps[@]}"; do
         printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
     done

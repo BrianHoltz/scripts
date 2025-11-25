@@ -166,11 +166,34 @@ strict_sort_test_case() {
 
   # Extract only lines with '→' and not '[DELETE]'
   local actual_lines=()
+  local actual_targets=()
   while IFS= read -r line; do
     if [[ $line =~ → && ! $line =~ \[DELETE\] ]]; then
       actual_lines+=("$line")
+      # Extract right-hand side (target name)
+      target=$(echo "$line" | awk -F '→' '{print $2}' | sed 's/^ *//')
+      actual_targets+=("$target")
     fi
   done <<< "$output"
+
+  # Check if actual_targets is sorted lexicographically
+  local sorted_targets=("${actual_targets[@]}")
+  IFS=$'\n' sorted_targets=($(printf '%s\n' "${sorted_targets[@]}" | sort))
+  local is_sorted=1
+  for ((i=0;i<${#actual_targets[@]};i++)); do
+    if [[ "${actual_targets[$i]}" != "${sorted_targets[$i]}" ]]; then
+      is_sorted=0
+      break
+    fi
+  done
+  if [[ $is_sorted -eq 0 ]]; then
+    result=1
+    echo "  Target names are not sorted by full path!"
+    echo "  Actual order:"
+    for t in "${actual_targets[@]}"; do echo "    $t"; done
+    echo "  Expected sorted order:"
+    for t in "${sorted_targets[@]}"; do echo "    $t"; done
+  fi
 
   # Extract only patterns with '→' and not '[DELETE]'
   local expected_patterns=()
@@ -333,11 +356,12 @@ run_tests() {
 
   strict_sort_test_case "mdar sorts recommended target names (by mtime and name)" \
     "cd $t6 && $mdar_cmd -n --depth 2 --yes" \
-    "testdir/beta_notes.md.*→.*aidocs/2024-03-22/1445_BetaNotes.md" \
-    "testdir/alpha_notes.md.*→.*aidocs/2024-03-22/1430_AlphaNotes.md" \
-    "testdir/gamma_notes.md.*→.*aidocs/2025-10-01/1200_GammaNotes.md" \
     "testdir/zeta_notes.md.*→.*aidocs/2023-01-15/0900_ZetaNotes.md" \
-    "Dry-run: Executed 0 of 4 proposed operations"
+    "testdir/alpha_notes.md.*→.*aidocs/2024-03-22/1430_AlphaNotes.md" \
+    "testdir/beta_notes.md.*→.*aidocs/2024-03-22/1445_BetaNotes.md" \
+    "testdir/delta_notes.md.*→.*aidocs/2025-06-18/0830_DeltaNotes.md" \
+    "testdir/gamma_notes.md.*→.*aidocs/2025-10-01/1200_GammaNotes.md" \
+    "Dry-run: Executed 0 of 5 proposed operations"
 
   echo ""
   header "### Test Summary"
