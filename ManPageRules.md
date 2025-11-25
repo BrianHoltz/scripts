@@ -7,14 +7,15 @@ This scheme splits the content into distinct categories for clarity and consiste
 - Underline for filesystem variables and literals: mimics hyperlinks, suggesting navigation or location.
 - Italics for variables: signals that the value is a placeholder, not a literal.
 - Bold for commands: highlights the impact of the action.
-- Command: DodgerBlue
-- Flag: DeepSkyBlue
-- Filesystem Variable: MediumSeaGreen
-- Filesystem Literal: Lime
-- Argument Variable: Orange
-- Argument Literal: DarkOrange
-- Freeform Variable: HotPink 
-- Freeform Literal: Magenta
+- Colors
+  - Command: DodgerBlue
+  - Flag: DeepSkyBlue
+  - Filesystem Variable: MediumSeaGreen
+  - Filesystem Literal: Lime
+  - Argument Variable: Orange
+  - Argument Literal: DarkOrange
+  - Freeform Variable: HotPink 
+  - Freeform Literal: Magenta
 
 ## Command
 - Anything that can be invoked by a shell.

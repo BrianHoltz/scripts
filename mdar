@@ -61,6 +61,7 @@ main() {
     local noTimestamp=0
     local noCamelCase=0
     local ignoreOverridden=0
+    local normalizeOverridden=0
 
     # Print to terminal a colorized version of the usage message.
     # IMPORTANT: usageMsg formatting ALWAYS trumps showUsage. If you change usageMsg, you MUST update showUsage to match it EXACTLY, including newlines and spacing. Do NOT change showUsage formatting independently.
@@ -69,13 +70,14 @@ main() {
         local BOLD=$'\033[1m'
         local UNDERLINE=$'\033[4m'
         local ITALIC=$'\033[3m'
-        local CMD_COLOR=$'\033[38;2;30;144;255m'
-        local FLAG_COLOR=$'\033[38;2;0;191;255m'
-        local FS_VAR_COLOR=$'\033[38;2;60;179;113m'
-        local FS_LIT_COLOR=$'\033[38;2;0;255;0m'
-        local ARG_VAR_COLOR=$'\033[38;2;255;165;0m'
-        local ARG_LIT_COLOR=$'\033[38;2;255;140;0m'
-        local YES_COLOR=$'\033[38;2;239;83;80m'
+        # Use standard ANSI colors for broader terminal compatibility
+        local CMD_COLOR=$'\033[1;34m'     # bright blue
+        local FLAG_COLOR=$'\033[1;36m'    # bright cyan
+        local FS_VAR_COLOR=$'\033[32m'    # green
+        local FS_LIT_COLOR=$'\033[1;32m'  # bright green
+        local ARG_VAR_COLOR=$'\033[33m'   # yellow
+        local ARG_LIT_COLOR=$'\033[1;33m' # bright yellow
+        local YES_COLOR=$'\033[1;31m'     # bright red
         echo -e "${BOLD}${UNDERLINE}NAME${RESET}"
         echo -e "    ${CMD_COLOR}mdar${RESET} - Archive untracked markdown files as ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${ITALIC}YYYY-MM-DD/hhmm_CamelCase${RESET}${FS_LIT_COLOR}.md${RESET}"
         echo
@@ -91,9 +93,9 @@ main() {
         echo
         echo -e "${BOLD}${UNDERLINE}OPTIONS${RESET}"
         echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}       Archive to this directory (default: ${FS_LIT_COLOR}aidocs/${RESET})"
-        echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}DIR${RESET} in-place (default: ${FS_LIT_COLOR}test-results/${RESET}, can be repeated)"
-        echo -e "    ${FLAG_COLOR}--ignore${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}        Ignore paths starting with ${FS_VAR_COLOR}${ITALIC}DIR${RESET} (prefix match; default: ${FS_LIT_COLOR}2delete/${RESET}, removed if any --ignore given; repeatable)"
-        echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (root only: ${ARG_LIT_COLOR}0${RESET}, default: ${ARG_LIT_COLOR}2${RESET})"
+        echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}DIR${RESET} in-place    (default: ${FS_LIT_COLOR}test-results/${RESET}, repeatable)"
+        echo -e "    ${FLAG_COLOR}--ignore${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}        Ignore folders named ${FS_VAR_COLOR}${ITALIC}DIR${RESET}; (default: ${FS_LIT_COLOR}2delete/${RESET},      repeatable)"
+        echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (default: ${ARG_LIT_COLOR}2${RESET}, root only: ${ARG_LIT_COLOR}0${RESET})"
         echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}∞${RESET})"
         echo -e "    ${FLAG_COLOR}--no-timestamp${RESET}      Do not normalize filenames by adding ${ARG_VAR_COLOR}${ITALIC}hhmm${RESET} create-time prefix"
         echo -e "    ${FLAG_COLOR}--no-camelcase${RESET}      Do not normalize filenames by changing to ${FS_VAR_COLOR}${ITALIC}CamelCase${RESET}"
@@ -152,6 +154,10 @@ main() {
             --depth)
                 depth="$2"; shift 2 ;;
             --normalize)
+                if [ $normalizeOverridden -eq 0 ]; then
+                    normalizeDirs=()   # override default on first user-provided --normalize
+                    normalizeOverridden=1
+                fi
                 normalizeDirs+=("$2"); shift 2 ;;
             --prune)
                 pruneDuration="$2"; shift 2 ;;
@@ -337,28 +343,35 @@ main() {
     }
 
     collectPruneOps() {
-        vlog 3 "collectPruneOps: find files in $archiveDir older than cutoff time $cutoffTime"
         local repoRoot="$1" duration="$2" archiveDir="$3"
+        shift 3
+        local normalizeDirs=("$@")
+        vlog 3 "collectPruneOps: find files in $archiveDir, test-results/, and normalizeDirs=(${normalizeDirs[*]}) older than cutoff"
         local cutoffTime
         cutoffTime=$(($(date +%s) - $(parseDurationToSeconds "$duration")))
         local pruneOps=()
-        # Use NUL-delimited find to handle filenames with spaces/newlines and
-        # exclude the archive root README.md explicitly.
-        while IFS= read -r -d '' f; do
-            # Make path relative (strip leading ./ if present)
-            f="${f#./}"
-            [ "$f" = "${archiveDir}/README.md" ] && continue
-            # Ignore folders matching ignoreNames
-            for igRaw in "${ignoreNames[@]}"; do
-                local ig="${igRaw%/}"
-                if [[ "$f" == "$ig"* ]]; then
-                    continue 2
-                fi
-            done
-            local mtime
-            mtime=$(stat -f "%m" "$repoRoot/$f" 2>/dev/null || echo 0)
-            [ "$mtime" -lt "$cutoffTime" ] && pruneOps+=("$f")
-        done < <(cd "$repoRoot" && find "$archiveDir" -type f -print0 2>/dev/null)
+        # Always search archiveDir, test-results/, and any explicit normalize dirs
+        local dirsToSearch=("$archiveDir" "test-results" "${normalizeDirs[@]}")
+        for searchDir in "${dirsToSearch[@]}"; do
+            [ ! -d "$repoRoot/$searchDir" ] && continue
+            # Use NUL-delimited find to handle filenames with spaces/newlines and
+            # exclude the archive root README.md explicitly.
+            while IFS= read -r -d '' f; do
+                # Make path relative (strip leading ./ if present)
+                f="${f#./}"
+                [ "$f" = "${archiveDir}/README.md" ] && continue
+                # Ignore folders matching ignoreNames
+                for igRaw in "${ignoreNames[@]}"; do
+                    local ig="${igRaw%/}"
+                    if [[ "$f" == "$ig"* ]]; then
+                        continue 2
+                    fi
+                done
+                local mtime
+                mtime=$(stat -f "%m" "$repoRoot/$f" 2>/dev/null || echo 0)
+                [ "$mtime" -lt "$cutoffTime" ] && pruneOps+=("$f")
+            done < <(cd "$repoRoot" && find "$searchDir" -type f -print0 2>/dev/null)
+        done
         # Print one operation per line for the caller to read safely
         printf '%s\n' "${pruneOps[@]}"
     }
@@ -415,7 +428,7 @@ main() {
     }
 
     # Main logic
-    vlog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase ignoreNames=(${ignoreNames[*]}) ignoreOverridden=$ignoreOverridden"
+    vlog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase ignoreNames=(${ignoreNames[*]}) ignoreOverridden=$ignoreOverridden normalizeOverridden=$normalizeOverridden"
     vlog 2 "Active ignore folder names: ${ignoreNames[*]}"
     local markdownFiles
     markdownFiles=$(findUntrackedMarkdown "$repoRoot" "$depth" "$inGitRepo")
@@ -473,7 +486,7 @@ main() {
     if [ -n "$pruneDuration" ]; then
         while IFS= read -r line; do
             [ -n "$line" ] && pruneOps+=("$line")
-        done < <(collectPruneOps "$repoRoot" "$pruneDuration" "$archiveDir")
+        done < <(collectPruneOps "$repoRoot" "$pruneDuration" "$archiveDir" "${normalizeDirs[@]}")
     fi
 
     local totalOps=$(( ${#untrackedOps[@]} + ${#normalizeOps[@]} + ${#pruneOps[@]} ))
