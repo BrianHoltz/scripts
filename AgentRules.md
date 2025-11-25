@@ -53,4 +53,9 @@ When running a terminal command that may produce paged output, you need to preve
 
 ### Unresponsive Terminals
 
-If your connection to your terminal is unresponsive, don't waste time working around the problem. Alert the user and suggest they restart their IDE.
+Agents running inside Copilot may occasionally lose access to command output in the terminal. If you notice that terminal commands are not producing visible output:
+
+1. First, rerun the command and redirect its output to a temporary file (e.g., `command > /tmp/copilot_output.txt 2>&1`). Then, display the contents with `cat /tmp/copilot_output.txt`.
+2. If you still cannot see the output, do not attempt further workarounds. Promptly alert the user and recommend that they restart their IDE to restore terminal functionality.
+
+Always avoid spending excessive time troubleshooting terminal output issues beyond these steps.
