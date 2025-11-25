@@ -1,3 +1,5 @@
 /.idea/
 .java-version
 .DS_Store
+/aidocs/
+/tmp/
