@@ -513,10 +513,9 @@ main() {
     done
     # Sort allOps by destination path (right-hand side)
     local sortedOps=()
-    local OLDIFS="$IFS"
-    IFS=$'\n'
-    mapfile -t sortedOps < <(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2)
-    IFS="$OLDIFS"
+    while IFS= read -r line; do
+        [ -n "$line" ] && sortedOps+=("$line")
+    done < <(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2)
     # Print sorted normalization and untracked operations
     for op in "${sortedOps[@]}"; do
         local src="${op%%|*}"

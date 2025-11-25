@@ -177,8 +177,10 @@ strict_sort_test_case() {
   done <<< "$output"
 
   # Check if actual_targets is sorted lexicographically
-  local sorted_targets=("${actual_targets[@]}")
-  mapfile -t sorted_targets < <(printf '%s\n' "${sorted_targets[@]}" | sort)
+  local sorted_targets=()
+  while IFS= read -r line; do
+    [ -n "$line" ] && sorted_targets+=("$line")
+  done < <(printf '%s\n' "${actual_targets[@]}" | sort)
   local is_sorted=1
   for ((i=0;i<${#actual_targets[@]};i++)); do
     if [[ "${actual_targets[$i]}" != "${sorted_targets[$i]}" ]]; then
