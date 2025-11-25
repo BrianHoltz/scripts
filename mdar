@@ -4,7 +4,7 @@ NAME
     mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/hhmm_CamelCase.md
 
 SYNOPSIS
-    mdar [--archive DIR] [--normalize DIR] [--depth N] [-r|--recursive]
+    mdar [--archive DIR] [--normalize DIR] [--ignore DIR] [--depth N] [-r|--recursive]
         [--no-timestamp] [--no-camelcase] [--prune N<mhdwMy>]
         [-n|--dry-run] [-y|--yes] [-v|-vv|-vvv] [-x]
 
@@ -15,8 +15,9 @@ DESCRIPTION
 
 OPTIONS
     --archive DIR       Archive to this directory (default: aidocs/)
-    --normalize DIR     Normalize DIR in-place (default: test-results/, can be repeated)
-    --depth N           Directory depth to search (root only: 0, default: 2)
+    --normalize DIR     Normalize DIR in-place    (default: test-results/, repeatable)
+    --ignore DIR        Ignore folders named DIR; (default: 2delete/,      repeatable)
+    --depth N           Directory depth to search (default: 2, root only: 0)
     -r, --recursive     Search all subdirectories recursively (depth=∞)
     --no-timestamp      Do not normalize filenames by adding hhmm create-time prefix
     --no-camelcase      Do not normalize filenames by changing to CamelCase
@@ -43,6 +44,10 @@ Proceed with these operations? [y/N]
 
 set -e # Exit on error
 
+# Global default ignore folder names (repeatable via --ignore). Placed globally so helper
+# functions can access it (bash local scoping does not create closures).
+ignoreNames=("2delete")
+
 main() {
     local autoConfirm=0
     local depth=2
@@ -55,6 +60,7 @@ main() {
     local archiveDir="aidocs"
     local noTimestamp=0
     local noCamelCase=0
+    local ignoreOverridden=0
 
     # Print to terminal a colorized version of the usage message.
     # IMPORTANT: usageMsg formatting ALWAYS trumps showUsage. If you change usageMsg, you MUST update showUsage to match it EXACTLY, including newlines and spacing. Do NOT change showUsage formatting independently.
@@ -74,7 +80,7 @@ main() {
         echo -e "    ${CMD_COLOR}mdar${RESET} - Archive untracked markdown files as ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${ITALIC}YYYY-MM-DD/hhmm_CamelCase${RESET}${FS_LIT_COLOR}.md${RESET}"
         echo
         echo -e "${BOLD}${UNDERLINE}SYNOPSIS${RESET}"
-        echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}]"
+        echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--ignore${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}]"
         echo -e "        [${FLAG_COLOR}--no-timestamp${RESET}] [${FLAG_COLOR}--no-camelcase${RESET}] [${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}]"
         echo -e "        [${FLAG_COLOR}-n${RESET}|${FLAG_COLOR}--dry-run${RESET}] [${YES_COLOR}-y${RESET}|${YES_COLOR}--yes${RESET}] [${FLAG_COLOR}-v${RESET}|${FLAG_COLOR}-vv${RESET}|${FLAG_COLOR}-vvv${RESET}] [${FLAG_COLOR}-x${RESET}]"
         echo
@@ -86,6 +92,7 @@ main() {
         echo -e "${BOLD}${UNDERLINE}OPTIONS${RESET}"
         echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}       Archive to this directory (default: ${FS_LIT_COLOR}aidocs/${RESET})"
         echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}DIR${RESET} in-place (default: ${FS_LIT_COLOR}test-results/${RESET}, can be repeated)"
+        echo -e "    ${FLAG_COLOR}--ignore${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}        Ignore paths starting with ${FS_VAR_COLOR}${ITALIC}DIR${RESET} (prefix match; default: ${FS_LIT_COLOR}2delete/${RESET}, removed if any --ignore given; repeatable)"
         echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (root only: ${ARG_LIT_COLOR}0${RESET}, default: ${ARG_LIT_COLOR}2${RESET})"
         echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}∞${RESET})"
         echo -e "    ${FLAG_COLOR}--no-timestamp${RESET}      Do not normalize filenames by adding ${ARG_VAR_COLOR}${ITALIC}hhmm${RESET} create-time prefix"
@@ -106,7 +113,7 @@ main() {
     # vlog: logging utility (define before any calls so it's available during option parsing and early runtime checks)
     # Log levels:
     # 1: Basic discovery/context, non-fatal errors (e.g., git repo status, counts of markdowns)
-    # 2: Important subcommands (describe git/find/mv commands and why they're run)
+    # 2: Important subcommands (describe git/find/mv/rm commands and why they're run)
     # 3: All interesting shell pipelines and transformations (full trace)
     vlog() {
         local level="$1"; shift
@@ -120,6 +127,18 @@ main() {
         case "$1" in
             --archive)
                 archiveDir="$2"; shift 2 ;;
+            --ignore)
+                if [ -z "$2" ]; then
+                    echo "--ignore requires a non-empty prefix" >&2
+                    showUsage >&2
+                    exit 1
+                fi
+                if [ $ignoreOverridden -eq 0 ]; then
+                    ignoreNames=()   # override default on first user-provided --ignore
+                    ignoreOverridden=1
+                fi
+                ignoreNames+=("$2")
+                shift 2 ;;
             --no-timestamp)
                 noTimestamp=1; shift ;;
             --no-camelcase)
@@ -172,6 +191,18 @@ main() {
     fi
     cd "$repoRoot"
 
+    # Helper: test whether a path should be ignored (inside any named ignore folder)
+    shouldIgnorePath() {
+        local p="$1"
+        for igRaw in "${ignoreNames[@]}"; do
+            [ -z "$igRaw" ] && continue
+            local ig="${igRaw%/}" # strip trailing slash for consistency
+            if [[ "$p" == "$ig"* ]]; then
+                return 0
+            fi
+        done
+        return 1
+    }
 
     normalizePaths() {
         vlog 4 "normalizePaths: Strip leading './' and drop empty lines"
@@ -193,6 +224,10 @@ main() {
             vlog 3 "Combining statusFiles and lsFiles, sorting, deduping, filtering for .md files"
             # Combine both sources, sort/dedupe, remove blank lines, keep only .md files, exclude aidocs/
             files=$(printf "%s\n%s\n" "$statusFiles" "$lsFiles" | sort | uniq | grep -v '^$' | grep '\.md$' | grep -v '^aidocs/')
+            # Replace prior grep-based ignore with prefix function filter
+            if [ "${#ignoreNames[@]}" -gt 0 ]; then
+                files=$(echo "$files" | while IFS= read -r f; do [ -z "$f" ] && continue; if ! shouldIgnorePath "$f"; then echo "$f"; fi; done)
+            fi
             if [ "$depth" -ge 0 ]; then
                 vlog 3 "Filtering markdown files by depth: $depth"
                 files=$(echo "$files" | awk -F'/' -v depth="$depth" 'NF <= depth + 1')
@@ -201,12 +236,14 @@ main() {
             vlog 1 "Not in a git repo. Searching for markdown files in: $repoRoot"
             if [ "$depth" -eq -1 ]; then
                 vlog 2 "Running: find . -type f -name '*.md' (recursive)"
-                # Find all markdown files, strip leading './', exclude aidocs/
                 files=$(cd "$repoRoot" && find . -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/')
             else
                 vlog 2 "Running: find . -maxdepth $((depth + 1)) -type f -name '*.md'"
-                # Find markdown files up to maxdepth, strip leading './', exclude aidocs/
                 files=$(cd "$repoRoot" && find . -maxdepth $((depth + 1)) -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/')
+            fi
+            # Apply ignore filters
+            if [ "${#ignoreNames[@]}" -gt 0 ]; then
+                files=$(echo "$files" | while IFS= read -r f; do [ -z "$f" ] && continue; if ! shouldIgnorePath "$f"; then echo "$f"; fi; done)
             fi
         fi
         echo "$files"
@@ -283,7 +320,6 @@ main() {
         echo "$base" | sed -e 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | sed 's/ //g'
     }
 
-    # Parse duration string to seconds
     parseDurationToSeconds() {
         local duration="$1"
         local num="${duration%[mhdwMy]}"
@@ -312,6 +348,13 @@ main() {
             # Make path relative (strip leading ./ if present)
             f="${f#./}"
             [ "$f" = "${archiveDir}/README.md" ] && continue
+            # Ignore folders matching ignoreNames
+            for igRaw in "${ignoreNames[@]}"; do
+                local ig="${igRaw%/}"
+                if [[ "$f" == "$ig"* ]]; then
+                    continue 2
+                fi
+            done
             local mtime
             mtime=$(stat -f "%m" "$repoRoot/$f" 2>/dev/null || echo 0)
             [ "$mtime" -lt "$cutoffTime" ] && pruneOps+=("$f")
@@ -320,7 +363,6 @@ main() {
         printf '%s\n' "${pruneOps[@]}"
     }
 
-    # Collect files to normalize in specified directories
     collectNormalizeOps() {
         vlog 3 "collectNormalizeOps: repoRoot=$1 dirs=$(printf '%s ' "${dirs[@]}")"
         local repoRoot="$1"
@@ -332,6 +374,13 @@ main() {
             while IFS= read -r -d '' filepath; do
                 filepath="${filepath#./}"
                 [ -z "$filepath" ] && continue
+                # Skip ignored folders
+                for igRaw in "${ignoreNames[@]}"; do
+                    local ig="${igRaw%/}"
+                    if [[ "$filepath" == "$ig"* ]]; then
+                        continue 2
+                    fi
+                done
                 local dirname filename base extension
                 dirname=$(dirname "$filepath")
                 filename=$(basename "$filepath")
@@ -360,13 +409,14 @@ main() {
                     normalizeOps+=("$filepath|$newPath")
                 fi
             done < <(cd "$repoRoot" && find "$dir" -type f -print0 2>/dev/null)
-         done
+        done
         # Print one operation per line for the caller to read safely
         printf '%s\n' "${normalizeOps[@]}"
-     }
+    }
 
     # Main logic
-    vlog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase"
+    vlog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase ignoreNames=(${ignoreNames[*]}) ignoreOverridden=$ignoreOverridden"
+    vlog 2 "Active ignore folder names: ${ignoreNames[*]}"
     local markdownFiles
     markdownFiles=$(findUntrackedMarkdown "$repoRoot" "$depth" "$inGitRepo")
     markdownFiles=$(normalizePaths "$markdownFiles")
@@ -380,6 +430,10 @@ main() {
         vlog 2 "Mapping each discovered markdown file to its intended archive destination"
         while IFS= read -r file; do
             [ -z "$file" ] && continue
+            # Skip ignored folders just in case
+            if shouldIgnorePath "$file"; then
+                continue
+            fi
             local base ext
             base=$(basename "$file")
             ext="${base##*.}"
@@ -415,7 +469,6 @@ main() {
     while IFS= read -r line; do
         [ -n "$line" ] && normalizeOps+=("$line")
     done < <(collectNormalizeOps "$repoRoot" "${normalizeDirs[@]}")
-    # Instead of: mapfile -t pruneOps < <(collectPruneOps ...)
     pruneOps=()
     if [ -n "$pruneDuration" ]; then
         while IFS= read -r line; do
