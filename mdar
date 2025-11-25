@@ -515,7 +515,7 @@ main() {
     local sortedOps=()
     local OLDIFS="$IFS"
     IFS=$'\n'
-    sortedOps=($(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2))
+    mapfile -t sortedOps < <(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2)
     IFS="$OLDIFS"
     # Print sorted normalization and untracked operations
     for op in "${sortedOps[@]}"; do
