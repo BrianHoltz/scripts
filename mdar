@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 usageMsg="\
 NAME
     mdar - Archive untracked markdown files as aidocs/YYYY-MM-DD/hhmm_CamelCase.md

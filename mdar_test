@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 usageMsg="\
 NAME
     mdar_test - Thorough and realistic testing for mdar
