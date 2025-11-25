@@ -64,14 +64,14 @@ setup_only() {
 # Color helpers
 color_pass() {
   if [ -t 1 ]; then
-    printf '\033[1;32mPASS: %s\033[0m\n' "$1"
+    printf '\033[1;92mPASS: %s\033[0m\n' "$1"
   else
     echo "PASS: $1"
   fi
 }
 color_fail() {
   if [ -t 1 ]; then
-    printf '\033[1;31mFAIL: %s\033[0m\n' "$1"
+    printf '\033[1;91mFAIL: %s\033[0m\n' "$1"
   else
     echo "FAIL: $1"
   fi
@@ -92,12 +92,15 @@ clean_expect() {
 
 # Run a single test case
 test_case() {
-  local desc="$1"
-  local cmd="$2"
+  local desc
+  desc="$1"
+  local cmd
+  cmd="$2"
   shift 2
   local expect_lines=("$@")
 
-  local LAST_OUTFILE=$(mktemp /tmp/mdar_test_out.XXXXXX)
+  local LAST_OUTFILE
+  LAST_OUTFILE=$(mktemp /tmp/mdar_test_out.XXXXXX)
   eval "$cmd" >"$LAST_OUTFILE" 2>&1 || true
   local result=0
   local output
@@ -110,16 +113,12 @@ test_case() {
     fi
   done
 
-  if [[ $result -eq 0 ]]; then
-    color_pass "$desc"
-    ((passed++))
-  else
-    color_fail "$desc"
-    ((failed++))
-  fi
-
   # Show details in verbose mode or on failure
   if [[ $verboseTest -eq 1 || $result -ne 0 ]]; then
+    printf '\033[1m### Test: %s\033[0m\n' "$desc"
+    echo '```'
+    cat "$LAST_OUTFILE"
+    echo '```'
     echo "  Command: $cmd"
     for b in "${expect_lines[@]}"; do
       [[ -n "$b" ]] && echo "  - Expect: $(clean_expect "$b")"
@@ -128,20 +127,38 @@ test_case() {
       echo "  Output:"
       cat "$LAST_OUTFILE" | head -50
     fi
+    if [[ $result -eq 0 ]]; then
+      color_pass "$desc"
+      ((passed++))
+    else
+      color_fail "$desc"
+      ((failed++))
+    fi
+  else
+    if [[ $result -eq 0 ]]; then
+      color_pass "$desc"
+      ((passed++))
+    else
+      color_fail "$desc"
+      ((failed++))
+    fi
   fi
 
-  rm -f "$LAST_OUTFILE"
+  rm -f "$LAST_OUTFILE" # Temp file is deleted after each test
   return $result
 }
 
 # Strict output order check for sorting test
 strict_sort_test_case() {
-  local desc="$1"
-  local cmd="$2"
+  local desc
+  desc="$1"
+  local cmd
+  cmd="$2"
   shift 2
   local expect_patterns=("$@")
 
-  local LAST_OUTFILE=$(mktemp /tmp/mdar_test_out.XXXXXX)
+  local LAST_OUTFILE
+  LAST_OUTFILE=$(mktemp /tmp/mdar_test_out.XXXXXX)
   eval "$cmd" >"$LAST_OUTFILE" 2>&1 || true
   local result=0
   local output
@@ -168,7 +185,7 @@ strict_sort_test_case() {
     result=1
   else
     # Check each line matches expected pattern in order
-    for ((i=0; i<${#expected_patterns[@]}; i++)); do
+    for ((i=0;i<${#expected_patterns[@]};i++)); do
       if ! echo "${actual_lines[$i]}" | grep -E -q "${expected_patterns[$i]}"; then
         result=1
         break
@@ -176,16 +193,12 @@ strict_sort_test_case() {
     done
   fi
 
-  if [[ $result -eq 0 ]]; then
-    color_pass "$desc"
-    ((passed++))
-  else
-    color_fail "$desc"
-    ((failed++))
-  fi
-
   # Show details in verbose mode or on failure
   if [[ $verboseTest -eq 1 || $result -ne 0 ]]; then
+    printf '\033[1m### Test: %s\033[0m\n' "$desc"
+    echo '```'
+    cat "$LAST_OUTFILE"
+    echo '```'
     echo "  Command: $cmd"
     for b in "${expect_patterns[@]}"; do
       [[ -n "$b" ]] && echo "  - Expect: $(clean_expect "$b")"
@@ -197,10 +210,25 @@ strict_sort_test_case() {
       echo "  Actual ${#actual_lines[@]} lines:"
       for l in "${actual_lines[@]}"; do echo "    $l"; done
     fi
+    if [[ $result -eq 0 ]]; then
+      color_pass "$desc"
+      ((passed++))
+    else
+      color_fail "$desc"
+      ((failed++))
+    fi
+  else
+    if [[ $result -eq 0 ]]; then
+      color_pass "$desc"
+      ((passed++))
+    else
+      color_fail "$desc"
+      ((failed++))
+    fi
   fi
 
-  rm -f "$LAST_OUTFILE"
-  return 0  # Always return 0 so script continues with set -e
+  rm -f "$LAST_OUTFILE" # Temp file is deleted after each test
+  return $result
 }
 
 # Global test directory for all test cases
