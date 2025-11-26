@@ -14,7 +14,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 5. Run the new tests and related tests; if any fail, return to step 4.
 6. Run the entire test suite; if any unexpected failures, return to step 4.
 7. If local postman/newman tests exist for the system, ask the user to run the local server. When the server is running, run the postman tests and update any related test-status doc.
-7. Run coverage analysis and add tests until 100% of new flows/conditions are covered.
+8. Run coverage analysis and add tests until 100% of new flows/conditions are covered.
     - If any flows/conditions are too difficult to test, ask for guidance.
 
 ## Communication Style
