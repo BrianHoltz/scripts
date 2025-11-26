@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
 usageMsg="\
 NAME
     mdar_test - Thorough and realistic testing for mdar
@@ -28,11 +28,9 @@ set -e
 # Test counters must be global for test_case to increment them
 passed=0
 failed=0
+current_test_num=0
+test_descriptions=()
 
-# Ensure running under zsh for robust behavior
-if [ -z "$ZSH_VERSION" ]; then
-  exec zsh "$0" "$@"
-fi
 
 show_help() {
   echo "$usageMsg"
@@ -99,6 +97,23 @@ test_case() {
   shift 2
   local expect_lines=("$@")
 
+  # Increment test number and record description
+  ((current_test_num++))
+  test_descriptions+=("Test $current_test_num: $desc")
+
+  # Check if this test should be skipped
+  if [ -n "$specificTest" ] && [ "$specificTest" != "$current_test_num" ]; then
+    return 0  # Skip this test
+  fi
+  if [ -n "$ignoreTests" ]; then
+    IFS=',' read -ra IGNORE_ARRAY <<< "$ignoreTests"
+    for skip_num in "${IGNORE_ARRAY[@]}"; do
+      if [ "$skip_num" = "$current_test_num" ]; then
+        return 0  # Skip this test
+      fi
+    done
+  fi
+
   local LAST_OUTFILE
   LAST_OUTFILE=$(mktemp /tmp/mdar_test_out.XXXXXX)
   eval "$cmd" >"$LAST_OUTFILE" 2>&1 || true
@@ -156,6 +171,23 @@ strict_sort_test_case() {
   cmd="$2"
   shift 2
   local expect_patterns=("$@")
+
+  # Increment test number and record description
+  ((current_test_num++))
+  test_descriptions+=("Test $current_test_num: $desc")
+
+  # Check if this test should be skipped
+  if [ -n "$specificTest" ] && [ "$specificTest" != "$current_test_num" ]; then
+    return 0  # Skip this test
+  fi
+  if [ -n "$ignoreTests" ]; then
+    IFS=',' read -ra IGNORE_ARRAY <<< "$ignoreTests"
+    for skip_num in "${IGNORE_ARRAY[@]}"; do
+      if [ "$skip_num" = "$current_test_num" ]; then
+        return 0  # Skip this test
+      fi
+    done
+  fi
 
   local LAST_OUTFILE
   LAST_OUTFILE=$(mktemp /tmp/mdar_test_out.XXXXXX)
@@ -264,6 +296,16 @@ extract_usageMsg() {
   "$HOME/bin/mdar" -H
 }
 
+list_tests() {
+  echo "Available tests:"
+  echo "  1: mdar usageMsg matches --help output"
+  echo "  2: mdar proposes move for untracked .md file"
+  echo "  3: mdar suggests normalization for test-results files"
+  echo "  4: mdar marks old aidocs files for pruning"
+  echo "  5: mdar prunes old files in test-results/"
+  echo "  6: mdar sorts recommended target names (by mtime and name)"
+  exit 0
+}
 
 run_tests() {
   set +e  # Disable exit-on-error so all tests run
@@ -409,6 +451,9 @@ keepArtifacts=0
 shellTrace=0
 mdarTrace=0
 verboseTest=0
+listTests=0
+specificTest=""
+ignoreTests=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -422,6 +467,14 @@ while [[ $# -gt 0 ]]; do
       mdarTrace=1 ;;
     -v)
       verboseTest=1 ;;
+    -l|--list-tests)
+      listTests=1 ;;
+    -t|--test)
+      specificTest="$2"
+      shift ;;
+    --ignore-tests)
+      ignoreTests="$2"
+      shift ;;
     -h|--help)
       show_help ;;
     --)
@@ -443,6 +496,10 @@ fi
 
 if [[ $shellTrace -eq 1 ]]; then
   set -x
+fi
+
+if [[ $listTests -eq 1 ]]; then
+  list_tests
 fi
 
 if [[ $setupOnly -eq 1 ]]; then
