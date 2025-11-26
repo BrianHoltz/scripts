@@ -1,11 +1,9 @@
+- Create a concise and descriptive commit message summarizing the git diff.
 - If there are no staged changes, describe the unstaged changes.
 - Agents must use git commands as necessary to determine what changes are staged or unstaged.
   - For example, use git --no-pager diff --cached to inspect staged changes and git --no-pager diff for unstaged changes.
-- Do not rely solely on editor context or conversation history to infer the state of the working directory or index.
-- Do not assume the conversation context is the authority for what has changed.
+- Do not assume the conversation context is the authority for what has changed. Always verify with git commands.
 - Use Conventional Commits standard.
-- Don't document trivial changes that a future developers would not search for.
-- Show draft commit msg as plain text that is easy to copy and paste. Do not use bullets or rich text. Make it be plain ascii text, like in a text box. Make sure that newlines get included when I copy it for pasting.
-- Do not write in run-on paragraphs. Use newlines and bullets as appropriate.
-- Show the draft in an editable tab only if that doesn't involve creating a temp file in the repo, and that any backing temp file elsewhere will be cleaned up after use.
-- If git commands show no output in the terminal, stop and advise the user to restart the IDE.
+- Don't document trivial changes that a future developers/agents would not search for.
+- For guidance about how to present copyable raw ANSI text, refer to AgentRules.md.
+- If git commands show no output in the terminal, refer to AgentRules.md.
