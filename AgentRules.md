@@ -31,7 +31,12 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 - Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime.
 - If updating such an ad hoc doc created on an earlier date, move it into the current date and use modtime for hhmm.
 - Do not create ad hoc documents for short (<100 lines) content that can be presented inline.
-- For content that the user might need to paste as text (e.g. raw text commmit message, markdown PR description), present the content as inline raw text that can be copy-pasted, rather than rich text that doesn't paste well into text panes.
+
+### Ad Hoc Raw Text e.g. Commit Messages
+
+- For content that the user might need to paste as text (e.g. raw text commmit message, raw markdown PR description), present the content as inline raw text that can be copy-pasted, rather than rich text (e.g. with bullets) that doesn't paste well into text panes.
+- Do not use bullets or rich text. Make it be plain ascii text, like in a text box. Make sure that newlines get included when the user copies it for pasting.
+- Do not write in run-on paragraphs. Use newlines and bullets as appropriate.
 
 ## Version Control
 
