@@ -13,10 +13,14 @@ DESCRIPTION
     aidocs/YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName.md.
     This cleans up AI-generated docs, sorting them temporally in IDE folder viewers.
 
+    Ignore patterns can be specified via --ignore flag or in mdar_ignore file (one
+    pattern per line, # for comments). Patterns match directory names and filenames.
+
 OPTIONS
     --archive DIR       Archive to this directory (default: aidocs/)
     --normalize DIR     Normalize DIR in-place    (default: test-results/, repeatable)
-    --ignore DIR        Ignore folders named DIR; (default: 2delete/,      repeatable)
+    --ignore PATTERN    Ignore dirs/files matching PATTERN (default: 2delete/, repeatable)
+                        Also reads patterns from mdar_ignore (one per line, # comments)
     --depth N           Directory depth to search (default: 2, root only: 0)
     -r, --recursive     Search all subdirectories recursively (depth=∞)
     --no-timestamp      Do not normalize filenames by adding hhmm create-time prefix
@@ -53,7 +57,7 @@ main() {
     local depth=2
     local verbose=0
     local dryRun=0
-    local normalizeDirs=()
+    local normalizeDirs=("test-results" "aidocs")
     local pruneDuration=""
     local repoRoot
     local inGitRepo=0
@@ -91,10 +95,14 @@ main() {
         echo -e "    ${FS_LIT_COLOR}aidocs/${RESET}${FS_VAR_COLOR}${ITALIC}YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName${RESET}${FS_LIT_COLOR}.md${RESET}."
         echo -e "    This cleans up AI-generated docs, sorting them temporally in IDE folder viewers."
         echo
+        echo -e "    Ignore patterns can be specified via ${FLAG_COLOR}--ignore${RESET} flag or in ${FS_LIT_COLOR}mdar_ignore${RESET} file (one"
+        echo -e "    pattern per line, ${FS_VAR_COLOR}#${RESET} for comments). Patterns match directory names and filenames."
+        echo
         echo -e "${BOLD}${UNDERLINE}OPTIONS${RESET}"
         echo -e "    ${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}       Archive to this directory (default: ${FS_LIT_COLOR}aidocs/${RESET})"
         echo -e "    ${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}     Normalize ${FS_VAR_COLOR}${ITALIC}DIR${RESET} in-place    (default: ${FS_LIT_COLOR}test-results/${RESET}, repeatable)"
-        echo -e "    ${FLAG_COLOR}--ignore${RESET} ${FS_VAR_COLOR}${ITALIC}DIR${RESET}        Ignore folders named ${FS_VAR_COLOR}${ITALIC}DIR${RESET}; (default: ${FS_LIT_COLOR}2delete/${RESET},      repeatable)"
+        echo -e "    ${FLAG_COLOR}--ignore${RESET} ${FS_VAR_COLOR}${ITALIC}PATTERN${RESET}    Ignore dirs/files matching ${FS_VAR_COLOR}${ITALIC}PATTERN${RESET} (default: ${FS_LIT_COLOR}2delete/${RESET}, repeatable)"
+        echo -e "                        Also reads patterns from ${FS_LIT_COLOR}mdar_ignore${RESET} (one per line, ${FS_VAR_COLOR}#${RESET} comments)"
         echo -e "    ${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}           Directory depth to search (default: ${ARG_LIT_COLOR}2${RESET}, root only: ${ARG_LIT_COLOR}0${RESET})"
         echo -e "    ${FLAG_COLOR}-r${RESET}, ${FLAG_COLOR}--recursive${RESET}     Search all subdirectories recursively (depth=${ARG_VAR_COLOR}∞${RESET})"
         echo -e "    ${FLAG_COLOR}--no-timestamp${RESET}      Do not normalize filenames by adding ${ARG_VAR_COLOR}${ITALIC}hhmm${RESET} create-time prefix"
@@ -131,7 +139,7 @@ main() {
                 archiveDir="$2"; shift 2 ;;
             --ignore)
                 if [ -z "$2" ]; then
-                    echo "--ignore requires a non-empty prefix" >&2
+                    echo "--ignore requires a non-empty pattern" >&2
                     showUsage >&2
                     exit 1
                 fi
@@ -188,6 +196,22 @@ main() {
         esac
     done
 
+    # Load additional ignore patterns from mdar_ignore if it exists in the same directory as this script
+    local scriptDir
+    scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local mdarignoreFile="${scriptDir}/mdar_ignore"
+    if [ -f "$mdarignoreFile" ]; then
+        vlog 2 "Loading ignore patterns from ${mdarignoreFile}"
+        while IFS= read -r line; do
+            # Skip empty lines and comments (lines starting with #)
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            # Trim leading/trailing whitespace
+            line=$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            [ -n "$line" ] && ignoreNames+=("$line")
+        done < "$mdarignoreFile"
+        vlog 2 "Loaded $(grep -v '^[[:space:]]*#' "$mdarignoreFile" | grep -v '^[[:space:]]*$' | wc -l | tr -d ' ') patterns from ${mdarignoreFile}"
+    fi
+
     vlog 2 "To find out if we are in a git repo, running: git rev-parse --git-dir"
     if git rev-parse --git-dir > /dev/null 2>&1; then
         inGitRepo=1
@@ -197,13 +221,20 @@ main() {
     fi
     cd "$repoRoot"
 
-    # Helper: test whether a path should be ignored (inside any named ignore folder)
+    # Helper: test whether a path should be ignored (inside any named ignore folder or matching filename)
     shouldIgnorePath() {
         local p="$1"
+        local filename
+        filename=$(basename "$p")
         for igRaw in "${ignoreNames[@]}"; do
             [ -z "$igRaw" ] && continue
             local ig="${igRaw%/}" # strip trailing slash for consistency
-            if [[ "$p" == "$ig"* ]]; then
+            # Check if ignore name appears at start OR after a slash (as a path component)
+            if [[ "$p" == "$ig"* ]] || [[ "$p" == *"/$ig/"* ]] || [[ "$p" == *"/$ig" ]]; then
+                return 0
+            fi
+            # Also check if the filename matches exactly
+            if [[ "$filename" == "$ig" ]]; then
                 return 0
             fi
         done
@@ -307,6 +338,8 @@ main() {
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{14}[_-]?//g')
         # Strip compact YYYYMMDD timestamps
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}[_-]?//g')
+        # Strip standalone hhmm_ time prefix (e.g. 1210_FileName)
+        base=$(echo "$base" | sed -E 's/^[0-9]{4}_//')
         if [[ ! "$base" =~ [_-] ]]; then
             if [[ "$base" =~ ^[A-Z0-9]+$ ]]; then
                 # Token is ALL CAPS/alphanumeric (likely an acronym or constant).
@@ -361,12 +394,9 @@ main() {
                 f="${f#./}"
                 [ "$f" = "${archiveDir}/README.md" ] && continue
                 # Ignore folders matching ignoreNames
-                for igRaw in "${ignoreNames[@]}"; do
-                    local ig="${igRaw%/}"
-                    if [[ "$f" == "$ig"* ]]; then
-                        continue 2
-                    fi
-                done
+                if shouldIgnorePath "$f"; then
+                    continue
+                fi
                 local mtime
                 mtime=$(stat -f "%m" "$repoRoot/$f" 2>/dev/null || echo 0)
                 [ "$mtime" -lt "$cutoffTime" ] && pruneOps+=("$f")
@@ -388,12 +418,9 @@ main() {
                 filepath="${filepath#./}"
                 [ -z "$filepath" ] && continue
                 # Skip ignored folders
-                for igRaw in "${ignoreNames[@]}"; do
-                    local ig="${igRaw%/}"
-                    if [[ "$filepath" == "$ig"* ]]; then
-                        continue 2
-                    fi
-                done
+                if shouldIgnorePath "$filepath"; then
+                    continue
+                fi
                 local dirname filename base extension
                 dirname=$(dirname "$filepath")
                 filename=$(basename "$filepath")
@@ -409,16 +436,41 @@ main() {
                 local camelCaseName
                 camelCaseName=$(toCamelCase "$base")
                 local newFilename newPath
+                # Check if parent directory name contains a date (YYYY-MM-DD pattern)
+                local parentDirName
+                parentDirName=$(basename "$dirname")
+                local omitDatePrefix=0
+                if [[ "$parentDirName" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                    omitDatePrefix=1
+                fi
                 if [ -n "$extension" ]; then
-                    newFilename="${date}_${time}_${camelCaseName}.${extension}"
+                    if [ "$noTimestamp" -eq 1 ]; then
+                        newFilename="${camelCaseName}.${extension}"
+                    elif [ "$omitDatePrefix" -eq 1 ]; then
+                        newFilename="${time}_${camelCaseName}.${extension}"
+                    else
+                        newFilename="${date}_${time}_${camelCaseName}.${extension}"
+                    fi
                 else
-                    newFilename="${date}_${time}_${camelCaseName}"
+                    if [ "$noTimestamp" -eq 1 ]; then
+                        newFilename="${camelCaseName}"
+                    elif [ "$omitDatePrefix" -eq 1 ]; then
+                        newFilename="${time}_${camelCaseName}"
+                    else
+                        newFilename="${date}_${time}_${camelCaseName}"
+                    fi
                 fi
                 newPath="${dirname}/${newFilename}"
-                # Compliance: filename matches normalized pattern (yyyy-mm-dd_hhmm_CamelCase.ext)
-                # Regex: Matches filenames like 2025-11-22_1234_MyFile.md or 2025-11-22_1234_MyFile.txt
-                local compliantPattern='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$' # yyyy-mm-dd_hhmm_CamelCase.ext
-                if [[ ! "$filename" =~ $compliantPattern ]] && [ "$filepath" != "$newPath" ]; then
+                # Compliance: filename matches normalized pattern
+                # Pattern 1: yyyy-mm-dd_hhmm_CamelCase.ext (files in non-dated folders)
+                # Pattern 2: hhmm_CamelCase.ext (files in dated folders like 2025-11-19/)
+                local compliantPattern1='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
+                local compliantPattern2='^[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
+                local isCompliant=0
+                if [[ "$filename" =~ $compliantPattern1 ]] || [[ "$filename" =~ $compliantPattern2 ]]; then
+                    isCompliant=1
+                fi
+                if [ "$isCompliant" -eq 0 ] && [ "$filepath" != "$newPath" ]; then
                     normalizeOps+=("$filepath|$newPath")
                 fi
             done < <(cd "$repoRoot" && find "$dir" -type f -print0 2>/dev/null)
