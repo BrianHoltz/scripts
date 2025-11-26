@@ -1,9 +1,9 @@
+- Create a concise and descriptive commit message summarizing the git diff.
 - If there are no staged changes, describe the unstaged changes.
 - Agents must use git commands as necessary to determine what changes are staged or unstaged.
   - For example, use git --no-pager diff --cached to inspect staged changes and git --no-pager diff for unstaged changes.
-- Do not rely solely on editor context or conversation history to infer the state of the working directory or index.
-- Do not assume the conversation context is the authority for what has changed.
+- Do not assume the conversation context is the authority for what has changed. Always verify with git commands.
 - Use Conventional Commits standard.
-- Don't document trivial changes that a future developers would not search for.
+- Don't document trivial changes that a future developers/agents would not search for.
 - For guidance about how to present copyable raw ANSI text, refer to AgentRules.md.
 - If git commands show no output in the terminal, refer to AgentRules.md.
