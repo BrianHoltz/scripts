@@ -331,7 +331,8 @@ run_tests() {
   local t2="$testdir/test2"
   mkdir -p "$t2"
   setup_only "$t2"
-  touch -t 201801010101 "$t2/Project Alpha/README.md"
+  echo "# Project notes" > "$t2/Project Alpha/PROJECT_NOTES.md"
+  touch -t 201801010101 "$t2/Project Alpha/PROJECT_NOTES.md"
   touch -t 201902020202 "$t2/Project Beta/Notes/meeting notes (Nov 19).md"
   touch -t 202003030303 "$t2/Project Alpha/Docs/Spec v1.0.txt"
   mkdir -p "$t2/testdir"
@@ -340,7 +341,7 @@ run_tests() {
 
   test_case "mdar proposes move for untracked .md file" \
     "cd $t2 && $mdar_cmd -n --prune 2000d --depth 3 --yes" \
-    "Project Alpha/README.md.*→.*aidocs/2018-01-01/0101_Readme.md" \
+    "Project Alpha/PROJECT_NOTES.md.*→.*aidocs/2018-01-01/0101_ProjectNotes.md" \
     "Project Beta/Notes/meeting notes \\(Nov 19\\).md.*→.*aidocs/2019-02-02/0202_Meeting notes \\(Nov 19\\).md" \
     "testdir/testfile.md.*→.*aidocs/2024-04-04/0404_Testfile.md" \
     "Dry-run: Executed 0 of 3 proposed operations"
