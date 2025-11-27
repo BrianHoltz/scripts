@@ -35,7 +35,6 @@ EXAMPLE OUTPUT
   HTTP_RESPONSE_COMPATIBILITY.md            →  aidocs/2025-11-22/1520_HTTPResponseCompatibility.md
   test-results/HTTP_200_vs_400.md           →  test-results/2025-11-22_1530_HTTP200Vs400.md
   aidocs/2015-11-01/request_signing_fix.md  →  [DELETE]
-Proceed with these operations? [y/N]
 "
 
 # usageMsg is intentionally placed at the very top for human readers and future agents.
@@ -117,7 +116,6 @@ main() {
         echo -e "  ${FS_LIT_COLOR}${UNDERLINE}HTTP_RESPONSE_COMPATIBILITY.md${RESET}            →  ${FS_LIT_COLOR}${UNDERLINE}aidocs/2025-11-22/1520_HTTPResponseCompatibility.md${RESET}"
         echo -e "  ${FS_LIT_COLOR}${UNDERLINE}test-results/HTTP_200_vs_400.md${RESET}           →  ${FS_LIT_COLOR}${UNDERLINE}test-results/2025-11-22_1530_HTTP200Vs400.md${RESET}"
         echo -e "  ${FS_LIT_COLOR}${UNDERLINE}aidocs/2015-11-01/request_signing_fix.md${RESET}  →  [DELETE]"
-        echo -e "Proceed with these operations? [y/N]"
     }
 
     # vlog: logging utility (define before any calls so it's available during option parsing and early runtime checks)
@@ -128,7 +126,17 @@ main() {
     vlog() {
         local level="$1"; shift
         if [ "$verbose" -ge "$level" ]; then
-            echo "+ $*" >&2
+            # Join the rest of the args as a single message
+            local msg="$*"
+            # If message is empty or whitespace-only, skip (avoid blank lines)
+            if [[ -z "${msg//[[:space:]]/}" ]]; then
+                return
+            fi
+            # Print each non-empty line with a '+' prefix; drop blank lines inside multi-line messages
+            while IFS= read -r line || [ -n "$line" ]; do
+                [[ -z "${line//[[:space:]]/}" ]] && continue
+                echo "+ $line" >&2
+            done <<< "$msg"
         fi
     }
 
@@ -419,7 +427,7 @@ main() {
                 filepath="${filepath#./}"
                 [ -z "$filepath" ] && continue
                 # Skip ignored folders
-                if shouldIgnorePath "$filepath"; then
+                if shouldIgnorePath "$filepath" ]; then
                     continue
                 fi
                 local dirname filename base extension
@@ -428,12 +436,12 @@ main() {
                 base="${filename%.*}"
                 extension="${filename##*.}"
                 [ "$extension" = "$filename" ] && extension=""
-                # Extract timestamp
-                local ts date time
-                ts=$(extractTimestamp "$base")
-                date="${ts%%|*}"; time="${ts##*|}"
-                [ -z "$date" ] && date="$(date -r "$(stat -f '%m' "$repoRoot/$filepath" 2>/dev/null || echo 0)" '+%Y-%m-%d' 2>/dev/null || echo 'unknown')"
-                [ -z "$time" ] && time="$(date -r "$(stat -f '%m' "$repoRoot/$filepath" 2>/dev/null || echo 0)" '+%H%M' 2>/dev/null || echo '0000')"
+                # Always use birth time for normalization (don't trust extracted timestamp)
+                local btime mtime date time
+                btime=$(stat -f "%B" "$repoRoot/$filepath" 2>/dev/null || echo 0)
+                mtime=$(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0)
+                date=$(date -r "${btime:-$mtime}" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
+                time=$(date -r "${btime:-$mtime}" '+%H%M' 2>/dev/null || echo "0000")
                 local camelCaseName
                 camelCaseName=$(toCamelCase "$base")
                 local newFilename newPath
@@ -462,14 +470,29 @@ main() {
                     fi
                 fi
                 newPath="${dirname}/${newFilename}"
-                # Compliance: filename matches normalized pattern
+                # Compliance: filename matches normalized pattern AND timestamp matches birth time
                 # Pattern 1: yyyy-mm-dd_hhmm_CamelCase.ext (files in non-dated folders)
                 # Pattern 2: hhmm_CamelCase.ext (files in dated folders like 2025-11-19/)
                 local compliantPattern1='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
                 local compliantPattern2='^[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
                 local isCompliant=0
                 if [[ "$filename" =~ $compliantPattern1 ]] || [[ "$filename" =~ $compliantPattern2 ]]; then
-                    isCompliant=1
+                    # Check if timestamp in filename matches actual birth time
+                    local btime mtime actualTime
+                    btime=$(stat -f "%B" "$repoRoot/$filepath" 2>/dev/null || echo 0)
+                    mtime=$(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0)
+                    actualTime=$(date -r "${btime:-$mtime}" '+%H%M' 2>/dev/null || echo "0000")
+                    # Extract time from filename for comparison
+                    local filenameTime=""
+                    if [[ "$filename" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_([0-9]{4})_ ]]; then
+                        filenameTime="${BASH_REMATCH[1]}"
+                    elif [[ "$filename" =~ ^([0-9]{4})_ ]]; then
+                        filenameTime="${BASH_REMATCH[1]}"
+                    fi
+                    # File is compliant if pattern matches AND timestamp matches actual birth time
+                    if [ "$filenameTime" = "$actualTime" ]; then
+                        isCompliant=1
+                    fi
                 fi
                 if [ "$isCompliant" -eq 0 ] && [ "$filepath" != "$newPath" ]; then
                     normalizeOps+=("$filepath|$newPath")

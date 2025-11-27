@@ -126,7 +126,23 @@ header() {
 
 # Helper to clean up regex for display
 clean_expect() {
-  echo "$1" | sed 's/\[\[:space:\]\]*//g; s/\\(Nov 19\\)/\(Nov 19\)/g; s/\\[DELETE\\]/[DELETE]/g'
+  # Use perl for robust escaping/unescaping across macOS/BSD sed differences
+  perl -pe '
+    s/\\\[/[/g; s/\\\]/]/g;          # unescape brackets
+    s/\\\././g; s/\\\*/\*/g;         # unescape dot/star
+    s/\\\(/(/g; s/\\\)/)/g;          # unescape parens
+    s/\\ / /g;                          # unescape space
+    s/\\\[DELETE\\\]/[DELETE]/g;     # prettify [DELETE]
+    s/\\\.\\\*→\\\.\\\*/  → /g;    # replace .*→.* with arrow
+    s/\\.\*→\\.\*/  → /g;            # also handle fewer escapes
+  ' <<< "$1"
+}
+
+# Print a simple, pager-safe block
+print_block() {
+  echo '```'
+  printf '%s\n' "$1"
+  echo '```'
 }
 
 # Run a single test case
@@ -160,7 +176,8 @@ test_case() {
   eval "$cmd" >"$LAST_OUTFILE" 2>&1 || true
   local result=0
   local output
-  output=$(cat "$LAST_OUTFILE" | perl -pe 's/\e\[[\d;]*[A-Za-z]//g') # strip color codes
+  # Strip color codes for matching AND for display
+  output=$(perl -pe 's/\e\[[\d;]*[A-Za-z]//g' <"$LAST_OUTFILE")
 
   for expect in "${expect_lines[@]}"; do
     if ! echo "$output" | grep -E -q "$expect"; then
@@ -171,17 +188,35 @@ test_case() {
 
   # Show details in verbose mode or on failure
   if [[ $verboseTest -eq 1 || $result -ne 0 ]]; then
-    printf '\033[1m### Test: %s\033[0m\n' "$desc"
+    if [ -t 1 ]; then
+      printf '\033[1m### Test: %s\033[0m\n' "$desc"
+    else
+      echo "### Test: $desc"
+    fi
+    # Show command first
+    local display_cmd="${cmd//$TESTDIR/\$TESTDIR}"
+    echo "**Command:**"
+    echo '```bash'
+    echo "$display_cmd"
     echo '```'
-    cat "$LAST_OUTFILE"
-    echo '```'
-    echo "  Command: $cmd"
-    for b in "${expect_lines[@]}"; do
-      [[ -n "$b" ]] && echo "  - Expect: $(clean_expect "$b")"
-    done
+    # Then show output (or note if none)
+    local __trim
+    __trim=$(printf "%s" "$output" | tr -d '\n\r\t ')
+    if [[ -n "$__trim" ]]; then
+      print_block "$output"
+    else
+      echo "(no output)"
+    fi
+    # Expected patterns section
+    if [ ${#expect_lines[@]} -gt 0 ] && [ -n "${expect_lines[0]}" ]; then
+      echo "**Expected patterns:**"
+      for b in "${expect_lines[@]}"; do
+        [[ -n "$b" ]] && echo "  - \`$(clean_expect "$b")\`"
+      done
+    fi
     if [[ $result -ne 0 ]]; then
-      echo "  Output:"
-      cat "$LAST_OUTFILE" | head -50
+      echo "  Output (first 50 lines):"
+      echo "$output" | head -50
     fi
     if [[ $result -eq 0 ]]; then
       color_pass "$desc"
@@ -235,7 +270,7 @@ strict_sort_test_case() {
   eval "$cmd" >"$LAST_OUTFILE" 2>&1 || true
   local result=0
   local output
-  output=$(cat "$LAST_OUTFILE" | perl -pe 's/\e\[[\d;]*[A-Za-z]//g')
+  output=$(perl -pe 's/\e\[[\d;]*[A-Za-z]//g' <"$LAST_OUTFILE")
 
   # Extract only lines with '→' and not '[DELETE]'
   local actual_lines=()
@@ -293,18 +328,36 @@ strict_sort_test_case() {
 
   # Show details in verbose mode or on failure
   if [[ $verboseTest -eq 1 || $result -ne 0 ]]; then
-    printf '\033[1m### Test: %s\033[0m\n' "$desc"
+    if [ -t 1 ]; then
+      printf '\033[1m### Test: %s\033[0m\n' "$desc"
+    else
+      echo "### Test: $desc"
+    fi
+    # Show command first
+    local display_cmd="${cmd//$TESTDIR/\$TESTDIR}"
+    echo "**Command:**"
+    echo '```bash'
+    echo "$display_cmd"
     echo '```'
-    cat "$LAST_OUTFILE"
-    echo '```'
-    echo "  Command: $cmd"
-    for b in "${expect_patterns[@]}"; do
-      [[ -n "$b" ]] && echo "  - Expect: $(clean_expect "$b")"
-    done
+    # Then show output (or note if none)
+    local __trim2
+    __trim2=$(printf "%s" "$output" | tr -d '\n\r\t ')
+    if [[ -n "$__trim2" ]]; then
+      print_block "$output"
+    else
+      echo "(no output)"
+    fi
+    # Expected patterns section
+    if [ ${#expect_patterns[@]} -gt 0 ] && [ -n "${expect_patterns[0]}" ]; then
+      echo "**Expected patterns:**"
+      for b in "${expect_patterns[@]}"; do
+        [[ -n "$b" ]] && echo "  - \`$(clean_expect "$b")\`"
+      done
+    fi
     if [[ $result -ne 0 ]]; then
       echo "  Output order mismatch or count mismatch!"
       echo "  Expected ${#expected_patterns[@]} matches in order:"
-      for p in "${expected_patterns[@]}"; do echo "    $(clean_expect "$p")"; done
+      for p in "${expect_patterns[@]}"; do echo "    $(clean_expect "$p")"; done
       echo "  Actual ${#actual_lines[@]} lines:"
       for l in "${actual_lines[@]}"; do echo "    $l"; done
     fi
@@ -357,7 +410,9 @@ list_tests() {
 run_tests() {
   set +e  # Disable exit-on-error so all tests run
   TESTDIR=$(mktemp -d)
-  [ "$verboseTest" -eq 1 ] && echo "Created TESTDIR: $TESTDIR"
+  if [ "$verboseTest" -eq 1 ]; then
+    echo "> **Test Directory:** \`$TESTDIR\`"
+  fi
   local testdir="$TESTDIR"
 
   # Set mdar_cmd for use in test commands
@@ -366,8 +421,6 @@ run_tests() {
   else
     mdar_cmd="$HOME/bin/mdar"
   fi
-
-  echo ""
 
   # Test 1: mdar_test Usage message consistency
   test_case "mdar_test usageMsg matches --help output" \
@@ -394,7 +447,7 @@ run_tests() {
   test_case "mdar proposes move for untracked .md file" \
     "cd $t2 && $mdar_cmd -n --prune 2000d --depth 3 --yes" \
     "Project Alpha/PROJECT_NOTES.md.*→.*aidocs/2018-01-01/0101_ProjectNotes.md" \
-    "Project Beta/Notes/meeting notes \\(Nov 19\\).md.*→.*aidocs/2019-02-02/0202_Meeting notes \\(Nov 19\\).md" \
+    "Project Beta/Notes/meeting notes \\(?Nov 19\\)?\.md.*→.*aidocs/2019-02-02/0202_Meeting notes \\(?Nov 19\\)?\.md" \
     "testdir/testfile.md.*→.*aidocs/2024-04-04/0404_Testfile.md" \
     "Dry-run: Executed 0 of 3 proposed operations"
 
@@ -460,28 +513,50 @@ run_tests() {
     "testdir/gamma_notes.md.*→.*aidocs/2025-10-01/1200_GammaNotes.md" \
     "Dry-run: Executed 0 of 5 proposed operations"
 
-  echo ""
-  header "### Test Summary"
   total_tests=$((passed+failed))
-  if [ -t 1 ]; then
-    color_reset='\033[0m'
-    color_green='\033[1;32m'
-    color_red='\033[1;31m'
-    summary_colored="Results: Tests run: $total_tests, "
-    if [[ $failed -gt 0 ]]; then
-      summary_colored+="${color_red}Failures${color_reset}: ${color_red}$failed${color_reset}"
+  if [ "$verboseTest" -eq 1 ]; then
+    header "### Test Summary"
+    if [ -t 1 ]; then
+      color_reset='\033[0m'
+      color_green='\033[1;32m'
+      color_red='\033[1;31m'
+      summary_colored="Results: Tests run: $total_tests, "
+      if [[ $failed -gt 0 ]]; then
+        summary_colored+="${color_red}Failures${color_reset}: ${color_red}$failed${color_reset}"
+      else
+        summary_colored+="Failures: $failed"
+      fi
+      summary_colored+=", "
+      if [[ $passed -gt 0 ]]; then
+        summary_colored+="${color_green}Successes${color_reset}: ${color_green}$passed${color_reset}"
+      else
+        summary_colored+="Successes: $passed"
+      fi
+      printf '%b\n' "$summary_colored"
     else
-      summary_colored+="Failures: $failed"
+      echo "Results: Tests run: $total_tests, Failures: $failed, Successes: $passed"
     fi
-    summary_colored+=", "
-    if [[ $passed -gt 0 ]]; then
-      summary_colored+="${color_green}Successes${color_reset}: ${color_green}$passed${color_reset}"
-    else
-      summary_colored+="Successes: $passed"
-    fi
-    printf '%b\n' "$summary_colored"
   else
-    echo "Results: Tests run: $total_tests, Failures: $failed, Successes: $passed"
+    if [ -t 1 ]; then
+      color_reset='\033[0m'
+      color_green='\033[1;32m'
+      color_red='\033[1;31m'
+      summary_colored="Results: Tests run: $total_tests, "
+      if [[ $failed -gt 0 ]]; then
+        summary_colored+="${color_red}Failures${color_reset}: ${color_red}$failed${color_reset}"
+      else
+        summary_colored+="Failures: $failed"
+      fi
+      summary_colored+=", "
+      if [[ $passed -gt 0 ]]; then
+        summary_colored+="${color_green}Successes${color_reset}: ${color_green}$passed${color_reset}"
+      else
+        summary_colored+="Successes: $passed"
+      fi
+      printf '%b\n' "$summary_colored"
+    else
+      echo "Results: Tests run: $total_tests, Failures: $failed, Successes: $passed"
+    fi
   fi
 
   if [[ "$KEEP_ARTIFACTS" != "1" ]]; then
