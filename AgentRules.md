@@ -4,6 +4,19 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 - ~/.config/github-copilot/intellij/global-copilot-instructions.md
 - ~/.cursor/cursorrules
 
+## Coding Workflow
+
+When implementing a change on checked-in production code with tests, use TDD:
+1. If there are uncommitted changes or main needs pulling, stop and ask the user.
+2. Run all tests and verify any failures are expected.
+3. Write test(s) that fail on the behavior being changed/added, and verify they fail.
+4. Implement the changes.
+5. Run the new tests and related tests; if any fail, return to step 4.
+6. Run the entire test suite; if any unexpected failures, return to step 4.
+7. If local postman/newman tests exist for the system, ask the user to run the local server. When the server is running, run the postman tests and update any related test-status doc.
+8. Run coverage analysis (e.g. mvn test jacoco:report) and add tests until 100% of new flows/conditions are covered.
+    - If any flows/conditions are too difficult to test, ask for guidance.
+
 ## Communication Style
 
 - Don't be sycophantic.
@@ -16,6 +29,7 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 - Keep documentation and any comments in sync with code
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
+- Never reference explicit file lines in comments/docs, because such brittle references too easily go stale.
 
 ### DRY
 
