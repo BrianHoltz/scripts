@@ -58,12 +58,21 @@ When running a terminal command that may produce paged output, you need to preve
 
 ### Unresponsive Terminals
 
-This issue occurs mainly in GitHub Copilot.  If you notice that terminal commands are not producing visible output:
+This issue occurs mainly in GitHub Copilot. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal.
 
-- First, test that a command like `date` produces output.
-- If not, ask the user to press Return in the terminal and then retry the above test.
-- If still no output, then rerun the inexplicably-silent command and redirect its output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`. Then:
-  - Read the ouptput file directly (e.g., with your file reading tool)
-  - Also run `cat` or `tail` on the file in the terminal so the user can read along with you
+**Known Issue:** Multiple workarounds have been attempted and none work reliably:
+- Appending `; echo ""` to shell commands
+- Simplifying shell prompts
+- Wrapping commands in `bash -c '...'`
+- Running `exec bash` to replace the shell process - appears to hang the terminal because the agent doesn't see the command finish
+
+**Current mitigation:** Switching the default shell to bash (`chsh -s /bin/bash`) and rebooting is working so far.
+
+**Current best practice when terminal output is still not visible:**
+- Redirect output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`
+- Then read the output file directly (e.g., with your file reading tool)
+- Also run `cat` or `tail` on the file in the terminal so the user can read along with you
 - Do not clean up temp files in `tmp/` — they are for debugging and the user may want to inspect them later. The `tmp/` folder should be gitignored.
-- If you still cannot see the output, do not attempt further workarounds. Alert the user and recommend that they restart their IDE to restore terminal functionality.
+- If you still cannot see the output after file redirection, do not attempt further workarounds. Alert the user and recommend that they restart their IDE to restore terminal functionality.
+
+
