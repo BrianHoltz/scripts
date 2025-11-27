@@ -427,7 +427,7 @@ main() {
                 filepath="${filepath#./}"
                 [ -z "$filepath" ] && continue
                 # Skip ignored folders
-                if shouldIgnorePath "$filepath" ]; then
+                if shouldIgnorePath "$filepath"; then
                     continue
                 fi
                 local dirname filename base extension
