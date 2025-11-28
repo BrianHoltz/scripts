@@ -7,10 +7,10 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 ## Coding Workflow
 
 When implementing a change on checked-in production code with tests, use TDD:
-1. If there are uncommitted changes or main needs pulling, stop and ask the user.
+1. If there are uncommitted changes or main needs pulling, stop and ask the user to ensure the repo is in an intended committed known-good state with no changes that need merging from main.
 2. Run all tests and verify any failures are expected.
 3. Write test(s) that fail on the behavior being changed/added, and verify they fail.
-4. Implement the changes.
+4. Implement the required changes.
 5. Run the new tests and related tests; if any fail, return to step 4.
 6. Run the entire test suite; if any unexpected failures, return to step 4.
 7. If local postman/newman tests exist for the system, ask the user to run the local server. When the server is running, run the postman tests and update any related test-status doc.
@@ -35,9 +35,9 @@ When implementing a change on checked-in production code with tests, use TDD:
 ### DRY
 
 - Do not include things in documents that violate DRY (Don't Repeat Yourself):
-    - Don't include revision history or modtime if that's available from git
-    - In version-controlled docs, never include pointers to local docs that are not version-controlled.
-    - Avoid version-controlled comments/docs explaining recent corrections to code/docs. Version-controlled content is for durable info. Git history is the place to record changes.
+  - Don't include revision history or modtime if that's available from git
+  - In version-controlled docs, never include pointers to local docs that are not version-controlled.
+  - Avoid version-controlled comments/docs explaining recent corrections to code/docs. Version-controlled content is for durable info. Git history is the place to record changes.
 
 ## Ad Hoc Documents
 
