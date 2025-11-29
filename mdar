@@ -39,6 +39,8 @@ EXAMPLE OUTPUT
   aidocs/2015-11-01/request_signing_fix.md  →  [DELETE]
 "
 
+# TODO during 7s scan of relationship-service repo, print cool status about dirs being scanned
+
 # usageMsg is intentionally placed at the very top for human readers and future agents.
 # It must start on the second line of the script, right below the shebang.
 # usageMsg formatting and content ALWAYS trumps showUsage. If you change usageMsg,
@@ -91,7 +93,7 @@ main() {
         echo -e "${BOLD}${UNDERLINE}SYNOPSIS${RESET}"
         echo -e "    ${CMD_COLOR}mdar${RESET} [${FLAG_COLOR}--archive${RESET} ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--normalize${RESET} ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--ignore${RESET} ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}DIR${RESET}] [${FLAG_COLOR}--depth${RESET} ${ARG_VAR_COLOR}${ITALIC}N${RESET}] [${FLAG_COLOR}-r${RESET}|${FLAG_COLOR}--recursive${RESET}]"
         echo -e "        [${FLAG_COLOR}--no-timestamp${RESET}] [${FLAG_COLOR}--no-camelcase${RESET}] [${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}]"
-        echo -e "        [${FLAG_COLOR}-n${RESET}|${FLAG_COLOR}--dry-run${RESET}] [${YES_COLOR}-y${RESET}|${YES_COLOR}--yes${RESET}] [${FLAG_COLOR}-v${RESET}|${FLAG_COLOR}-vv${RESET}|${FLAG_COLOR}-vvv${RESET}] [${FLAG_COLOR}-x${RESET}]"
+        echo -e "        [${FLAG_COLOR}-n${RESET}|${FLAG_COLOR}--dry-run${RESET}] [${YES_COLOR}-y${RESET}|${YES_COLOR}--yes${RESET}] [${FLAG_COLOR}-i${RESET}|${FLAG_COLOR}--interactive${RESET}] [${FLAG_COLOR}-l${RESET}|${FLAG_COLOR}--long${RESET}] [${FLAG_COLOR}-v${RESET}|${FLAG_COLOR}-vv${RESET}|${FLAG_COLOR}-vvv${RESET}] [${FLAG_COLOR}-x${RESET}]"
         echo
         echo -e "${BOLD}${UNDERLINE}DESCRIPTION${RESET}"
         echo -e "    Archive untracked markdown files into dated folders, by default normalized to"
@@ -398,12 +400,23 @@ main() {
         local repoRoot="$1" duration="$2" archiveDir="$3"
         shift 3
         local normalizeDirs=("$@")
-        vlog 3 "collectPruneOps: find files in $archiveDir, test-results/, and normalizeDirs=(${normalizeDirs[*]}) older than cutoff"
+        vlog 3 "collectPruneOps: find files in normalizeDirs=(${normalizeDirs[*]}) older than cutoff"
         local cutoffTime
         cutoffTime=$(($(date +%s) - $(parseDurationToSeconds "$duration")))
         local pruneOps=()
-        # Always search archiveDir, test-results/, and any explicit normalize dirs
-        local dirsToSearch=("$archiveDir" "test-results" "${normalizeDirs[@]}")
+        # Search all normalize dirs (which already includes archiveDir and test-results)
+        # Deduplicate directories manually (for bash 3.2 compatibility on macOS)
+        local dirsToSearch=()
+        for dir in "${normalizeDirs[@]}"; do
+            local found=0
+            for existing in "${dirsToSearch[@]}"; do
+                if [ "$dir" = "$existing" ]; then
+                    found=1
+                    break
+                fi
+            done
+            [ "$found" -eq 0 ] && dirsToSearch+=("$dir")
+        done
         for searchDir in "${dirsToSearch[@]}"; do
             [ ! -d "$repoRoot/$searchDir" ] && continue
             # Use NUL-delimited find to handle filenames with spaces/newlines and
@@ -610,6 +623,23 @@ main() {
         while IFS= read -r line; do
             [ -n "$line" ] && pruneOps+=("$line")
         done < <(collectPruneOps "$repoRoot" "$pruneDuration" "$archiveDir" "${normalizeDirs[@]}")
+    fi
+
+    # Remove from normalizeOps any files that are in pruneOps (pruning takes precedence)
+    if [ ${#pruneOps[@]} -gt 0 ]; then
+        local filteredNormalizeOps=()
+        for op in "${normalizeOps[@]}"; do
+            local src="${op%%|*}"
+            local shouldSkip=0
+            for pruneFile in "${pruneOps[@]}"; do
+                if [ "$src" = "$pruneFile" ]; then
+                    shouldSkip=1
+                    break
+                fi
+            done
+            [ "$shouldSkip" -eq 0 ] && filteredNormalizeOps+=("$op")
+        done
+        normalizeOps=("${filteredNormalizeOps[@]}")
     fi
 
     local totalOps=$(( ${#untrackedOps[@]} + ${#normalizeOps[@]} + ${#pruneOps[@]} ))
