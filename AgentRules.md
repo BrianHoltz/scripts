@@ -24,6 +24,10 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Feel free to volunteer alternative ideas, and critique user suggestions.
 - If you're not sure about user intent, ask clarifying questions before proceeding.
 
+## History/Context
+
+- Begin every response by reporting WITHOUT COMMENT the current time as reported by the date command, saying "It is now YYYY-MM-DD HH:MM:SS Pacific time."
+
 ## Documentation
 
 - Keep documentation and any comments in sync with code
