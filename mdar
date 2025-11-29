@@ -6,7 +6,7 @@ NAME
 SYNOPSIS
     mdar [--archive DIR] [--normalize DIR] [--ignore DIR] [--depth N] [-r|--recursive]
         [--no-timestamp] [--no-camelcase] [--prune N<mhdwMy>]
-        [-n|--dry-run] [-y|--yes] [-v|-vv|-vvv] [-x]
+        [-n|--dry-run] [-y|--yes] [-i|--interactive] [-l|--long] [-v|-vv|-vvv] [-x]
 
 DESCRIPTION
     Archive untracked markdown files into dated folders, by default normalized to
@@ -28,6 +28,8 @@ OPTIONS
     --prune N<mhdwMy>   Delete target files older than e.g., 30d, 4w, 1M
     -n, --dry-run       Show proposed mv/rm operations and exit (no prompt, no changes)
     -y, --yes           Skip confirmation prompt, execute mv/rm operations immediately
+    -i, --interactive   Prompt for confirmation on each individual operation
+    -l, --long          Show birthtime and modtime columns in output (long format)
     -v, -vv, -vvv       Logging level: 1: file counts, 2: +find/git/mv/rm ops, 3: +shell ops
     -x                  Enable shell tracing (set -x)
 
@@ -65,6 +67,8 @@ main() {
     local noCamelCase=0
     local ignoreOverridden=0
     local normalizeOverridden=0
+    local longFormat=0
+    local interactive=0
 
     # Print to terminal a colorized version of the usage message.
     # IMPORTANT: usageMsg formatting ALWAYS trumps showUsage. If you change usageMsg, you MUST update showUsage to match it EXACTLY, including newlines and spacing. Do NOT change showUsage formatting independently.
@@ -109,6 +113,8 @@ main() {
         echo -e "    ${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}   Delete target files older than e.g., ${ARG_LIT_COLOR}30d${RESET}, ${ARG_LIT_COLOR}4w${RESET}, ${ARG_LIT_COLOR}1M${RESET}"
         echo -e "    ${FLAG_COLOR}-n${RESET}, ${FLAG_COLOR}--dry-run${RESET}       Show proposed ${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} operations and exit (no prompt, no changes)"
         echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           Skip confirmation prompt, execute ${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} operations immediately"
+        echo -e "    ${FLAG_COLOR}-i${RESET}, ${FLAG_COLOR}--interactive${RESET}   Prompt for confirmation on each individual operation"
+        echo -e "    ${FLAG_COLOR}-l${RESET}, ${FLAG_COLOR}--long${RESET}          Show birthtime and modtime columns in output (long format)"
         echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: file counts, 2: +${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} ops, 3: +shell ops"
         echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}set -x${RESET})"
         echo
@@ -165,6 +171,10 @@ main() {
                 dryRun=1; shift ;;
             -y|--yes)
                 autoConfirm=1; shift ;;
+            -i|--interactive)
+                interactive=1; shift ;;
+            -l|--long)
+                longFormat=1; shift ;;
             -r|--recursive)
                 depth=-1; shift ;;
             --depth)
@@ -416,9 +426,10 @@ main() {
     }
 
     collectNormalizeOps() {
-        vlog 3 "collectNormalizeOps: repoRoot=$1 dirs=$(printf '%s ' "${dirs[@]}")"
+        vlog 3 "collectNormalizeOps: repoRoot=$1 archiveDir=$2 dirs=$(printf '%s ' "${dirs[@]}")"
         local repoRoot="$1"
-        local dirs=("${@:2}")
+        local archiveDir="$2"
+        local dirs=("${@:3}")
         local normalizeOps=()
         for dir in "${dirs[@]}"; do
             [ ! -d "$repoRoot/$dir" ] && continue
@@ -444,12 +455,30 @@ main() {
                 time=$(date -r "${btime:-$mtime}" '+%H%M' 2>/dev/null || echo "0000")
                 local camelCaseName
                 camelCaseName=$(toCamelCase "$base")
-                local newFilename newPath
+                local newFilename newPath newDirname
                 # Check if parent directory name contains a date (YYYY-MM-DD pattern)
                 local parentDirName
                 parentDirName=$(basename "$dirname")
-                local omitDatePrefix=0
+                local parentHasDate=0
                 if [[ "$parentDirName" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                    parentHasDate=1
+                fi
+                # Check if we're in a dated subdirectory of archiveDir and if date matches file's birth date
+                local grandparentDir
+                grandparentDir=$(dirname "$dirname")
+                newDirname="$dirname"
+                if [ "$parentHasDate" -eq 1 ] && [ "$grandparentDir" = "$archiveDir" ]; then
+                    # File is in archiveDir/YYYY-MM-DD/ - check if date matches file's actual date
+                    if [ "$parentDirName" != "$date" ]; then
+                        # Date mismatch: move to correct dated folder
+                        newDirname="$archiveDir/$date"
+                    fi
+                fi
+                # Determine if the NEW directory has a date pattern (to decide on filename format)
+                local newParentDirName
+                newParentDirName=$(basename "$newDirname")
+                local omitDatePrefix=0
+                if [[ "$newParentDirName" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
                     omitDatePrefix=1
                 fi
                 if [ -n "$extension" ]; then
@@ -469,8 +498,9 @@ main() {
                         newFilename="${date}_${time}_${camelCaseName}"
                     fi
                 fi
-                newPath="${dirname}/${newFilename}"
+                newPath="${newDirname}/${newFilename}"
                 # Compliance: filename matches normalized pattern AND timestamp matches birth time
+                # AND (for dated directories) the directory date matches the file's birth date
                 # Pattern 1: yyyy-mm-dd_hhmm_CamelCase.ext (files in non-dated folders)
                 # Pattern 2: hhmm_CamelCase.ext (files in dated folders like 2025-11-19/)
                 local compliantPattern1='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
@@ -490,12 +520,22 @@ main() {
                         filenameTime="${BASH_REMATCH[1]}"
                     fi
                     # File is compliant if pattern matches AND timestamp matches actual birth time
+                    # AND (for files in dated dirs) the directory date matches the file's birth date
                     if [ "$filenameTime" = "$actualTime" ]; then
-                        isCompliant=1
+                        # Check if file is in a dated subdirectory of archiveDir
+                        if [ "$parentHasDate" -eq 1 ] && [ "$grandparentDir" = "$archiveDir" ]; then
+                            # Verify the directory date matches the file's actual date
+                            if [ "$parentDirName" = "$date" ]; then
+                                isCompliant=1
+                            fi
+                        else
+                            # Not in a dated archiveDir subdirectory, so just check filename
+                            isCompliant=1
+                        fi
                     fi
                 fi
                 if [ "$isCompliant" -eq 0 ] && [ "$filepath" != "$newPath" ]; then
-                    normalizeOps+=("$filepath|$newPath")
+                    normalizeOps+=("$filepath|$newPath|$btime|$mtime")
                 fi
             done < <(cd "$repoRoot" && find "$dir" -type f -print0 2>/dev/null)
         done
@@ -504,6 +544,13 @@ main() {
     }
 
     # Main logic
+    # Add default normalize directories if user hasn't overridden with --normalize
+    if [ $normalizeOverridden -eq 0 ]; then
+        normalizeDirs=("$archiveDir" "test-results")
+    else
+        # Always include archiveDir in normalization even if user specified custom dirs
+        normalizeDirs=("$archiveDir" "${normalizeDirs[@]}")
+    fi
     vlog 1 "Options parsed: dryRun=$dryRun autoConfirm=$autoConfirm depth=$depth normalizeDirs=(${normalizeDirs[*]}) pruneDuration=$pruneDuration archiveDir=$archiveDir noTimestamp=$noTimestamp noCamelCase=$noCamelCase ignoreNames=(${ignoreNames[*]}) ignoreOverridden=$ignoreOverridden normalizeOverridden=$normalizeOverridden"
     vlog 2 "Active ignore folder names: ${ignoreNames[*]}"
     local markdownFiles
@@ -548,7 +595,7 @@ main() {
             else
                 dest="$archiveDir/$date/${time}_${namePart}.$ext"
             fi
-            untrackedOps+=("$file|$dest")
+            untrackedOps+=("$file|$dest|$btime|$mtime")
         done <<< "$markdownFiles"
     fi
 
@@ -557,7 +604,7 @@ main() {
     normalizeOps=()
     while IFS= read -r line; do
         [ -n "$line" ] && normalizeOps+=("$line")
-    done < <(collectNormalizeOps "$repoRoot" "${normalizeDirs[@]}")
+    done < <(collectNormalizeOps "$repoRoot" "$archiveDir" "${normalizeDirs[@]}")
     pruneOps=()
     if [ -n "$pruneDuration" ]; then
         while IFS= read -r line; do
@@ -576,31 +623,57 @@ main() {
     for file in "${pruneOps[@]}"; do
         [ ${#file} -gt $maxLen ] && maxLen=${#file}
     done
+    
+    # Helper function to format timestamp for display
+    formatTimestamp() {
+        local ts="$1"
+        [ "$ts" = "0" ] && echo "unknown" && return
+        date -r "$ts" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown"
+    }
 
     # Combine normalization and untracked operations for sorting
     local allOps=()
-    for op in "${normalizeOps[@]}"; do
-        local src="${op%%|*}" dst="${op##*|}"
-        allOps+=("$src|$dst")
+    for op in "${normalizeOps[@]}" "${untrackedOps[@]}"; do
+        allOps+=("$op")
     done
-    for op in "${untrackedOps[@]}"; do
-        local src="${op%%|*}" dst="${op##*|}"
-        allOps+=("$src|$dst")
-    done
-    # Sort allOps by destination path (right-hand side)
+    # Sort allOps by destination path (second field)
     local sortedOps=()
     while IFS= read -r line; do
         [ -n "$line" ] && sortedOps+=("$line")
     done < <(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2)
+    
     # Print sorted normalization and untracked operations
+    if [ "$longFormat" -eq 1 ]; then
+        # Print header for long format
+        printf "  %-${maxLen}s  %-16s  %-16s  %s\n" "Source" "Birth" "Mod" "Destination"
+        printf "  %-${maxLen}s  %-16s  %-16s  %s\n" "$(printf '%*s' "$maxLen" '' | tr ' ' '-')" "----------------" "----------------" "$(printf '%s' "---" | tr ' ' '-')"
+    fi
+    
     for op in "${sortedOps[@]}"; do
-        local src="${op%%|*}"
-        local dst="${op##*|}"
-        printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
+        IFS='|' read -r src dst btime mtime <<< "$op"
+        if [ "$longFormat" -eq 1 ]; then
+            local birthStr modStr
+            birthStr=$(formatTimestamp "$btime")
+            modStr=$(formatTimestamp "$mtime")
+            printf "  %-${maxLen}s  %-16s  %-16s  →  %s\n" "$src" "$birthStr" "$modStr" "$dst"
+        else
+            printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
+        fi
     done
+    
     # Print prune operations at the end
     for file in "${pruneOps[@]}"; do
-        printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
+        if [ "$longFormat" -eq 1 ]; then
+            # Get timestamps for prune operations
+            local btime mtime birthStr modStr
+            btime=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
+            mtime=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+            birthStr=$(formatTimestamp "$btime")
+            modStr=$(formatTimestamp "$mtime")
+            printf "  %-${maxLen}s  %-16s  %-16s  →  [DELETE]\n" "$file" "$birthStr" "$modStr"
+        else
+            printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
+        fi
     done
 
     if [ "${dryRun:-0}" -eq 1 ]; then
@@ -608,7 +681,7 @@ main() {
         exit 0
     fi
 
-    if [ "${autoConfirm:-0}" -eq 0 ]; then
+    if [ "${interactive:-0}" -eq 0 ] && [ "${autoConfirm:-0}" -eq 0 ]; then
         # Prompt for single-character confirmation (y/Y to proceed)
         read -p "Proceed with these operations? [y/N] " -n 1 -r
         echo
@@ -620,15 +693,30 @@ main() {
     fi
 
     local executedOps=0
+    local skippedOps=0
     for op in "${normalizeOps[@]}"; do
-        local src="${op%%|*}" dst="${op##*|}"
+        IFS='|' read -r src dst btime mtime <<< "$op"
         local destDir
         destDir=$(dirname "$dst")
-        mkdir -p "$destDir"
+        
         if [ -f "$dst" ]; then
             printf "  ⚠ %-${maxLen}s  (destination exists)\n" "$src"
             continue
         fi
+        
+        # Interactive mode: prompt for each operation
+        if [ "${interactive:-0}" -eq 1 ]; then
+            printf "\nmv \"%s\" \"%s\"\n" "$src" "$dst"
+            read -p "Execute this move? [y/N] " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                printf "  ⊘ %-${maxLen}s  (skipped)\n" "$src"
+                skippedOps=$((skippedOps+1))
+                continue
+            fi
+        fi
+        
+        mkdir -p "$destDir"
         if mv "$src" "$dst"; then
             executedOps=$((executedOps+1))
             printf "  ✓ %-${maxLen}s  →  %s\n" "$src" "$dst"
@@ -637,14 +725,28 @@ main() {
         fi
     done
     for op in "${untrackedOps[@]}"; do
-        local src="${op%%|*}" dst="${op##*|}"
+        IFS='|' read -r src dst btime mtime <<< "$op"
         local destDir
         destDir=$(dirname "$dst")
-        mkdir -p "$destDir"
+        
         if [ -f "$dst" ]; then
             printf "  ⚠ %-${maxLen}s  (destination exists)\n" "$src"
             continue
         fi
+        
+        # Interactive mode: prompt for each operation
+        if [ "${interactive:-0}" -eq 1 ]; then
+            printf "\nmv \"%s\" \"%s\"\n" "$src" "$dst"
+            read -p "Execute this move? [y/N] " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                printf "  ⊘ %-${maxLen}s  (skipped)\n" "$src"
+                skippedOps=$((skippedOps+1))
+                continue
+            fi
+        fi
+        
+        mkdir -p "$destDir"
         if mv "$src" "$dst"; then
             executedOps=$((executedOps+1))
             printf "  ✓ %-${maxLen}s  →  %s\n" "$src" "$dst"
@@ -653,6 +755,18 @@ main() {
         fi
     done
     for file in "${pruneOps[@]}"; do
+        # Interactive mode: prompt for each delete operation
+        if [ "${interactive:-0}" -eq 1 ]; then
+            printf "\nrm \"%s\"\n" "$file"
+            read -p "Execute this delete? [y/N] " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                printf "  ⊘ %-${maxLen}s  (skipped)\n" "$file"
+                skippedOps=$((skippedOps+1))
+                continue
+            fi
+        fi
+        
         if [ -f "$file" ] && rm "$file"; then
             executedOps=$((executedOps+1))
             printf "  ✓ %-${maxLen}s  →  [DELETED]\n" "$file"
@@ -660,7 +774,11 @@ main() {
             printf "  ⚠ %-${maxLen}s  (failed to delete)\n" "$file" >&2
         fi
     done
-    echo "Executed $executedOps of $totalOps proposed operations" >&2
+    if [ "${interactive:-0}" -eq 1 ]; then
+        echo "Executed $executedOps of $totalOps proposed operations (skipped $skippedOps)" >&2
+    else
+        echo "Executed $executedOps of $totalOps proposed operations" >&2
+    fi
 }
 
 main "$@"
