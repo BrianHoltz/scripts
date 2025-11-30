@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""
+Count lines of code by language in Python scripts with embedded HTML/CSS/JavaScript.
+
+Analyzes embedded HTML/CSS/JavaScript within Python files (in triple-quoted strings)
+and reports line counts and percentages for each language.
+
+Usage:
+    langlines [file.py]
+
+If no file is provided, looks for 'groupgrep' in the same directory (backward compatibility).
+"""
+
+import re
+import sys
+from pathlib import Path
+
+
+def find_embedded_html_sections(lines):
+    """Find all embedded HTML sections in triple-quoted strings containing HTML tags."""
+    sections = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+
+        # Look for triple-quoted strings (raw or regular)
+        if ("r'''" in stripped or '"""' in stripped or "'''" in stripped):
+            # Determine quote type
+            if "r'''" in line:
+                quote = "'''"
+                start_idx = line.index("r'''") + 4
+            elif '"""' in line:
+                quote = '"""'
+                start_idx = line.index('"""') + 3
+            elif "'''" in line:
+                quote = "'''"
+                start_idx = line.index("'''") + 3
+            else:
+                i += 1
+                continue
+
+            # Check if quote closes on same line
+            remaining = line[start_idx:]
+            if quote in remaining:
+                i += 1
+                continue
+
+            # Find closing quote
+            section_start = i + 1
+            section_end = None
+
+            for j in range(i + 1, len(lines)):
+                if quote in lines[j]:
+                    section_end = j
+                    break
+
+            if section_end is not None:
+                section_lines = lines[section_start:section_end]
+                section_content = ''.join(section_lines)
+
+                # Check if it contains HTML-like content
+                if re.search(r'<[a-zA-Z!][^>]*>', section_content):
+                    sections.append((section_start, section_end, section_lines, section_content))
+
+                i = section_end + 1
+            else:
+                i += 1
+        else:
+            i += 1
+
+    return sections
+
+
+def count_lines_by_language(filepath):
+    """Count lines by language (Python, JavaScript, CSS, HTML) in a Python file."""
+    with open(filepath, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    
+    total_lines = len(lines)
+    
+    # Find all embedded HTML sections
+    html_sections = find_embedded_html_sections(lines)
+
+    if not html_sections:
+        # No embedded HTML, it's all Python
+        return {
+            'Python': total_lines,
+            'JavaScript': 0,
+            'CSS': 0,
+            'HTML': 0,
+            'Total': total_lines
+        }
+
+    # Count lines in all embedded sections
+    embedded_total = sum(len(section[2]) for section in html_sections)
+
+    # Combine all HTML content from all sections
+    all_html_content = '\n'.join(section[3] for section in html_sections)
+
+    # Count JavaScript (between <script> tags, non-empty lines only)
+    js_content = '\n'.join(re.findall(r'<script[^>]*>(.*?)</script>', all_html_content, re.DOTALL))
+    js_lines = len([line for line in js_content.split('\n') if line.strip()])
+    
+    # Count CSS (between <style> tags, non-empty lines only)
+    css_content = '\n'.join(re.findall(r'<style[^>]*>(.*?)</style>', all_html_content, re.DOTALL))
+    css_lines = len([line for line in css_content.split('\n') if line.strip()])
+    
+    # Count HTML (everything else in the embedded sections, non-empty lines only)
+    html_only_content = re.sub(r'<script[^>]*>.*?</script>', '', all_html_content, flags=re.DOTALL)
+    html_only_content = re.sub(r'<style[^>]*>.*?</style>', '', html_only_content, flags=re.DOTALL)
+    html_only_lines = len([line for line in html_only_content.split('\n') if line.strip()])
+    
+    # Python is everything not in the HTML embedded sections
+    python_lines = total_lines - embedded_total
+    
+    results = {
+        'JavaScript': js_lines,
+        'Python': python_lines,
+        'CSS': css_lines,
+        'HTML': html_only_lines,
+        'Total': total_lines
+    }
+    
+    return results
+
+
+def format_results(results, show_percentages=True):
+    """Format results as a table."""
+    if not results:
+        return ""
+    
+    total = results['Total']
+    
+    # Sort by line count descending (excluding Total)
+    languages = sorted(
+        [(lang, count) for lang, count in results.items() if lang != 'Total'],
+        key=lambda x: x[1],
+        reverse=True
+    )
+    
+    output = []
+    for lang, count in languages:
+        pct = (count / total * 100) if total > 0 else 0
+        if show_percentages:
+            output.append(f"- **{lang}** ({count:,} lines, {pct:.0f}%)")
+        else:
+            output.append(f"{lang}: {count:,} lines")
+    
+    output.append(f"\nTotal: {total:,} lines")
+    
+    return '\n'.join(output)
+
+
+def main():
+    if len(sys.argv) > 1:
+        # File provided as argument
+        filepath = Path(sys.argv[1])
+
+        if not filepath.exists():
+            print(f"Error: {filepath} not found", file=sys.stderr)
+            sys.exit(1)
+
+        if not filepath.is_file():
+            print(f"Error: {filepath} is not a file", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Default: look for 'groupgrep' in same directory for backward compatibility
+        script_dir = Path(__file__).parent
+        filepath = script_dir / 'groupgrep'
+
+        if not filepath.exists():
+            print("Usage: langlines [file.py]", file=sys.stderr)
+            print("Error: No file provided and 'groupgrep' not found in current directory", file=sys.stderr)
+            sys.exit(1)
+
+    results = count_lines_by_language(filepath)
+
+    if results:
+        print(format_results(results))
+    else:
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
+
