@@ -1,4 +1,4 @@
-# Global AI Agent Rules
+# AgentRules.md - Global AI Agent Rules
 
 These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict. This file can be stored in (or linked from):
 - ~/.config/github-copilot/intellij/global-copilot-instructions.md
@@ -50,6 +50,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime.
 - If updating such an ad hoc doc created on an earlier date, move it into the current date and use modtime for hhmm.
 - Do not create ad hoc documents for short (<100 lines) content that can be presented inline.
+- Avoid creating multiple ad hoc markdown documents at one time. Combine them into a single document with a TOC and a summary, to avoid WETness.
 
 ### Ad Hoc Raw Text e.g. Commit Messages
 
@@ -85,7 +86,27 @@ This issue occurs mainly in GitHub Copilot. The terminal output detection can fa
 - Wrapping commands in `bash -c '...'`
 - Running `exec bash` to replace the shell process - appears to hang the terminal because the agent doesn't see the command finish
 
-**Current mitigation:** Switching the default shell to bash (`chsh -s /bin/bash`) and rebooting is working so far.
+**Current mitigation:** Switching the default shell to bash (`chsh -s /bin/bash`) had no effect, because IDEA overrides the system shell. IDEA's terminal shell must be configured in **Preferences** → **Tools** → **Terminal** → **Shell path** (set to `/bin/bash`). After changing this setting, restart the terminal session. 
+
+**Known persistence issue:** The IDEA terminal shell setting reverts to `/bin/zsh` after restarting IDEA. This appears to happen because:
+- IDEA may not be saving the terminal shell path setting to its configuration files
+- Settings Sync (if enabled) may override local preferences
+- IDEA falls back to the macOS system default shell (zsh) when no explicit path is saved
+
+**Workarounds attempted:**
+- Setting the explicit path `/bin/bash` in Preferences → Tools → Terminal → Shell path - reverts on restart
+- Disabling Settings Sync - [not yet tested]
+- **Per-project terminal settings - SUCCESS**: Add `TerminalOptionsManager` component to `.idea/workspace.xml`:
+  ```xml
+  <component name="TerminalOptionsManager">
+    <option name="shellPath" value="/bin/bash" />
+  </component>
+  ```
+  This setting is project-specific and persists across IDEA restarts. Close existing terminal tabs and open new ones to see the change take effect.
+
+**Additional bash compatibility issue:** After switching to bash, `update_terminal_cwd: command not found` errors appeared. This is because `update_terminal_cwd` is a macOS Terminal.app-specific function that's not available in IntelliJ or other terminals. Fixed by conditionally calling it only when `$TERM_PROGRAM == "Apple_Terminal"` in `~/.bash_profile`.
+
+**Current best practice:** Use per-project terminal shell configuration as documented above. If terminal output detection issues persist, redirect command output to files in `tmp/` as documented in the next section.
 
 **Current best practice when terminal output is still not visible:**
 - Redirect output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`
