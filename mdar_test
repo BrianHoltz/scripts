@@ -400,6 +400,7 @@ list_tests() {
   echo "  5: mdar marks old aidocs files for pruning"
   echo "  6: mdar prunes old files in test-results/"
   echo "  7: mdar sorts recommended target names (by mtime and name)"
+  echo "  8: mdar removes redundant date prefix from files in dated directories"
   exit 0
 }
 
@@ -514,6 +515,17 @@ run_tests() {
     "testdir/delta_notes.md.*→.*aidocs/2025-06-18/0830_DeltaNotes.md" \
     "testdir/gamma_notes.md.*→.*aidocs/2025-10-01/1200_GammaNotes.md" \
     "Dry-run: Executed 0 of 5 proposed operations"
+
+  # Test 8: Files in dated directories should not have redundant date prefix
+  local t7="$testdir/test7"
+  mkdir -p "$t7/aidocs/2025-11-30"
+  echo "# Doc with redundant date" > "$t7/aidocs/2025-11-30/2025-11-30_1403_DocOrganizationSummary.md"
+  touch -t 202511301403 "$t7/aidocs/2025-11-30/2025-11-30_1403_DocOrganizationSummary.md"
+  
+  test_case "mdar removes redundant date prefix from files in dated directories" \
+    "cd $t7 && $mdar_cmd -n --depth 3 --yes" \
+    "aidocs/2025-11-30/2025-11-30_1403_DocOrganizationSummary.md.*→.*aidocs/2025-11-30/1403_DocOrganizationSummary.md" \
+    "Dry-run: Executed 0 of 1 proposed operations"
 
   total_tests=$((passed+failed))
   if [ "$verboseTest" -eq 1 ]; then

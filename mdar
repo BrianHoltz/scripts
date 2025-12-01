@@ -519,7 +519,16 @@ main() {
                 local compliantPattern1='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
                 local compliantPattern2='^[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
                 local isCompliant=0
-                if [[ "$filename" =~ $compliantPattern1 ]] || [[ "$filename" =~ $compliantPattern2 ]]; then
+                # Determine which pattern should apply based on directory structure
+                local expectedPattern=""
+                if [ "$parentHasDate" -eq 1 ] && [ "$grandparentDir" = "$archiveDir" ]; then
+                    # File is in a dated subdirectory of archiveDir - should use pattern 2 (time only)
+                    expectedPattern="$compliantPattern2"
+                else
+                    # File is not in a dated archiveDir subdirectory - should use pattern 1 (date_time)
+                    expectedPattern="$compliantPattern1"
+                fi
+                if [[ "$filename" =~ $expectedPattern ]]; then
                     # Check if timestamp in filename matches actual birth time
                     local btime mtime actualTime
                     btime=$(stat -f "%B" "$repoRoot/$filepath" 2>/dev/null || echo 0)
