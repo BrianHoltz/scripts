@@ -30,20 +30,29 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 ## Documentation
 
+### General Principles
+
 - Keep documentation and any comments in sync with code
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
 - Never reference explicit file lines in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
-- Never include metadata (e.g. last updated time) that is available from the platfrom (e.g. git, Confluence).
 
-### DRY
+### DRY and History
 
 - Do not include things in documents that violate DRY (Don't Repeat Yourself):
   - Don't include revision history or modtime if that's available from git
+  - Never include metadata (e.g. last updated time) that is available from the platform (e.g. git, Confluence).
   - In version-controlled docs, never include pointers to local docs that are not version-controlled.
   - Avoid version-controlled comments/docs explaining recent corrections to code/docs. Version-controlled content is for durable info. Git history is the place to record changes.
 
-## Ad Hoc Documents
+### The docs/ Folder
+
+- Content in docs/ should never mention dates unless relating to formal production events (e.g. migrations, releases of critical changes/bugfixes).
+- docs/ is not about history — not even doc history.
+- Don't include changelogs or revision dates in docs/ documents, because that is WET with git history.
+- The only exception: release history for major features or incompatible changes.
+
+### Ad Hoc Documents
 
 - When creating ad hoc markdown docs during conversations, do not check them into VCS.
 - Place them all into the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
@@ -52,9 +61,9 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Do not create ad hoc documents for short (<100 lines) content that can be presented inline.
 - Avoid creating multiple ad hoc markdown documents at one time. Combine them into a single document with a TOC and a summary, to avoid WETness.
 
-### Ad Hoc Raw Text e.g. Commit Messages
+### Raw Text for Pasting (e.g. Commit Messages)
 
-- For content that the user might need to paste as text (e.g. raw text commmit message, raw markdown PR description), present the content as inline raw text that can be copy-pasted, rather than rich text (e.g. with bullets) that doesn't paste well into text panes.
+- For content that the user might need to paste as text (e.g. raw text commit message, raw markdown PR description), present the content as inline raw text that can be copy-pasted, rather than rich text (e.g. with bullets) that doesn't paste well into text panes.
 - Do not use bullets or rich text. Make it be plain ascii text, like in a text box. Make sure that newlines get included when the user copies it for pasting.
 - Do not write in run-on paragraphs. Use newlines and bullets as appropriate.
 
