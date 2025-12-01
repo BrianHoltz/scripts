@@ -1,6 +1,6 @@
 # AgentRules.md - Global AI Agent Rules
 
-These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict. This file can be stored in (or linked from):
+These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict. This file can be stored in (or symlinked from):
 - ~/.config/github-copilot/intellij/global-copilot-instructions.md
 - ~/.cursor/cursorrules
 
