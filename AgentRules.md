@@ -24,14 +24,6 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Feel free to volunteer alternative ideas, and critique user suggestions.
 - If you're not sure about user intent, ask clarifying questions before proceeding.
 
-## History/Context
-
-- If you are an agent that can show terminal output, then begin every response by running WITHOUT COMMENT the following command to display the current time in the user's local timezone:
-  ```bash
-  TZ="${TZ:-$(readlink /etc/localtime | sed 's|.*/zoneinfo/||')}" date "+%Y-%m-%d %H:%M:%S %Z"
-  ```
-  This ensures the timestamp uses the user's local timezone, not the server's timezone.
-
 ## Documentation
 
 ### General Principles
