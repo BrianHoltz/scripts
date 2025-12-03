@@ -2,6 +2,7 @@
 - If there are no staged changes, describe the unstaged changes.
 - Agents must use git commands as necessary to determine what changes are staged or unstaged.
   - For example, use git --no-pager diff --cached to inspect staged changes and git --no-pager diff for unstaged changes.
+- If not git output, consult Terminal Blindness in AgentRules.md
 - Do not assume the conversation context is the authority for what has changed. Always verify with git commands.
 - Use Conventional Commits standard.
 - Don't document trivial changes that a future developers/agents would not search for.
