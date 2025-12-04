@@ -401,6 +401,7 @@ list_tests() {
   echo "  6: mdar prunes old files in test-results/"
   echo "  7: mdar sorts recommended target names (by mtime and name)"
   echo "  8: mdar removes redundant date prefix from files in dated directories"
+  echo "  9: mdar moves files from aidocs root into dated subfolders"
   exit 0
 }
 
@@ -525,6 +526,17 @@ run_tests() {
   test_case "mdar removes redundant date prefix from files in dated directories" \
     "cd $t7 && $mdar_cmd -n --depth 3 --yes" \
     "aidocs/2025-11-30/2025-11-30_1403_DocOrganizationSummary.md.*→.*aidocs/2025-11-30/1403_DocOrganizationSummary.md" \
+    "Dry-run: Executed 0 of 1 proposed operations"
+
+  # Test 9: Files in aidocs root should be moved into dated subfolders
+  local t8="$testdir/test8"
+  mkdir -p "$t8/aidocs"
+  echo "# File with timestamp in root" > "$t8/aidocs/2025-12-03_0844_EyewearLensBundleIssueAnalysis.md"
+  touch -t 202512040856 "$t8/aidocs/2025-12-03_0844_EyewearLensBundleIssueAnalysis.md"
+
+  test_case "mdar moves files from aidocs root into dated subfolders" \
+    "cd $t8 && $mdar_cmd -n --depth 3 --yes" \
+    "aidocs/2025-12-03_0844_EyewearLensBundleIssueAnalysis.md.*→.*aidocs/2025-12-04/0856_EyewearLensBundleIssueAnalysis.md" \
     "Dry-run: Executed 0 of 1 proposed operations"
 
   total_tests=$((passed+failed))
