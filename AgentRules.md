@@ -3,6 +3,7 @@
 These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict. This file can be stored in (or symlinked from):
 - ~/.config/github-copilot/intellij/global-copilot-instructions.md
 - ~/.cursor/cursorrules
+- ~/.claude/CLAUDE.md
 
 ## Coding Workflow
 
