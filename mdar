@@ -117,7 +117,7 @@ main() {
         echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           Skip confirmation prompt, execute ${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} operations immediately"
         echo -e "    ${FLAG_COLOR}-i${RESET}, ${FLAG_COLOR}--interactive${RESET}   Prompt for confirmation on each individual operation"
         echo -e "    ${FLAG_COLOR}-l${RESET}, ${FLAG_COLOR}--long${RESET}          Show birthtime and modtime columns in output (long format)"
-        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: file counts, 2: +${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} ops, 3: +shell ops"
+        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: what, 2: +how (${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET}), 3: +debug"
         echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}set -x${RESET})"
         echo
         echo -e "${BOLD}${UNDERLINE}EXAMPLE OUTPUT${RESET}"
@@ -249,7 +249,8 @@ main() {
         for igRaw in "${ignoreNames[@]}"; do
             [ -z "$igRaw" ] && continue
             local ig="${igRaw%/}"
-            if [[ "$p" == "$ig"* ]] || [[ "$p" == *"/$ig/"* ]] || [[ "$p" == *"/$ig" ]]; then
+            vlog 3 "Checking ignore pattern: $ig against path: $p and filename: $filename"
+            if [[ "$p" == "$ig"* ]] || [[ "$p" == */"$ig"/* ]] || [[ "$p" == */"$ig" ]]; then
                 vlog 3 "Ignoring path: $p (matches pattern: $ig)"
                 return 0
             fi
@@ -258,12 +259,14 @@ main() {
                 return 0
             fi
         done
+        vlog 3 "Path not ignored: $p"
         return 1
     }
 
     normalizePaths() {
         vlog 3 "normalizePaths: Strip leading './' and drop empty lines"
         local in="$1"
+        vlog 3 "Input to normalizePaths: $in"
         echo "$in" | sed -e 's|^\./||' -e 's|^$||' | grep -v '^$' || true
     }
 
@@ -279,10 +282,9 @@ main() {
             statusFiles=$(git --no-pager -C "$repoRoot" status --porcelain | grep '^?? ' | sed 's/^?? //' || true)
             lsFiles=$(git --no-pager -C "$repoRoot" ls-files --others --exclude-standard || true)
             vlog 3 "Combining statusFiles and lsFiles, sorting, deduping, filtering for .md files"
-            # Combine both sources, sort/dedupe, remove blank lines, keep only .md files, exclude aidocs/
             files=$(printf "%s\n%s\n" "$statusFiles" "$lsFiles" | sort | uniq | grep -v '^$' | grep '\.md$' | grep -v '^aidocs/')
-            # Replace prior grep-based ignore with prefix function filter
             if [ "${#ignoreNames[@]}" -gt 0 ]; then
+                vlog 3 "Applying ignore filters to markdown files"
                 files=$(echo "$files" | while IFS= read -r f; do [ -z "$f" ] && continue; if ! shouldIgnorePath "$f"; then echo "$f"; fi; done)
             fi
             if [ "$depth" -ge 0 ]; then
@@ -298,11 +300,12 @@ main() {
                 vlog 2 "Running: find . -maxdepth $((depth + 1)) -type f -name '*.md'"
                 files=$(cd "$repoRoot" && find . -maxdepth $((depth + 1)) -type f -name '*.md' 2>/dev/null | sed 's|^./||' | grep -v '^aidocs/')
             fi
-            # Apply ignore filters
             if [ "${#ignoreNames[@]}" -gt 0 ]; then
+                vlog 3 "Applying ignore filters to markdown files"
                 files=$(echo "$files" | while IFS= read -r f; do [ -z "$f" ] && continue; if ! shouldIgnorePath "$f"; then echo "$f"; fi; done)
             fi
         fi
+        vlog 2 "Untracked markdown files found: $(echo "$files" | wc -l | tr -d ' ')"
         echo "$files"
     }
 
@@ -371,6 +374,7 @@ main() {
     }
 
     parseDurationToSeconds() {
+        vlog 3 "parseDurationToSeconds: duration=$1"
         local duration="$1"
         local num="${duration%[mhdwMy]}"
         local unit="${duration#$num}"
@@ -387,12 +391,15 @@ main() {
     }
 
     collectPruneOps() {
+        vlog 3 "collectPruneOps: find files in normalizeDirs=(${normalizeDirs[*]}) older than cutoff"
         local repoRoot="$1" duration="$2" archiveDir="$3"
         shift 3
         local normalizeDirs=("$@")
-        vlog 3 "collectPruneOps: find files in normalizeDirs=(${normalizeDirs[*]}) older than cutoff"
-        local cutoffTime
-        cutoffTime=$(($(date +%s) - $(parseDurationToSeconds "$duration")))
+        # Calculate cutoffTime: now - duration (in seconds)
+        local now durationSeconds cutoffTime
+        now=$(date +%s)
+        durationSeconds=$(parseDurationToSeconds "$duration")
+        cutoffTime=$((now - durationSeconds))
         vlog 3 "Cutoff time: $cutoffTime ($(date -r "$cutoffTime" '+%Y-%m-%d %H:%M:%S'))"
         local pruneOps=()
         # Search all normalize dirs (which already includes archiveDir and test-results)
