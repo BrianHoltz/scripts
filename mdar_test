@@ -214,10 +214,6 @@ test_case() {
         [[ -n "$b" ]] && echo "  - \`$(clean_expect "$b")\`"
       done
     fi
-    if [[ $result -ne 0 ]]; then
-      echo "  Output (first 50 lines):"
-      echo "$output" | head -50
-    fi
     if [[ $result -eq 0 ]]; then
       color_pass "$desc"
       ((passed++))
@@ -397,13 +393,15 @@ extract_usageMsg_test() {
 
 list_tests() {
   echo "Available tests:"
-  echo "  1: mdar_test usageMsg matches --help output"
-  echo "  2: mdar usageMsg matches --help output"
+  echo "  1: mdar_test usageMsg matches --help output (verifies -H matches -h after color stripping)"
+  echo "  2: mdar usageMsg matches --help output (verifies -H matches -h after color stripping)"
   echo "  3: mdar proposes move for untracked .md file"
   echo "  4: mdar suggests normalization for test-results files"
   echo "  5: mdar marks old aidocs files for pruning"
   echo "  6: mdar prunes old files in test-results/"
   echo "  7: mdar sorts recommended target names (by mtime and name)"
+  echo "  8: mdar removes redundant date prefix from files in dated directories"
+  echo "  9: mdar moves files from aidocs root into dated subfolders"
   exit 0
 }
 
@@ -423,14 +421,20 @@ run_tests() {
   fi
 
   # Test 1: mdar_test Usage message consistency
+  # This test ensures that the raw usageMsg variable (-H) matches the colorized help output (-h/--help) after stripping colors.
+  # The test succeeds if diff produces NO output (files are identical).
+  # We use a special test that checks the diff output is completely empty.
   test_case "mdar_test usageMsg matches --help output" \
-    "extract_usageMsg_test > $testdir/usage_raw_test && $HOME/bin/mdar_test --help | perl -pe 's/\\e\\[[\\d;]*[A-Za-z]//g' > $testdir/usage_help_test && diff -u $testdir/usage_raw_test $testdir/usage_help_test" \
-    ""
+    "extract_usageMsg_test > $testdir/usage_raw_test && $HOME/bin/mdar_test --help | perl -pe 's/\\e\\[[\\d;]*[A-Za-z]//g' > $testdir/usage_help_test && diff_output=\$(diff -u $testdir/usage_raw_test $testdir/usage_help_test) && test -z \"\$diff_output\" && echo 'No differences found' || (echo \"\$diff_output\"; exit 1)" \
+    "No differences found"
 
   # Test 2: mdar Usage message consistency
+  # This test ensures that the raw usageMsg variable (-H) matches the colorized help output (-h/--help) after stripping colors.
+  # The test succeeds if diff produces NO output (files are identical).
+  # We use a special test that checks the diff output is completely empty.
   test_case "mdar usageMsg matches --help output" \
-    "extract_usageMsg > $testdir/usage_raw && $HOME/bin/mdar --help | perl -pe 's/\\e\\[[\\d;]*[A-Za-z]//g' > $testdir/usage_help && diff -u $testdir/usage_raw $testdir/usage_help" \
-    ""
+    "extract_usageMsg > $testdir/usage_raw && $HOME/bin/mdar --help | perl -pe 's/\\e\\[[\\d;]*[A-Za-z]//g' > $testdir/usage_help && diff_output=\$(diff -u $testdir/usage_raw $testdir/usage_help) && test -z \"\$diff_output\" && echo 'No differences found' || (echo \"\$diff_output\"; exit 1)" \
+    "No differences found"
 
   # Test 3: Basic archival
   local t2="$testdir/test2"
@@ -512,6 +516,28 @@ run_tests() {
     "testdir/delta_notes.md.*→.*aidocs/2025-06-18/0830_DeltaNotes.md" \
     "testdir/gamma_notes.md.*→.*aidocs/2025-10-01/1200_GammaNotes.md" \
     "Dry-run: Executed 0 of 5 proposed operations"
+
+  # Test 8: Files in dated directories should not have redundant date prefix
+  local t7="$testdir/test7"
+  mkdir -p "$t7/aidocs/2025-11-30"
+  echo "# Doc with redundant date" > "$t7/aidocs/2025-11-30/2025-11-30_1403_DocOrganizationSummary.md"
+  touch -t 202511301403 "$t7/aidocs/2025-11-30/2025-11-30_1403_DocOrganizationSummary.md"
+  
+  test_case "mdar removes redundant date prefix from files in dated directories" \
+    "cd $t7 && $mdar_cmd -n --depth 3 --yes" \
+    "aidocs/2025-11-30/2025-11-30_1403_DocOrganizationSummary.md.*→.*aidocs/2025-11-30/1403_DocOrganizationSummary.md" \
+    "Dry-run: Executed 0 of 1 proposed operations"
+
+  # Test 9: Files in aidocs root should be moved into dated subfolders
+  local t8="$testdir/test8"
+  mkdir -p "$t8/aidocs"
+  echo "# File with timestamp in root" > "$t8/aidocs/2025-12-03_0844_EyewearLensBundleIssueAnalysis.md"
+  touch -t 202512040856 "$t8/aidocs/2025-12-03_0844_EyewearLensBundleIssueAnalysis.md"
+
+  test_case "mdar moves files from aidocs root into dated subfolders" \
+    "cd $t8 && $mdar_cmd -n --depth 3 --yes" \
+    "aidocs/2025-12-03_0844_EyewearLensBundleIssueAnalysis.md.*→.*aidocs/2025-12-04/0856_EyewearLensBundleIssueAnalysis.md" \
+    "Dry-run: Executed 0 of 1 proposed operations"
 
   total_tests=$((passed+failed))
   if [ "$verboseTest" -eq 1 ]; then

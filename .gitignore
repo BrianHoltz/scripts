@@ -1,5 +1,9 @@
 /.idea/
+/.vscode/
+bin.iml
 .java-version
 .DS_Store
 /aidocs/
 /tmp/
+# installed software
+groupgrep/
