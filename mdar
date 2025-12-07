@@ -28,7 +28,7 @@ OPTIONS
     --prune N<mhdwMy>   Delete target files older than e.g., 30d, 4w, 1M
     -n, --dry-run       Show proposed mv/rm operations and exit (no prompt, no changes)
     -y, --yes           Skip confirmation prompt, execute mv/rm operations immediately
-    -v, -vv, -vvv       Logging level: 1: file counts, 2: +find/git/mv/rm ops, 3: +shell ops
+    -v, -vv, -vvv       Logging level: 1: what, 2: +how (find/git/mv/rm), 3: +debug
     -x                  Enable shell tracing (set -x)
 
 EXAMPLE OUTPUT
@@ -109,7 +109,7 @@ main() {
         echo -e "    ${FLAG_COLOR}--prune${RESET} ${ARG_VAR_COLOR}${ITALIC}N<mhdwMy>${RESET}   Delete target files older than e.g., ${ARG_LIT_COLOR}30d${RESET}, ${ARG_LIT_COLOR}4w${RESET}, ${ARG_LIT_COLOR}1M${RESET}"
         echo -e "    ${FLAG_COLOR}-n${RESET}, ${FLAG_COLOR}--dry-run${RESET}       Show proposed ${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} operations and exit (no prompt, no changes)"
         echo -e "    ${YES_COLOR}-y${RESET}, ${YES_COLOR}--yes${RESET}           Skip confirmation prompt, execute ${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} operations immediately"
-        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: file counts, 2: +${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET} ops, 3: +shell ops"
+        echo -e "    ${FLAG_COLOR}-v${RESET}, ${FLAG_COLOR}-vv${RESET}, ${FLAG_COLOR}-vvv${RESET}       Logging level: 1: what, 2: +how (${CMD_COLOR}find${RESET}/${CMD_COLOR}git${RESET}/${CMD_COLOR}mv${RESET}/${CMD_COLOR}rm${RESET}), 3: +debug"
         echo -e "    ${FLAG_COLOR}-x${RESET}                  Enable shell tracing (${CMD_COLOR}set -x${RESET})"
         echo
         echo -e "${BOLD}${UNDERLINE}EXAMPLE OUTPUT${RESET}"
@@ -120,19 +120,19 @@ main() {
 
     # vlog: logging utility (define before any calls so it's available during option parsing and early runtime checks)
     # Log levels:
-    # 1: Basic discovery/context, non-fatal errors (e.g., git repo status, counts of markdowns)
-    # 2: Important subcommands (describe git/find/mv/rm commands and why they're run)
-    # 3: All interesting shell pipelines and transformations (full trace)
+    # 1: What's happening (high-level context, file counts, operation summaries)
+    # 2: How it's happening (command execution, operation attempts)
+    # 3: Debug trace (function parameters, filtering decisions, data transformations)
+    #
+    # Note: This script typically runs in under a second, so we bypass the logging best
+    # practice of timestamping each log line. Timestamps would add clutter without value.
     vlog() {
         local level="$1"; shift
         if [ "$verbose" -ge "$level" ]; then
-            # Join the rest of the args as a single message
             local msg="$*"
-            # If message is empty or whitespace-only, skip (avoid blank lines)
             if [[ -z "${msg//[[:space:]]/}" ]]; then
                 return
             fi
-            # Print each non-empty line with a '+' prefix; drop blank lines inside multi-line messages
             while IFS= read -r line || [ -n "$line" ]; do
                 [[ -z "${line//[[:space:]]/}" ]] && continue
                 echo "+ $line" >&2
@@ -230,20 +230,19 @@ main() {
         inGitRepo=0
     fi
 
-    # Helper: test whether a path should be ignored (inside any named ignore folder or matching filename)
     shouldIgnorePath() {
         local p="$1"
         local filename
         filename=$(basename "$p")
         for igRaw in "${ignoreNames[@]}"; do
             [ -z "$igRaw" ] && continue
-            local ig="${igRaw%/}" # strip trailing slash for consistency
-            # Check if ignore name appears at start OR after a slash (as a path component)
+            local ig="${igRaw%/}"
             if [[ "$p" == "$ig"* ]] || [[ "$p" == *"/$ig/"* ]] || [[ "$p" == *"/$ig" ]]; then
+                vlog 3 "Ignoring path: $p (matches pattern: $ig)"
                 return 0
             fi
-            # Also check if the filename matches exactly
             if [[ "$filename" == "$ig" ]]; then
+                vlog 3 "Ignoring path: $p (filename matches: $ig)"
                 return 0
             fi
         done
@@ -251,7 +250,7 @@ main() {
     }
 
     normalizePaths() {
-        vlog 4 "normalizePaths: Strip leading './' and drop empty lines"
+        vlog 3 "normalizePaths: Strip leading './' and drop empty lines"
         local in="$1"
         echo "$in" | sed -e 's|^\./||' -e 's|^$||' | grep -v '^$' || true
     }
@@ -296,12 +295,10 @@ main() {
     }
 
     extractTimestamp() {
-        vlog 4 "extractTimestamp: Extract timestamp from filename: $1"
+        vlog 3 "extractTimestamp: filename=$1"
         local filename="$1"
         local date="" time=""
-        # BASH_REMATCH is a bash array containing the full match and capture groups from the last successful regex match in [[ ... =~ ... ]].
-        # BASH_REMATCH[0] is the full match, BASH_REMATCH[1] is the first capture group, BASH_REMATCH[2] is the second, etc.
-        # Regex: Matches YYYY-MM-DD_hhmmSS or YYYY-MM-DD_hhmm
+        vlog 3 "BASH_REMATCH: [0]=full match, [1]=first capture group, [2]=second capture group, etc."
         if [[ "$filename" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{6}) ]]; then
             date="${BASH_REMATCH[1]}"; time="${BASH_REMATCH[2]:0:4}"
         # Regex: Matches YYYY-MM-DD_hhmm
@@ -333,12 +330,10 @@ main() {
     }
 
     toCamelCase() {
-        vlog 4 "toCamelCase: Convert filename to CamelCase, stripping timestamps: $1"
+        vlog 3 "toCamelCase: filename=$1"
         local filename="$1"
         local base="${filename%.*}"
-        # Remove common timestamp patterns so numeric timestamps don't become words in the
-        # CamelCase result. This handles several formats (YYYY-MM-DD, YYYYMMDD, compact
-        # datetime strings with or without separators) before we split on '_' or '-'.
+        vlog 3 "Stripping timestamp patterns before CamelCase conversion"
         # Strip YYYY-MM-DD[_hhmm...] style timestamps
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{4}-[0-9]{2}-[0-9]{2}(_[0-9]{4,6})?[_-]?//g')
         # Strip YYYYMMDD-hhmmss style timestamps
@@ -351,20 +346,15 @@ main() {
         base=$(echo "$base" | sed -E 's/^[0-9]{4}_//')
         if [[ ! "$base" =~ [_-] ]]; then
             if [[ "$base" =~ ^[A-Z0-9]+$ ]]; then
-                # Token is ALL CAPS/alphanumeric (likely an acronym or constant).
-                # Convert to Title case (first letter uppercase, rest lowercase) so
-                # acronyms become readable names (e.g. FOO -> Foo) instead of ALLCAPS.
+                vlog 3 "Token is ALL CAPS/alphanumeric - converting to Title case (e.g. FOO -> Foo)"
                 echo "$(echo "$base" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')"
             else
-                # Mixed case or lowercase token: preserve the original casing except
-                # ensure the first character is uppercase for consistency (e.g. myFile -> MyFile).
+                vlog 3 "Mixed/lowercase token - preserving casing, ensuring uppercase first char"
                 echo "$(echo "${base:0:1}" | tr '[:lower:]' '[:upper:]')${base:1}"
             fi
             return
         fi
-        # Multiple parts separated by '_' or '-': replace separators with spaces,
-        # Title-case each word, then remove spaces to produce CamelCase (MyFileName).
-        # Split on separators, titlecase words with awk, then join
+        vlog 3 "Multiple parts separated by '_' or '-' - converting to CamelCase"
         echo "$base" | sed -e 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | sed 's/ //g'
     }
 
@@ -391,18 +381,16 @@ main() {
         vlog 3 "collectPruneOps: find files in $archiveDir, test-results/, and normalizeDirs=(${normalizeDirs[*]}) older than cutoff"
         local cutoffTime
         cutoffTime=$(($(date +%s) - $(parseDurationToSeconds "$duration")))
+        vlog 3 "Cutoff time: $cutoffTime ($(date -r "$cutoffTime" '+%Y-%m-%d %H:%M:%S'))"
         local pruneOps=()
-        # Always search archiveDir, test-results/, and any explicit normalize dirs
         local dirsToSearch=("$archiveDir" "test-results" "${normalizeDirs[@]}")
+        vlog 3 "Searching directories for old files: ${dirsToSearch[*]}"
         for searchDir in "${dirsToSearch[@]}"; do
             [ ! -d "$repoRoot/$searchDir" ] && continue
-            # Use NUL-delimited find to handle filenames with spaces/newlines and
-            # exclude the archive root README.md explicitly.
+            vlog 3 "Using NUL-delimited find in $searchDir to handle special filenames"
             while IFS= read -r -d '' f; do
-                # Make path relative (strip leading ./ if present)
                 f="${f#./}"
                 [ "$f" = "${archiveDir}/README.md" ] && continue
-                # Ignore folders matching ignoreNames
                 if shouldIgnorePath "$f"; then
                     continue
                 fi
@@ -422,11 +410,10 @@ main() {
         local normalizeOps=()
         for dir in "${dirs[@]}"; do
             [ ! -d "$repoRoot/$dir" ] && continue
-            # Use NUL-delimited find to handle spaces/newlines in names
+            vlog 3 "Using NUL-delimited find in $dir to handle special filenames"
             while IFS= read -r -d '' filepath; do
                 filepath="${filepath#./}"
                 [ -z "$filepath" ] && continue
-                # Skip ignored folders
                 if shouldIgnorePath "$filepath"; then
                     continue
                 fi
@@ -436,7 +423,7 @@ main() {
                 base="${filename%.*}"
                 extension="${filename##*.}"
                 [ "$extension" = "$filename" ] && extension=""
-                # Always use birth time for normalization (don't trust extracted timestamp)
+                vlog 3 "Using birth time for normalization (ignoring any extracted timestamp)"
                 local btime mtime date time
                 btime=$(stat -f "%B" "$repoRoot/$filepath" 2>/dev/null || echo 0)
                 mtime=$(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0)
@@ -470,28 +457,24 @@ main() {
                     fi
                 fi
                 newPath="${dirname}/${newFilename}"
-                # Compliance: filename matches normalized pattern AND timestamp matches birth time
-                # Pattern 1: yyyy-mm-dd_hhmm_CamelCase.ext (files in non-dated folders)
-                # Pattern 2: hhmm_CamelCase.ext (files in dated folders like 2025-11-19/)
+                vlog 3 "Checking compliance: pattern match AND timestamp matches birth time"
                 local compliantPattern1='^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
                 local compliantPattern2='^[0-9]{4}_[A-Z][A-Za-z0-9]*(\.[^.]+)?$'
                 local isCompliant=0
                 if [[ "$filename" =~ $compliantPattern1 ]] || [[ "$filename" =~ $compliantPattern2 ]]; then
-                    # Check if timestamp in filename matches actual birth time
                     local btime mtime actualTime
                     btime=$(stat -f "%B" "$repoRoot/$filepath" 2>/dev/null || echo 0)
                     mtime=$(stat -f "%m" "$repoRoot/$filepath" 2>/dev/null || echo 0)
                     actualTime=$(date -r "${btime:-$mtime}" '+%H%M' 2>/dev/null || echo "0000")
-                    # Extract time from filename for comparison
                     local filenameTime=""
                     if [[ "$filename" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_([0-9]{4})_ ]]; then
                         filenameTime="${BASH_REMATCH[1]}"
                     elif [[ "$filename" =~ ^([0-9]{4})_ ]]; then
                         filenameTime="${BASH_REMATCH[1]}"
                     fi
-                    # File is compliant if pattern matches AND timestamp matches actual birth time
                     if [ "$filenameTime" = "$actualTime" ]; then
                         isCompliant=1
+                        vlog 3 "File $filename is compliant (timestamp matches birth time)"
                     fi
                 fi
                 if [ "$isCompliant" -eq 0 ] && [ "$filepath" != "$newPath" ]; then
@@ -511,15 +494,14 @@ main() {
     markdownFiles=$(normalizePaths "$markdownFiles")
     count=$(echo "$markdownFiles" | grep -c '^')
     vlog 1 "Discovered $count untracked markdown files in $repoRoot"
-    vlog 2 "$markdownFiles"
+    vlog 3 "$markdownFiles"
     if [ -z "$markdownFiles" ]; then
         vlog 1 "No markdown files found, skipping untrackedOps loop."
     else
         local untrackedOps=()
-        vlog 2 "Mapping each discovered markdown file to its intended archive destination"
+        vlog 2 "Mapping $count markdown files to archive destinations in $archiveDir"
         while IFS= read -r file; do
             [ -z "$file" ] && continue
-            # Skip ignored folders just in case
             if shouldIgnorePath "$file"; then
                 continue
             fi
@@ -552,8 +534,7 @@ main() {
         done <<< "$markdownFiles"
     fi
 
-    # NOTE: mapfile is NOT available in macOS's default /bin/bash.
-    # Instead of: mapfile -t normalizeOps < <(collectNormalizeOps ...)
+    vlog 3 "NOTE: Using while loop instead of mapfile (not available in macOS default bash)"
     normalizeOps=()
     while IFS= read -r line; do
         [ -n "$line" ] && normalizeOps+=("$line")
@@ -566,8 +547,10 @@ main() {
     fi
 
     local totalOps=$(( ${#untrackedOps[@]} + ${#normalizeOps[@]} + ${#pruneOps[@]} ))
+    vlog 1 "Total operations: $totalOps (normalize=${#normalizeOps[@]}, untracked=${#untrackedOps[@]}, prune=${#pruneOps[@]})"
     [ "$totalOps" -eq 0 ] && echo "Executed 0 of 0 proposed operations" >&2 && exit 0
 
+    vlog 3 "Calculating max source path length for output formatting"
     local maxLen=0
     for op in "${untrackedOps[@]}" "${normalizeOps[@]}"; do
         local src="${op%%|*}"
@@ -577,7 +560,7 @@ main() {
         [ ${#file} -gt $maxLen ] && maxLen=${#file}
     done
 
-    # Combine normalization and untracked operations for sorting
+    vlog 3 "Combining and sorting operations by destination path"
     local allOps=()
     for op in "${normalizeOps[@]}"; do
         local src="${op%%|*}" dst="${op##*|}"
@@ -587,37 +570,38 @@ main() {
         local src="${op%%|*}" dst="${op##*|}"
         allOps+=("$src|$dst")
     done
-    # Sort allOps by destination path (right-hand side)
     local sortedOps=()
     while IFS= read -r line; do
         [ -n "$line" ] && sortedOps+=("$line")
     done < <(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2)
-    # Print sorted normalization and untracked operations
     for op in "${sortedOps[@]}"; do
         local src="${op%%|*}"
         local dst="${op##*|}"
         printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
     done
-    # Print prune operations at the end
     for file in "${pruneOps[@]}"; do
         printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
     done
 
     if [ "${dryRun:-0}" -eq 1 ]; then
+        vlog 1 "Dry-run mode: exiting without executing operations"
         echo "Dry-run: Executed 0 of $totalOps proposed operations" >&2
         exit 0
     fi
 
     if [ "${autoConfirm:-0}" -eq 0 ]; then
-        # Prompt for single-character confirmation (y/Y to proceed)
+        vlog 2 "Prompting user for confirmation"
         read -p "Proceed with these operations? [y/N] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            vlog 1 "Operation cancelled by user"
             echo "Cancelled." >&2
             echo "Executed 0 of $totalOps proposed operations" >&2
             exit 0
         fi
     fi
+
+    vlog 1 "Executing $totalOps operations"
 
     local executedOps=0
     for op in "${normalizeOps[@]}"; do
@@ -626,13 +610,16 @@ main() {
         destDir=$(dirname "$dst")
         mkdir -p "$destDir"
         if [ -f "$dst" ]; then
+            vlog 2 "Skipping $src: destination $dst already exists"
             printf "  ⚠ %-${maxLen}s  (destination exists)\n" "$src"
             continue
         fi
+        vlog 2 "mv \"$src\" \"$dst\""
         if mv "$src" "$dst"; then
             executedOps=$((executedOps+1))
             printf "  ✓ %-${maxLen}s  →  %s\n" "$src" "$dst"
         else
+            vlog 2 "Failed to move $src to $dst"
             printf "  ⚠ %-${maxLen}s  (failed to move)\n" "$src" >&2
         fi
     done
@@ -642,24 +629,30 @@ main() {
         destDir=$(dirname "$dst")
         mkdir -p "$destDir"
         if [ -f "$dst" ]; then
+            vlog 2 "Skipping $src: destination $dst already exists"
             printf "  ⚠ %-${maxLen}s  (destination exists)\n" "$src"
             continue
         fi
+        vlog 2 "mv \"$src\" \"$dst\""
         if mv "$src" "$dst"; then
             executedOps=$((executedOps+1))
             printf "  ✓ %-${maxLen}s  →  %s\n" "$src" "$dst"
         else
+            vlog 2 "Failed to move $src to $dst"
             printf "  ⚠ %-${maxLen}s  (failed to move)\n" "$src" >&2
         fi
     done
     for file in "${pruneOps[@]}"; do
+        vlog 2 "rm \"$file\""
         if [ -f "$file" ] && rm "$file"; then
             executedOps=$((executedOps+1))
             printf "  ✓ %-${maxLen}s  →  [DELETED]\n" "$file"
         else
+            vlog 2 "Failed to delete $file"
             printf "  ⚠ %-${maxLen}s  (failed to delete)\n" "$file" >&2
         fi
     done
+    vlog 1 "Completed: executed $executedOps of $totalOps operations"
     echo "Executed $executedOps of $totalOps proposed operations" >&2
 }
 
