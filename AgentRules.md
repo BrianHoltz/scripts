@@ -1,6 +1,7 @@
 # AgentRules.md - Global AI Agent Rules
 
 These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict. This file can be stored in (or symlinked from):
+
 - ~/.config/github-copilot/intellij/global-copilot-instructions.md
 - ~/.cursor/cursorrules
 - ~/.claude/CLAUDE.md
@@ -8,6 +9,7 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 ## Coding Workflow
 
 When implementing a change on checked-in production code with tests, use TDD:
+
 1. If there are uncommitted changes or main needs pulling, stop and ask the user to ensure the repo is in an intended committed known-good state with no changes that need merging from main.
 2. Run all tests and verify any failures are expected.
 3. Write test(s) that fail on the behavior being changed/added, and verify they fail.
@@ -16,7 +18,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 6. Run the entire test suite; if any unexpected failures, return to step 4.
 7. If local postman/newman tests exist for the system, ask the user to run the local server. When the server is running, run the postman tests and update any related test-status doc.
 8. Run coverage analysis (e.g. mvn test jacoco:report) and add tests until 100% of new flows/conditions are covered.
-    - If any flows/conditions are too difficult to test, ask for guidance.
+   - If any flows/conditions are too difficult to test, ask for guidance.
 
 ## Communication Style
 
@@ -29,7 +31,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 ### General Principles
 
-- Keep documentation and any comments in sync with code
+- Keep documentation and any comments in sync with code.
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
 - Never reference explicit file lines in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
@@ -75,6 +77,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 ### Pagers
 
 When running a terminal command that may produce paged output, you need to prevent the command from hanging in a pager:
+
 - ALWAYS use `git --no-pager` for git commands (e.g., `git --no-pager diff`, `git --no-pager log`)
 - OR pipe commands to `cat` (e.g., `git diff | cat`, `less file.txt | cat`)
 - Never run commands that will open interactive pagers like `less`, `more`, `man` without disabling pagination
@@ -88,19 +91,22 @@ When running a terminal command that may produce paged output, you need to preve
 This issue occurs mainly in GitHub Copilot. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal.
 
 **Known Issue:** Multiple workarounds have been attempted and none work reliably:
+
 - Appending `; echo ""` to shell commands
 - Simplifying shell prompts
 - Wrapping commands in `bash -c '...'`
 - Running `exec bash` to replace the shell process - appears to hang the terminal because the agent doesn't see the command finish
 
-**Current mitigation:** Switching the default shell to bash (`chsh -s /bin/bash`) had no effect, because IDEA overrides the system shell. IDEA's terminal shell must be configured in **Preferences** → **Tools** → **Terminal** → **Shell path** (set to `/bin/bash`). After changing this setting, restart the terminal session. 
+**Current mitigation:** Switching the default shell to bash (`chsh -s /bin/bash`) had no effect, because IDEA overrides the system shell. IDEA's terminal shell must be configured in **Preferences** → **Tools** → **Terminal** → **Shell path** (set to `/bin/bash`). After changing this setting, restart the terminal session.
 
 **Known persistence issue:** The IDEA terminal shell setting reverts to `/bin/zsh` after restarting IDEA. This appears to happen because:
+
 - IDEA may not be saving the terminal shell path setting to its configuration files
 - Settings Sync (if enabled) may override local preferences
 - IDEA falls back to the macOS system default shell (zsh) when no explicit path is saved
 
 **Workarounds attempted:**
+
 - Setting the explicit path `/bin/bash` in Preferences → Tools → Terminal → Shell path - reverts on restart
 - Disabling Settings Sync - [not yet tested]
 - **Per-project terminal settings - SUCCESS**: Add `TerminalOptionsManager` component to `.idea/workspace.xml`:
@@ -109,6 +115,7 @@ This issue occurs mainly in GitHub Copilot. The terminal output detection can fa
     <option name="shellPath" value="/bin/bash" />
   </component>
   ```
+
   This setting is project-specific and persists across IDEA restarts. Close existing terminal tabs and open new ones to see the change take effect.
 
 **Additional bash compatibility issue:** After switching to bash, `update_terminal_cwd: command not found` errors appeared. This is because `update_terminal_cwd` is a macOS Terminal.app-specific function that's not available in IntelliJ or other terminals. Fixed by conditionally calling it only when `$TERM_PROGRAM == "Apple_Terminal"` in `~/.bash_profile`.
@@ -116,10 +123,9 @@ This issue occurs mainly in GitHub Copilot. The terminal output detection can fa
 **Current best practice:** Use per-project terminal shell configuration as documented above. If terminal output detection issues persist, redirect command output to files in `tmp/` as documented in the next section.
 
 **Current best practice when terminal output is still not visible:**
+
 - Redirect output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`
 - Then read the output file directly (e.g., with your file reading tool)
 - Also run `cat` or `tail` on the file in the terminal so the user can read along with you
 - Do not clean up temp files in `tmp/` — they are for debugging and the user may want to inspect them later. The `tmp/` folder should be gitignored.
 - If you still cannot see the output after file redirection, do not attempt further workarounds. Alert the user and recommend that they restart their IDE to restore terminal functionality.
-
-
