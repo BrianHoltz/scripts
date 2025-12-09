@@ -72,6 +72,38 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Never add files to VCS without user confirmation.
 - Never switch branches or switch to a commit without user confirmation.
 
+## Java Version Issues
+
+### The .java-version File
+
+When encountering Java compilation problems (wrong bytecode version, class file format errors, NoClassDefFoundError for standard library classes), **always check `.java-version` first**:
+
+```bash
+cat .java-version
+```
+
+**Common symptoms of wrong Java version:**
+- `class file has wrong version 65.0, should be 61.0`
+- `Unsupported class file major version`
+- Compilation errors on Java 17+ syntax (records, sealed classes, pattern matching)
+- Tests failing to discover or run
+
+**Root cause:** jEnv reads `.java-version` to set the local Java version. If this file contains `1.8` when the project requires `17`, compilation will fail or produce incompatible bytecode.
+
+**Fix:**
+```bash
+echo "17" > .java-version
+jenv local 17
+java -version  # verify
+```
+
+**Known issue:** Something (possibly IDE extensions like Red Hat Java, or jEnv shell hooks) periodically resets `.java-version` to the jEnv global version. If your global is `1.8`:
+- Set jEnv global to 17: `jenv global 17`
+- Or make the file immutable: `chflags uchg .java-version` (use `chflags nouchg` to edit later)
+- Or add a git hook to restore it on checkout
+
+**Prevention:** If `.java-version` is in `.gitignore` but also committed, git won't track local changes. Check `git diff HEAD -- .java-version` to see if it's been modified locally.
+
 ## Terminals
 
 ### Pagers
