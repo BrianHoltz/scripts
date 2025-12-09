@@ -685,39 +685,41 @@ main() {
         [ -n "$line" ] && sortedOps+=("$line")
     done < <(printf '%s\n' "${allOps[@]}" | sort -t'|' -k2,2)
     
-    # Print sorted normalization and untracked operations
-    if [ "$longFormat" -eq 1 ]; then
-        # Print header for long format
-        printf "  %-${maxLen}s  %-16s  %-16s  %s\n" "Source" "Birth" "Mod" "Destination"
-        printf "  %-${maxLen}s  %-16s  %-16s  %s\n" "$(printf '%*s' "$maxLen" '' | tr ' ' '-')" "----------------" "----------------" "$(printf '%s' "---" | tr ' ' '-')"
+    # Print sorted normalization and untracked operations (skip in interactive mode since each op is shown individually)
+    if [ "${interactive:-0}" -eq 0 ]; then
+        if [ "$longFormat" -eq 1 ]; then
+            # Print header for long format
+            printf "  %-${maxLen}s  %-16s  %-16s  %s\n" "Source" "Birth" "Mod" "Destination"
+            printf "  %-${maxLen}s  %-16s  %-16s  %s\n" "$(printf '%*s' "$maxLen" '' | tr ' ' '-')" "----------------" "----------------" "$(printf '%s' "---" | tr ' ' '-')"
+        fi
+
+        for op in "${sortedOps[@]}"; do
+            IFS='|' read -r src dst btime mtime <<< "$op"
+            if [ "$longFormat" -eq 1 ]; then
+                local birthStr modStr
+                birthStr=$(formatTimestamp "$btime")
+                modStr=$(formatTimestamp "$mtime")
+                printf "  %-${maxLen}s  %-16s  %-16s  →  %s\n" "$src" "$birthStr" "$modStr" "$dst"
+            else
+                printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
+            fi
+        done
+
+        # Print prune operations at the end
+        for file in "${pruneOps[@]}"; do
+            if [ "$longFormat" -eq 1 ]; then
+                # Get timestamps for prune operations
+                local btime mtime birthStr modStr
+                btime=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
+                mtime=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
+                birthStr=$(formatTimestamp "$btime")
+                modStr=$(formatTimestamp "$mtime")
+                printf "  %-${maxLen}s  %-16s  %-16s  →  [DELETE]\n" "$file" "$birthStr" "$modStr"
+            else
+                printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
+            fi
+        done
     fi
-    
-    for op in "${sortedOps[@]}"; do
-        IFS='|' read -r src dst btime mtime <<< "$op"
-        if [ "$longFormat" -eq 1 ]; then
-            local birthStr modStr
-            birthStr=$(formatTimestamp "$btime")
-            modStr=$(formatTimestamp "$mtime")
-            printf "  %-${maxLen}s  %-16s  %-16s  →  %s\n" "$src" "$birthStr" "$modStr" "$dst"
-        else
-            printf "  %-${maxLen}s  →  %s\n" "$src" "$dst"
-        fi
-    done
-    
-    # Print prune operations at the end
-    for file in "${pruneOps[@]}"; do
-        if [ "$longFormat" -eq 1 ]; then
-            # Get timestamps for prune operations
-            local btime mtime birthStr modStr
-            btime=$(stat -f "%B" "$file" 2>/dev/null || echo 0)
-            mtime=$(stat -f "%m" "$file" 2>/dev/null || echo 0)
-            birthStr=$(formatTimestamp "$btime")
-            modStr=$(formatTimestamp "$mtime")
-            printf "  %-${maxLen}s  %-16s  %-16s  →  [DELETE]\n" "$file" "$birthStr" "$modStr"
-        else
-            printf "  %-${maxLen}s  →  [DELETE]\n" "$file"
-        fi
-    done
 
     if [ "${dryRun:-0}" -eq 1 ]; then
         echo "Dry-run: Executed 0 of $totalOps proposed operations" >&2
