@@ -161,3 +161,13 @@ This issue occurs mainly in GitHub Copilot. The terminal output detection can fa
 - Also run `cat` or `tail` on the file in the terminal so the user can read along with you
 - Do not clean up temp files in `tmp/` — they are for debugging and the user may want to inspect them later. The `tmp/` folder should be gitignored.
 - If you still cannot see the output after file redirection, do not attempt further workarounds. Alert the user and recommend that they restart their IDE to restore terminal functionality.
+
+## Dates and Times
+
+**Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
+
+```bash
+date "+%Y-%m-%d %H:%M %Z"
+```
+
+This is cheap (a few tokens for the command and output) and prevents embarrassing errors like creating `2025-01-09` folders in December. Run this once per session or whenever you need to use the current date.
