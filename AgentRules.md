@@ -83,6 +83,7 @@ cat .java-version
 ```
 
 **Common symptoms of wrong Java version:**
+
 - `class file has wrong version 65.0, should be 61.0`
 - `Unsupported class file major version`
 - Compilation errors on Java 17+ syntax (records, sealed classes, pattern matching)
@@ -91,6 +92,7 @@ cat .java-version
 **Root cause:** jEnv reads `.java-version` to set the local Java version. If this file contains `1.8` when the project requires `17`, compilation will fail or produce incompatible bytecode.
 
 **Fix:**
+
 ```bash
 echo "17" > .java-version
 jenv local 17
@@ -98,6 +100,7 @@ java -version  # verify
 ```
 
 **Known issue:** Something (possibly IDE extensions like Red Hat Java, or jEnv shell hooks) periodically resets `.java-version` to the jEnv global version. If your global is `1.8`:
+
 - Set jEnv global to 17: `jenv global 17`
 - Or make the file immutable: `chflags uchg .java-version` (use `chflags nouchg` to edit later)
 - Or add a git hook to restore it on checkout
@@ -142,6 +145,7 @@ This issue occurs mainly in GitHub Copilot. The terminal output detection can fa
 - Setting the explicit path `/bin/bash` in Preferences → Tools → Terminal → Shell path - reverts on restart
 - Disabling Settings Sync - [not yet tested]
 - **Per-project terminal settings - SUCCESS**: Add `TerminalOptionsManager` component to `.idea/workspace.xml`:
+
   ```xml
   <component name="TerminalOptionsManager">
     <option name="shellPath" value="/bin/bash" />
@@ -171,3 +175,32 @@ date "+%Y-%m-%d %H:%M %Z"
 ```
 
 This is cheap (a few tokens for the command and output) and prevents embarrassing errors like creating `2025-01-09` folders in December. Run this once per session or whenever you need to use the current date.
+
+## Toolchain Comparisons
+
+### Copilot
+
+- **Works with VS Code, Intellij IDEA, Android Studio**
+- **Unlimited use of GPT4.1**
+- **Supports Gemini3Pro**
+- **Displays premium request usage (in IDEA)**
+
+### Cursor
+
+- *every model request counts against monthly budget*
+- **seamless parallel agents**
+- **paste file/line reference**
+- **Displays premium usage summary (cf. "usage summary")**
+- **in-context edit prompt**
+
+### VS Code
+
+- **Supports Copilot**
+- *Does not support parallel agents*
+
+### IDEA
+
+- **Superior features: search/find, git, debug, database, http**
+- *Terminal Blindness*
+- *command-approval constipation*
+- *Does not fully support parallel agents*
