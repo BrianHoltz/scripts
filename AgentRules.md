@@ -10,8 +10,8 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 
 When implementing a change on checked-in production code with tests, use TDD:
 
-1. If there are uncommitted changes or main needs pulling, stop and ask the user to ensure the repo is in an intended committed known-good state with no changes that need merging from main.
-2. Run all tests and verify any failures are expected.
+1. If there are uncommitted code (not docs) changes or main needs pulling, stop and ask the user to ensure the repo is in an intended committed known-good state with no changes that need merging from main.
+2. Run all unit tests and verify any failures are expected.
 3. Write test(s) that fail on the behavior being changed/added, and verify they fail.
 4. Implement the required changes.
 5. Run the new tests and related tests; if any fail, return to step 4.
@@ -34,7 +34,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Keep documentation and any comments in sync with code.
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
-- Never reference explicit file lines in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
+- Never reference explicit file line numbers in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
 - Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately!
 
 ### DRY and History
