@@ -205,7 +205,7 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 
 ### IDEA
 
-- **Superior features: search/find, git, debug, database, http**
+- **Superior features: search/find, git, debug, database, http, yaml preview**
 - *Terminal Blindness*
 - *command-approval constipation*
 - *Does not fully support parallel agents*
