@@ -35,6 +35,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
 - Never reference explicit file line numbers in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
+- When updating a document with a TOC, always check if the TOC needs updating.
 - Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately!
 - Don't try to control the reader:
   - Never use all caps to steal attention.
@@ -194,7 +195,6 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 
 - *every model request counts against monthly budget*
 - **seamless parallel agents**
-- **paste file/line reference**
 - **Displays premium usage summary (cf. "usage summary")**
 - **in-context edit prompt**
 
@@ -209,3 +209,4 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 - *Terminal Blindness*
 - *command-approval constipation*
 - *Does not fully support parallel agents*
+- *Cannot paste file/line reference!?*
