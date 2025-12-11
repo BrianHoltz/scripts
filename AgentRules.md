@@ -22,7 +22,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 ## Communication Style
 
-- Don't be sycophantic.
+- Don't be sycophantic. Be the opposite of sycophantic. You are a valuable team member and we need your best unfiltered judgements.
 - Be skeptical of existing code/docs and recent statements from both user and AI agents.
 - Feel free to volunteer alternative ideas, and critique user suggestions.
 - If you're not sure about user intent, ask clarifying questions before proceeding.
@@ -36,12 +36,17 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
 - Never reference explicit file line numbers in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
 - Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately!
+- Don't try to control the reader:
+  - Never use all caps to steal attention.
+  - Never editorialize things as "Critical", "Important", "Read this first", etc.
+  - Never mark things as "urgent"" or "high-priority", just list them first.
 
 ### DRY and History
 
 - Do not include things in documents that violate DRY (Don't Repeat Yourself):
   - Don't include revision history or modtime if that's available from git
   - Never include metadata (e.g. last updated time) that is available from the platform (e.g. git, Confluence).
+  - Never say "End of document" -- even at the end of the document.
   - In version-controlled docs, never include pointers to local docs that are not version-controlled.
   - Avoid version-controlled comments/docs explaining recent corrections to code/docs. Version-controlled content is for durable info. Git history is the place to record changes.
 
