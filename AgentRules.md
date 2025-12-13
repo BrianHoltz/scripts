@@ -35,20 +35,19 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
 - Never reference explicit file line numbers in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
-- When updating a document with a TOC, always check if the TOC needs updating.
-- Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately!
+- When updating a document that has a TOC, always check if the TOC needs updating.
+- Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately.
 - Don't try to control the reader:
   - Never use all caps to steal attention.
-  - Never editorialize things as "Critical", "Important", "Read this first", etc.
+  - Never editorialize via "Critical", "Important", "Read this first", etc.
   - Never mark things as "urgent"" or "high-priority", just list them first.
 
 ### DRY and History
 
-- Do not include things in documents that violate DRY (Don't Repeat Yourself):
-  - Don't include revision history or modtime if that's available from git
-  - Never include metadata (e.g. last updated time) that is available from the platform (e.g. git, Confluence).
+- Be DRY (Don't Repeat Yourself):
+  - Don't include revision history, modtime, etc. if that's available from the platform (e.g. git, Confluence).
   - Never say "End of document" -- even at the end of the document.
-  - In version-controlled docs, never include pointers to local docs that are not version-controlled.
+  - In version-controlled docs, never include pointers to repo docs that are not version-controlled.
   - Avoid version-controlled comments/docs explaining recent corrections to code/docs. Version-controlled content is for durable info. Git history is the place to record changes.
 
 ### The docs/ Folder
