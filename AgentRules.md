@@ -39,8 +39,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately!
 - Don't try to control the reader:
   - Never use all caps to steal attention.
-  - Never editorialize things as "Critical", "Important", "Read this first", etc.
-  - Never mark things as "urgent"" or "high-priority", just list them first.
+  - Never editorialize with labels like "Critical", "Important", "Read this first", "urgent" or "high-priority" -- just use list them first/early, and sparingly use bold or italics for emphasis.
 
 ### DRY and History
 
@@ -76,42 +75,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 ## Version Control
 
 - Never add files to VCS without user confirmation.
-- Never switch branches or switch to a commit without user confirmation.
-
-## Java Version Issues
-
-### The .java-version File
-
-When encountering Java compilation problems (wrong bytecode version, class file format errors, NoClassDefFoundError for standard library classes), **always check `.java-version` first**:
-
-```bash
-cat .java-version
-```
-
-**Common symptoms of wrong Java version:**
-
-- `class file has wrong version 65.0, should be 61.0`
-- `Unsupported class file major version`
-- Compilation errors on Java 17+ syntax (records, sealed classes, pattern matching)
-- Tests failing to discover or run
-
-**Root cause:** jEnv reads `.java-version` to set the local Java version. If this file contains `1.8` when the project requires `17`, compilation will fail or produce incompatible bytecode.
-
-**Fix:**
-
-```bash
-echo "17" > .java-version
-jenv local 17
-java -version  # verify
-```
-
-**Known issue:** Something (possibly IDE extensions like Red Hat Java, or jEnv shell hooks) periodically resets `.java-version` to the jEnv global version. If your global is `1.8`:
-
-- Set jEnv global to 17: `jenv global 17`
-- Or make the file immutable: `chflags uchg .java-version` (use `chflags nouchg` to edit later)
-- Or add a git hook to restore it on checkout
-
-**Prevention:** If `.java-version` is in `.gitignore` but also committed, git won't track local changes. Check `git diff HEAD -- .java-version` to see if it's been modified locally.
+- Never switch branches or switch to a commit or push or pull without user confirmation.
 
 ## Terminals
 
@@ -129,7 +93,7 @@ When running a terminal command that may produce paged output, you need to preve
 
 ### Terminal Blindness
 
-This issue occurs mainly in GitHub Copilot. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal.
+This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal.
 
 **Known Issue:** Multiple workarounds have been attempted and none work reliably:
 
