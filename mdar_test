@@ -402,6 +402,7 @@ list_tests() {
   echo "  7: mdar sorts recommended target names (by mtime and name)"
   echo "  8: mdar removes redundant date prefix from files in dated directories"
   echo "  9: mdar moves files from aidocs root into dated subfolders"
+  echo " 10: mdar exempts files in YYYY-MM-DD/HHMM/ directories from normalization"
   exit 0
 }
 
@@ -537,6 +538,22 @@ run_tests() {
   test_case "mdar moves files from aidocs root into dated subfolders" \
     "cd $t8 && $mdar_cmd -n --depth 3 --yes" \
     "aidocs/2025-12-03_0844_EyewearLensBundleIssueAnalysis.md.*→.*aidocs/2025-12-04/0856_EyewearLensBundleIssueAnalysis.md" \
+    "Dry-run: Executed 0 of 1 proposed operations"
+
+  # Test 10: Files inside YYYY-MM-DD/HHMM/ directories should be exempt from normalization
+  local t9="$testdir/test9"
+  mkdir -p "$t9/aidocs/2025-12-15/1430"
+  echo "# Snapshot file 1" > "$t9/aidocs/2025-12-15/1430/original_name.md"
+  touch -t 202512151430 "$t9/aidocs/2025-12-15/1430/original_name.md"
+  echo "# Snapshot file 2" > "$t9/aidocs/2025-12-15/1430/another-file_here.txt"
+  touch -t 202512151431 "$t9/aidocs/2025-12-15/1430/another-file_here.txt"
+  # Also add a file in a regular dated directory (should still be normalized)
+  echo "# Regular file" > "$t9/aidocs/2025-12-15/needs_normalization.md"
+  touch -t 202512151500 "$t9/aidocs/2025-12-15/needs_normalization.md"
+
+  test_case "mdar exempts files in YYYY-MM-DD/HHMM/ directories from normalization" \
+    "cd $t9 && $mdar_cmd -n --depth 4 --yes" \
+    "aidocs/2025-12-15/needs_normalization.md.*→.*aidocs/2025-12-15/1500_NeedsNormalization.md" \
     "Dry-run: Executed 0 of 1 proposed operations"
 
   total_tests=$((passed+failed))

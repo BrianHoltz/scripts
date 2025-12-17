@@ -12,6 +12,8 @@ DESCRIPTION
     Archive untracked markdown files into dated folders, by default normalized to
     aidocs/YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName.md.
     This cleans up AI-generated docs, sorting them temporally in IDE folder viewers.
+    Files inside YYYY-MM-DD/HHMM/ directories are exempt from filename normalization
+    (useful to cluster fraternal-sibling files).
 
     Ignore patterns can be specified via --ignore flag or in mdar_ignore file (one
     pattern per line, # for comments). Patterns match directory names and filenames.
@@ -99,6 +101,8 @@ main() {
         echo -e "    Archive untracked markdown files into dated folders, by default normalized to"
         echo -e "    ${FS_LIT_COLOR}${UNDERLINE}aidocs/${RESET}${FS_VAR_COLOR}${UNDERLINE}${ITALIC}YYYY-MM-DD/hhmm_CamelCasedVersionOfOriginalName${RESET}${FS_LIT_COLOR}${UNDERLINE}.md${RESET}."
         echo -e "    This cleans up AI-generated docs, sorting them temporally in IDE folder viewers."
+        echo -e "    Files inside ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}YYYY-MM-DD/HHMM/${RESET} directories are exempt from filename normalization"
+        echo -e "    (useful to cluster fraternal-sibling files)."
         echo
         echo -e "    Ignore patterns can be specified via ${FLAG_COLOR}--ignore${RESET} flag or in ${FS_LIT_COLOR}${UNDERLINE}mdar_ignore${RESET} file (one"
         echo -e "    pattern per line, ${FS_VAR_COLOR}#${RESET} for comments). Patterns match directory names and filenames."
@@ -454,6 +458,17 @@ main() {
                 base="${filename%.*}"
                 extension="${filename##*.}"
                 [ "$extension" = "$filename" ] && extension=""
+                # Check if file is inside YYYY-MM-DD/HHMM/ directory (exempt from normalization)
+                local parentDirName grandparentDirName greatGrandparentDir
+                parentDirName=$(basename "$dirname")
+                local parentPath
+                parentPath=$(dirname "$dirname")
+                grandparentDirName=$(basename "$parentPath")
+                greatGrandparentDir=$(dirname "$parentPath")
+                if [[ "$parentDirName" =~ ^[0-9]{4}$ ]] && [[ "$grandparentDirName" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                    vlog 3 "Skipping file in YYYY-MM-DD/HHMM/ directory: $filepath"
+                    continue
+                fi
                 vlog 3 "Using birth time for normalization (ignoring any extracted timestamp)"
                 local btime mtime date time
                 btime=$(stat -f "%B" "$repoRoot/$filepath" 2>/dev/null || echo 0)
