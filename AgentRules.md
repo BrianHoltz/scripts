@@ -144,32 +144,3 @@ date "+%Y-%m-%d %H:%M %Z"
 ```
 
 This is cheap (a few tokens for the command and output) and prevents embarrassing errors like creating `2025-01-09` folders in December. Run this once per session or whenever you need to use the current date.
-
-## Toolchain Comparisons
-
-### Copilot
-
-- **Works with VS Code, Intellij IDEA, Android Studio**
-- **Unlimited use of GPT4.1**
-- **Supports Gemini3Pro**
-- **Displays premium request usage (in IDEA)**
-
-### Cursor
-
-- *every model request counts against monthly budget*
-- **seamless parallel agents**
-- **Displays premium usage summary (cf. "usage summary")**
-- **in-context edit prompt**
-
-### VS Code
-
-- **Supports Copilot**
-- *Does not support parallel agents*
-
-### IDEA
-
-- **Superior features: search/find, git, debug, database, http, yaml preview**
-- *Terminal Blindness*
-- *command-approval constipation*
-- *Does not fully support parallel agents*
-- *Cannot paste file/line reference!?*
