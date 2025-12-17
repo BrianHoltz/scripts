@@ -403,6 +403,7 @@ list_tests() {
   echo "  8: mdar removes redundant date prefix from files in dated directories"
   echo "  9: mdar moves files from aidocs root into dated subfolders"
   echo " 10: mdar exempts files in YYYY-MM-DD/HHMM/ directories from normalization"
+  echo " 11: mdar keeps files in YYYY-MM-DD/ directories in place, preserving HHMM prefix"
   exit 0
 }
 
@@ -554,6 +555,22 @@ run_tests() {
   test_case "mdar exempts files in YYYY-MM-DD/HHMM/ directories from normalization" \
     "cd $t9 && $mdar_cmd -n --depth 4 --yes" \
     "aidocs/2025-12-15/needs_normalization.md.*→.*aidocs/2025-12-15/1500_NeedsNormalization.md" \
+    "Dry-run: Executed 0 of 1 proposed operations"
+
+  # Test 11: Files in YYYY-MM-DD/ directories stay in place even if btime differs
+  # Simulates git checkout scenario where btime gets reset but folder date should be trusted
+  local t10="$testdir/test10"
+  mkdir -p "$t10/aidocs/2025-12-10"
+  # File with HHMM prefix - should be kept as-is (no normalization proposed)
+  echo "# Already normalized" > "$t10/aidocs/2025-12-10/1607_PrHandleNullNodetypeVpRemoval.md"
+  touch -t 202512161606 "$t10/aidocs/2025-12-10/1607_PrHandleNullNodetypeVpRemoval.md"  # btime is "today" but folder says 12-10
+  # File without HHMM prefix - should only get prefix added, stay in same folder
+  echo "# Needs prefix" > "$t10/aidocs/2025-12-10/SomeAnalysis.md"
+  touch -t 202512161500 "$t10/aidocs/2025-12-10/SomeAnalysis.md"
+
+  test_case "mdar keeps files in YYYY-MM-DD/ directories in place, preserving HHMM prefix" \
+    "cd $t10 && $mdar_cmd -n --depth 3 --yes" \
+    "aidocs/2025-12-10/SomeAnalysis.md.*→.*aidocs/2025-12-10/1500_SomeAnalysis.md" \
     "Dry-run: Executed 0 of 1 proposed operations"
 
   total_tests=$((passed+failed))

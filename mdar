@@ -14,6 +14,8 @@ DESCRIPTION
     This cleans up AI-generated docs, sorting them temporally in IDE folder viewers.
     Files inside YYYY-MM-DD/HHMM/ directories are exempt from filename normalization
     (useful to cluster fraternal-sibling files).
+    Files inside YYYY-MM-DD/ directories are kept in place, and if they have
+    a HHMM prefix it is preserved.
 
     Ignore patterns can be specified via --ignore flag or in mdar_ignore file (one
     pattern per line, # for comments). Patterns match directory names and filenames.
@@ -103,6 +105,8 @@ main() {
         echo -e "    This cleans up AI-generated docs, sorting them temporally in IDE folder viewers."
         echo -e "    Files inside ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}YYYY-MM-DD/HHMM/${RESET} directories are exempt from filename normalization"
         echo -e "    (useful to cluster fraternal-sibling files)."
+        echo -e "    Files inside ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}YYYY-MM-DD/${RESET} directories are kept in place, and if they have"
+        echo -e "    a ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}HHMM${RESET} prefix it is preserved."
         echo
         echo -e "    Ignore patterns can be specified via ${FLAG_COLOR}--ignore${RESET} flag or in ${FS_LIT_COLOR}${UNDERLINE}mdar_ignore${RESET} file (one"
         echo -e "    pattern per line, ${FS_VAR_COLOR}#${RESET} for comments). Patterns match directory names and filenames."
@@ -486,7 +490,7 @@ main() {
                 if [[ "$parentDirName" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
                     parentHasDate=1
                 fi
-                # Check if we're in a dated subdirectory of archiveDir and if date matches file's birth date
+                # Check if we're in a dated subdirectory of archiveDir
                 local grandparentDir
                 grandparentDir=$(dirname "$dirname")
                 newDirname="$dirname"
@@ -494,11 +498,14 @@ main() {
                     # File is directly in archiveDir root - move to dated subfolder
                     newDirname="$archiveDir/$date"
                 elif [ "$parentHasDate" -eq 1 ] && [ "$grandparentDir" = "$archiveDir" ]; then
-                    # File is in archiveDir/YYYY-MM-DD/ - check if date matches file's actual date
-                    if [ "$parentDirName" != "$date" ]; then
-                        # Date mismatch: move to correct dated folder
-                        newDirname="$archiveDir/$date"
+                    # File is in archiveDir/YYYY-MM-DD/ - trust the folder date, keep in place
+                    # Check if file already has HHMM prefix - if so, it's compliant
+                    if [[ "$filename" =~ ^[0-9]{4}_ ]]; then
+                        vlog 3 "File in dated directory with HHMM prefix, skipping: $filepath"
+                        continue
                     fi
+                    # File needs HHMM prefix but stays in this folder
+                    newDirname="$dirname"
                 fi
                 # Determine if the NEW directory has a date pattern (to decide on filename format)
                 local newParentDirName
