@@ -100,20 +100,9 @@ This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output
 - Simplifying shell prompts
 - Wrapping commands in `bash -c '...'`
 - Running `exec bash` to replace the shell process - appears to hang the terminal because the agent doesn't see the command finish
-
-**Current mitigation:** Switching the default shell to bash (`chsh -s /bin/bash`) had no effect, because IDEA overrides the system shell. IDEA's terminal shell must be configured in **Preferences** → **Tools** → **Terminal** → **Shell path** (set to `/bin/bash`). After changing this setting, restart the terminal session.
-
-**Known persistence issue:** The IDEA terminal shell setting reverts to `/bin/zsh` after restarting IDEA. This appears to happen because:
-
-- IDEA may not be saving the terminal shell path setting to its configuration files
-- Settings Sync (if enabled) may override local preferences
-- IDEA falls back to the macOS system default shell (zsh) when no explicit path is saved
-
-**Workarounds attempted:**
-
-- Setting the explicit path `/bin/bash` in Preferences → Tools → Terminal → Shell path - reverts on restart
-- Disabling Settings Sync - [not yet tested]
-- **Per-project terminal settings - SUCCESS**: Add `TerminalOptionsManager` component to `.idea/workspace.xml`:
+- Switching the default shell to bash (`chsh -s /bin/bash`)
+- Setting the explicit path `/bin/bash` in Preferences → Tools → Terminal → Shell path
+- Add `TerminalOptionsManager` component to `.idea/workspace.xml`:
 
   ```xml
   <component name="TerminalOptionsManager">
@@ -121,19 +110,11 @@ This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output
   </component>
   ```
 
-  This setting is project-specific and persists across IDEA restarts. Close existing terminal tabs and open new ones to see the change take effect.
-
-**Additional bash compatibility issue:** After switching to bash, `update_terminal_cwd: command not found` errors appeared. This is because `update_terminal_cwd` is a macOS Terminal.app-specific function that's not available in IntelliJ or other terminals. Fixed by conditionally calling it only when `$TERM_PROGRAM == "Apple_Terminal"` in `~/.bash_profile`.
-
-**Current best practice:** Use per-project terminal shell configuration as documented above. If terminal output detection issues persist, redirect command output to files in `tmp/` as documented in the next section.
-
-**Current best practice when terminal output is still not visible:**
-
-- Redirect output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`
+**Current best practice:** Use per-project terminal shell configuration as documented above. If terminal output detection issues persist, redirect output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`
 - Then read the output file directly (e.g., with your file reading tool)
 - Also run `cat` or `tail` on the file in the terminal so the user can read along with you
 - Do not clean up temp files in `tmp/` — they are for debugging and the user may want to inspect them later. The `tmp/` folder should be gitignored.
-- If you still cannot see the output after file redirection, do not attempt further workarounds. Alert the user and recommend that they restart their IDE to restore terminal functionality.
+- If you still cannot see the output after file redirection, do not attempt further workarounds. Alert the user and recommend that they restart their IDE to (temporarily) restore terminal functionality.
 
 ## Dates and Times
 
@@ -143,4 +124,4 @@ This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output
 date "+%Y-%m-%d %H:%M %Z"
 ```
 
-This is cheap (a few tokens for the command and output) and prevents embarrassing errors like creating `2025-01-09` folders in December. Run this once per session or whenever you need to use the current date.
+This is cheap (a few tokens for the command and output) and prevents embarrassing date hallucinations. Run this once per session or whenever you need to use the current date.
