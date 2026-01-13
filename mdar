@@ -367,7 +367,8 @@ main() {
         base=$(echo "$base" | sed -E 's/[_-]?[0-9]{8}[_-]?//g')
         # Strip standalone hhmm_ time prefix (e.g. 1210_FileName)
         base=$(echo "$base" | sed -E 's/^[0-9]{4}_//')
-        if [[ ! "$base" =~ [_-] ]]; then
+        # Check if base has word separators (underscore, dash, or space)
+        if [[ ! "$base" =~ [_\ -] ]]; then
             if [[ "$base" =~ ^[A-Z0-9]+$ ]]; then
                 vlog 3 "Token is ALL CAPS/alphanumeric - converting to Title case (e.g. FOO -> Foo)"
                 echo "$(echo "$base" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')"
@@ -377,7 +378,7 @@ main() {
             fi
             return
         fi
-        vlog 3 "Multiple parts separated by '_' or '-' - converting to CamelCase"
+        vlog 3 "Multiple parts separated by '_', '-', or space - converting to CamelCase"
         echo "$base" | sed -e 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | sed 's/ //g'
     }
 

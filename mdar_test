@@ -404,6 +404,7 @@ list_tests() {
   echo "  9: mdar moves files from aidocs root into dated subfolders"
   echo " 10: mdar exempts files in YYYY-MM-DD/HHMM/ directories from normalization"
   echo " 11: mdar keeps files in YYYY-MM-DD/ directories in place, preserving HHMM prefix"
+  echo " 12: mdar converts space-separated filenames to CamelCase"
   exit 0
 }
 
@@ -453,7 +454,7 @@ run_tests() {
   test_case "mdar proposes move for untracked .md file" \
     "cd $t2 && $mdar_cmd -n --prune 2000d --depth 3 --yes" \
     "Project Alpha/PROJECT_NOTES.md.*→.*aidocs/2018-01-01/0101_ProjectNotes.md" \
-    "Project Beta/Notes/meeting notes \\(?Nov 19\\)?\.md.*→.*aidocs/2019-02-02/0202_Meeting notes \\(?Nov 19\\)?\.md" \
+    "Project Beta/Notes/meeting notes \\(?Nov 19\\)?\.md.*→.*aidocs/2019-02-02/0202_MeetingNotes\\(nov19\\)\.md" \
     "testdir/testfile.md.*→.*aidocs/2024-04-04/0404_Testfile.md" \
     "Dry-run: Executed 0 of 3 proposed operations"
 
@@ -467,7 +468,7 @@ run_tests() {
 
   test_case "mdar suggests normalization for test-results files" \
     "cd $t3 && $mdar_cmd -n --normalize test-results --depth 3 --yes" \
-    "test-results/summary 2025.txt.*→.*test-results/2022-12-12_1212_Summary 2025.txt" \
+    "test-results/summary 2025.txt.*→.*test-results/2022-12-12_1212_Summary2025.txt" \
     "test-results/old_result.txt.*→.*test-results/2017-01-01_0000_OldResult.txt" \
     "Dry-run: Executed 0 of 2 proposed operations"
 
@@ -571,6 +572,19 @@ run_tests() {
   test_case "mdar keeps files in YYYY-MM-DD/ directories in place, preserving HHMM prefix" \
     "cd $t10 && $mdar_cmd -n --depth 3 --yes" \
     "aidocs/2025-12-10/SomeAnalysis.md.*→.*aidocs/2025-12-10/1500_SomeAnalysis.md" \
+    "Dry-run: Executed 0 of 1 proposed operations"
+
+  # Test 12: Files with spaces in name should be converted to CamelCase
+  # Bug: "Content Ranking for Project Mario.html" should become "ContentRankingForProjectMario.html"
+  # not "Content Ranking for Project Mario.html" (spaces preserved)
+  local t11="$testdir/test11"
+  mkdir -p "$t11/aidocs/2026-01-09"
+  echo "# Content doc" > "$t11/aidocs/2026-01-09/Content Ranking for Project Mario.html"
+  touch -t 202601091105 "$t11/aidocs/2026-01-09/Content Ranking for Project Mario.html"
+
+  test_case "mdar converts space-separated filenames to CamelCase" \
+    "cd $t11 && $mdar_cmd -n --depth 3 --yes" \
+    "aidocs/2026-01-09/Content Ranking for Project Mario.html.*→.*aidocs/2026-01-09/1105_ContentRankingForProjectMario.html" \
     "Dry-run: Executed 0 of 1 proposed operations"
 
   total_tests=$((passed+failed))
