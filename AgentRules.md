@@ -71,6 +71,12 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Do not use bullets or rich text. Make it be plain ascii text, like in a text box. Make sure that newlines get included when the user copies it for pasting.
 - Do not write in run-on paragraphs. Use newlines and bullets as appropriate.
 
+## File Operations
+
+- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
+- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
+- Show the diff and wait for user decision
+
 ## Version Control
 
 - Never add files to VCS without user confirmation.
