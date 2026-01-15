@@ -405,6 +405,7 @@ list_tests() {
   echo " 10: mdar exempts files in YYYY-MM-DD/HHMM/ directories from normalization"
   echo " 11: mdar keeps files in YYYY-MM-DD/ directories in place, preserving HHMM prefix"
   echo " 12: mdar converts space-separated filenames to CamelCase"
+  echo " 13: mdar preserves compound extensions like .postman.json"
   exit 0
 }
 
@@ -585,6 +586,19 @@ run_tests() {
   test_case "mdar converts space-separated filenames to CamelCase" \
     "cd $t11 && $mdar_cmd -n --depth 3 --yes" \
     "aidocs/2026-01-09/Content Ranking for Project Mario.html.*→.*aidocs/2026-01-09/1105_ContentRankingForProjectMario.html" \
+    "Dry-run: Executed 0 of 1 proposed operations"
+
+  # Test 13: Files with compound extensions like .postman.json should preserve full extension
+  # Bug: "test-sams-new-gtin.postman.json" should become "TestSamsNewGtin.postman.json"
+  # not "TestSamsNewGtin.json" (losing the .postman part)
+  local t12="$testdir/test12"
+  mkdir -p "$t12/aidocs"
+  echo "{}" > "$t12/aidocs/test-sams-new-gtin.postman.json"
+  touch -t 202512191023 "$t12/aidocs/test-sams-new-gtin.postman.json"
+
+  test_case "mdar preserves compound extensions like .postman.json" \
+    "cd $t12 && $mdar_cmd -n --depth 3 --yes" \
+    "aidocs/test-sams-new-gtin.postman.json.*→.*aidocs/2025-12-19/1023_TestSamsNewGtin.postman.json" \
     "Dry-run: Executed 0 of 1 proposed operations"
 
   total_tests=$((passed+failed))

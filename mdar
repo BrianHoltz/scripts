@@ -17,6 +17,10 @@ DESCRIPTION
     Files inside YYYY-MM-DD/ directories are kept in place, and if they have
     a HHMM prefix it is preserved.
 
+    CamelCase conversion only applies to the base name (before the first dot).
+    Everything after the first dot is treated as the extension and preserved as-is.
+    e.g., test-sams-new-gtin.postman.json → TestSamsNewGtin.postman.json
+
     Ignore patterns can be specified via --ignore flag or in mdar_ignore file (one
     pattern per line, # for comments). Patterns match directory names and filenames.
 
@@ -107,6 +111,10 @@ main() {
         echo -e "    (useful to cluster fraternal-sibling files)."
         echo -e "    Files inside ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}YYYY-MM-DD/${RESET} directories are kept in place, and if they have"
         echo -e "    a ${FS_VAR_COLOR}${UNDERLINE}${ITALIC}HHMM${RESET} prefix it is preserved."
+        echo
+        echo -e "    CamelCase conversion only applies to the base name (before the first dot)."
+        echo -e "    Everything after the first dot is treated as the extension and preserved as-is."
+        echo -e "    e.g., ${FS_LIT_COLOR}${UNDERLINE}test-sams-new-gtin.postman.json${RESET} → ${FS_LIT_COLOR}${UNDERLINE}TestSamsNewGtin.postman.json${RESET}"
         echo
         echo -e "    Ignore patterns can be specified via ${FLAG_COLOR}--ignore${RESET} flag or in ${FS_LIT_COLOR}${UNDERLINE}mdar_ignore${RESET} file (one"
         echo -e "    pattern per line, ${FS_VAR_COLOR}#${RESET} for comments). Patterns match directory names and filenames."
@@ -382,6 +390,20 @@ main() {
         echo "$base" | sed -e 's/[_-]/ /g' | awk '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1)) tolower(substr($i,2))}}1' | sed 's/ //g'
     }
 
+    # Extract extension from filename, treating everything after first dot as extension
+    # e.g., "foo.postman.json" -> base="foo", ext=".postman.json"
+    # Returns: "base|extension" where extension includes leading dot (empty if no dot)
+    extractExtension() {
+        local filename="$1"
+        if [[ "$filename" == *.* ]]; then
+            local base="${filename%%.*}"
+            local ext="${filename#*.}"
+            echo "${base}|.${ext}"
+        else
+            echo "${filename}|"
+        fi
+    }
+
     parseDurationToSeconds() {
         vlog 3 "parseDurationToSeconds: duration=$1"
         local duration="$1"
@@ -457,12 +479,12 @@ main() {
                 if shouldIgnorePath "$filepath"; then
                     continue
                 fi
-                local dirname filename base extension
+                local dirname filename base extension baseExt
                 dirname=$(dirname "$filepath")
                 filename=$(basename "$filepath")
-                base="${filename%.*}"
-                extension="${filename##*.}"
-                [ "$extension" = "$filename" ] && extension=""
+                baseExt=$(extractExtension "$filename")
+                base="${baseExt%%|*}"
+                extension="${baseExt##*|}"
                 # Check if file is inside YYYY-MM-DD/HHMM/ directory (exempt from normalization)
                 local parentDirName grandparentDirName greatGrandparentDir
                 parentDirName=$(basename "$dirname")
@@ -517,11 +539,11 @@ main() {
                 fi
                 if [ -n "$extension" ]; then
                     if [ "$noTimestamp" -eq 1 ]; then
-                        newFilename="${camelCaseName}.${extension}"
+                        newFilename="${camelCaseName}${extension}"
                     elif [ "$omitDatePrefix" -eq 1 ]; then
-                        newFilename="${time}_${camelCaseName}.${extension}"
+                        newFilename="${time}_${camelCaseName}${extension}"
                     else
-                        newFilename="${date}_${time}_${camelCaseName}.${extension}"
+                        newFilename="${date}_${time}_${camelCaseName}${extension}"
                     fi
                 else
                     if [ "$noTimestamp" -eq 1 ]; then
@@ -611,11 +633,13 @@ main() {
             if shouldIgnorePath "$file"; then
                 continue
             fi
-            local base ext
-            base=$(basename "$file")
-            ext="${base##*.}"
+            local filename ext base baseExt
+            filename=$(basename "$file")
+            baseExt=$(extractExtension "$filename")
+            base="${baseExt%%|*}"
+            ext="${baseExt##*|}"
             local ts date time
-            ts=$(extractTimestamp "$base")
+            ts=$(extractTimestamp "$filename")
             date="${ts%%|*}"; time="${ts##*|}"
             if [ -z "$date" ]; then
                 local btime mtime
@@ -626,15 +650,15 @@ main() {
             fi
             local namePart
             if [ "$noCamelCase" -eq 1 ]; then
-                namePart="${base%.*}"
+                namePart="$base"
             else
-                namePart=$(toCamelCase "${base%.*}")
+                namePart=$(toCamelCase "$base")
             fi
             local dest
             if [ "$noTimestamp" -eq 1 ]; then
-                dest="$archiveDir/$namePart.$ext"
+                dest="$archiveDir/${namePart}${ext}"
             else
-                dest="$archiveDir/$date/${time}_${namePart}.$ext"
+                dest="$archiveDir/$date/${time}_${namePart}${ext}"
             fi
             untrackedOps+=("$file|$dest|$btime|$mtime")
         done <<< "$markdownFiles"
