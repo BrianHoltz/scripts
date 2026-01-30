@@ -29,17 +29,50 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 ## Documentation
 
-### General Principles
+### Content Brittleness
 
 - Keep documentation and any comments in sync with code.
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
 - Never reference explicit file line numbers in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
+- Never use numbered lists in version-controlled docs, as it forces excessive renumbering updates. Use headers or bullets instead, and name an item if you need to reference it.
 - When updating a document that has a TOC, always check if the TOC needs updating.
+
+### Over-Styling
+
 - Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately.
-- Don't try to control the reader:
-  - Never use all caps to steal attention.
-  - Never editorialize with labels like "Critical", "Important", "Read this first", "urgent" or "high-priority" -- just use list them first/early, and sparingly use bold or italics for emphasis.
+- Never use all-caps to steal attention. Only use all-caps when quoting an all-caps string literal.
+- Use bold/italics sparingly. Don't cry wolf.
+  - Bold is fine when acting as a title, e.g. for the first words of a list item or first cell of a row.
+  
+### Planning
+
+- Readers should encounter calls for future work only in two forms: task lists and TODOs.
+- Task Lists
+  - All plans should have a single unified tasks list. Acceptable columns:
+    - Task: a terse title/description, designed not to ever need changing
+    - LOE: prior estimated person days. Optional for planning, never for logging.
+    - Jira: terse anchor text linked to the task ticket. Optional.
+    - Status: omit blank after glyph if need to prevent breaking
+      - blank: not blocked, not started
+      - ▶️ DD.MM: started
+      - ⏸ DD.MM: paused, on hold (since optional date)
+      - ⏳ DD.MM: waiting on external (since optional date)
+      - 👀 DD.MM: under review (since optional date)
+      - ✅ DD.MM: completed
+      - 🚫 DD.MM: won't do (optional decision date)
+      - If the tasks are in a ticketing system, consider using ticket status here
+    - Notes: detailed status, explanation, etc. Begins with optional MM.DD status modtime if pertinent.
+- Avoid extraneous content puporting to be about future work.
+  - Never editorialize with labels like "Critical", "Important", "Read this first", "urgent" or "high-priority" -- use order to establish priority.
+  - Do not capitalize or boldify exclamations like: Bug, Gap, Pending, Next
+  - Do not use ⚠️ or such exclamations so that they aren't confused with Tasks or TODOs.
+  - Lists of future work should have "Tasks" in their label, not
+    - Next Steps: duh, first task is always "next"
+    - To Do: TODO should only be used to mark future changes that block nothing and are blocked by nothing
+    - Action Items: for meeting outcomes, not lists of sequential tasks
+    - Plan: too synonymous with "Strategy"
+  - Never use future dates unless it captures a dependency or commitment.
 
 ### DRY and History
 
@@ -81,6 +114,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 - Never add files to VCS without user confirmation.
 - Never switch branches or switch to a commit or push or pull without user confirmation.
+- Never commit changes or stage or unstage files unless you're absolutely sure the user wants that.
 
 ## Terminals
 
