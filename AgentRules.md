@@ -165,3 +165,14 @@ date "+%Y-%m-%d %H:%M %Z"
 ```
 
 This is cheap (a few tokens for the command and output) and prevents embarrassing date hallucinations. Run this once per session or whenever you need to use the current date.
+
+## Project-Specific Notes
+
+### ~/src/ repos layout
+
+Many repos in `~/src/` have a `./shared/` symlink to `../relationship-shared/`:
+
+- `./shared/` is a symlink to `../relationship-shared/`
+- When committing changes to files under `shared/`, run git commands from the `relationship-shared` repo, not the current repo
+- The `relationship-shared` repo is a separate git repo with its own history
+- See `shared/docs/CatalogRelationships.md` for an overview of the repos
