@@ -132,7 +132,7 @@ When running a terminal command that may produce paged output, you need to preve
 
 ### Terminal Blindness
 
-This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal.
+This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal. Problem still happens as of 2026-02-15.
 
 **Known Issue:** Multiple workarounds have been attempted and none work reliably:
 
