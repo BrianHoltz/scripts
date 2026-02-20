@@ -1,5 +1,27 @@
 # AI/IDE Toolchain
 
+## Scorecard
+
+
+| Feature            | IDEA            | VS Code   | Cursor |
+|--------------------|-----------------|-----------|--------|
+| search/find        | ✓✓              | ✓         | ✓      |
+| git                | ✓               | ✓✓        | ✓      |
+| debug              | ✓✓              | ✓         | ✓      |
+| database           | ✓✓              | —         | —      |
+| http               | ✓✓              | —         | —      |
+| img paste          | ✓               | ✓         | ✓      |
+| md preview         | toggle per doc  | annoying  | ✓      |
+| md edit plugin     | ✓               | ✓         | ?      |
+| md table edit      | auto format     | ✓         | ✓      |
+| AI diff review     | per change      | per file  | ✓      |
+| terminal           | blindness       | ✓         | ✓      |
+| approval UX        | constipation    | ✓         | ✓      |
+| parallel agents    | —               | ✓         | ✓✓     |
+| Re-prompting? :-(  | Copilot         |           |        |
+| terminal blindness | X               | ✓         | ✓✓     |
+
+
 ## Copilot
 
 - **Works with VS Code, Intellij IDEA, Android Studio**

@@ -53,14 +53,14 @@ When implementing a change on checked-in production code with tests, use TDD:
     - Task: a terse title/description, designed not to ever need changing
     - LOE: prior estimated person days. Optional for planning, never for logging.
     - Jira: terse anchor text linked to the task ticket. Optional.
-    - Status: omit blank after glyph if need to prevent breaking
+    - Status: no space between glyph and date
       - blank: not blocked, not started
-      - ▶️ DD.MM: started
-      - ⏸ DD.MM: paused, on hold (since optional date)
-      - ⏳ DD.MM: waiting on external (since optional date)
-      - 👀 DD.MM: under review (since optional date)
-      - ✅ DD.MM: completed
-      - 🚫 DD.MM: won't do (optional decision date)
+      - ▶️DD.MM: started (date started)
+      - ⏳DD.MM: waiting on external (date blocked)
+      - 👀DD.MM: under review (date submitted)
+      - ✅DD.MM: completed (date completed)
+      - ⏸DD.MM: paused, on hold (date paused)
+      - 🚫DD.MM: won't do (date decided)
       - If the tasks are in a ticketing system, consider using ticket status here
     - Notes: detailed status, explanation, etc. Begins with optional MM.DD status modtime if pertinent.
 - Avoid extraneous content puporting to be about future work.
@@ -116,6 +116,21 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Never switch branches or switch to a commit or push or pull without user confirmation.
 - Never commit changes or stage or unstage files unless you're absolutely sure the user wants that.
 
+## Environment Setup
+
+### Shell PATH
+
+When using the Bash tool, the default PATH is limited. Use the full user PATH for tool availability:
+
+```bash
+export PATH="/Users/b0h0166/.local/bin:/Users/b0h0166/google-cloud-sdk/bin:/Users/b0h0166/bin:/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home/bin:/Users/b0h0166/.jenv/shims:/opt/homebrew/Cellar/scala@2.12/2.12.18/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/usr/local/sbin:/usr/local/munki:/Users/b0h0166/Library/Application Support/JetBrains/Toolbox/scripts:/Users/b0h0166/.sledge/bin:/opt/homebrew/opt/kafka/bin"
+```
+
+Key tools available:
+- newman: `/opt/homebrew/bin/newman`
+- mvn: IntelliJ bundled at `/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn`
+- java: `/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home/bin/java`
+
 ## Terminals
 
 ### Pagers
@@ -168,11 +183,78 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 
 ## Project-Specific Notes
 
-### ~/src/ repos layout
+### Catalog Relationships Multi-Repo Ecosystem
 
-Many repos in `~/src/` have a `./shared/` symlink to `../relationship-shared/`:
+**CRITICAL: Auto-Discovery Pattern for Catalog Relationships Repos**
 
-- `./shared/` is a symlink to `../relationship-shared/`
-- When committing changes to files under `shared/`, run git commands from the `relationship-shared` repo, not the current repo
-- The `relationship-shared` repo is a separate git repo with its own history
-- See `shared/docs/CatalogRelationships.md` for an overview of the repos
+When working in any of these repo patterns in `~/src/`:
+- `relationship-*` (relationship-service, relationship-bootstrap, relationship-airflow, relationship-shared)
+- `variant-*` (variant-grouping-stream, variant-spark-jobs, variant-grouping-spark, variant-grouping-utils)
+- `qarth-*` (qarth-group-service)
+- `suggested-*` (suggested-grouping-service)
+- `linked-*` (linked-fee-spark)
+- `ssaas-variantbatching`
+
+**Always check for AGENTS.md on entry:**
+
+1. If `AGENTS.md` exists at repo root, **read it immediately** for project-specific context
+2. If a `./shared/` symlink exists, it points to `../relationship-shared/` which contains:
+   - Team documentation in `shared/docs/`
+   - Custom Wibey skills in `shared/.wibey/skills/`
+   - SQL scripts in `shared/sql/`
+   - Postman collections in `shared/postman/`
+   - Developer tools in `shared/tools/`
+
+**Key Resources (read these when you need architectural context):**
+
+- `AGENTS.md` — Agent instructions (if present, read this FIRST)
+- `shared/docs/CatalogRelationships.md` — System overview, all repos, deployables
+- `shared/docs/CatalogArchitecture.md` — Architecture and data flow
+- `shared/docs/CatalogIDs.md` — ID types (WPID, item_id, GTIN, BVShell, etc.)
+- `shared/docs/WibeyAgentRef.md` — Agent reference for ad-hoc tasks
+- `shared/docs/WibeyMcpSkills.md` — Available Wibey skills and MCP servers
+- `shared/docs/OperationsLog.md` — Incident history and troubleshooting
+- `shared/docs/repos/<repo-name>.md` — Per-repo documentation
+
+**Git Workflow for Shared Resources:**
+
+- `./shared/` is a symlink to `../relationship-shared/` (a separate git repo)
+- When committing changes to files under `shared/`, **cd into shared/** first to commit in the relationship-shared repo
+- Other repos will see changes immediately via the symlink
+
+**Wibey Skills Auto-Discovery:**
+
+- Custom skills in `shared/.wibey/skills/` are automatically available in repos with the shared symlink
+- Skills include: atom-feed, catalog-read, ccm-config, grafana-dashboard, ols-search, service-registry
+- See `shared/docs/WibeyMcpSkills.md` for usage examples
+
+**When in doubt:** Check for `AGENTS.md` first, then `shared/docs/` for comprehensive context.
+
+## Custom Commands
+
+### convo
+
+Park the current conversation for identification in Mac workspace/Mission Control switching.
+
+Trigger: user says "convo" or "Convo"
+
+Steps:
+- If trigger is capitalized ("Convo"), emit 30 `&nbsp;` lines as raw markdown (not via bash — bash newlines don't render in chat)
+- Run `date "+%Y-%m-%d %H:%M %Z"` via Bash to get the current date
+- Determine the repo emoji by reading `.idea/workspace.xml` in the current workspace and parsing the `customColor` RGBA hex:
+  - `ff0000ff` → 🔴 (relationship-service)
+  - `ffa500ff` → 🟠 (relationship-bootstrap, relationship-airflow, linked-fee-spark)
+  - `ffff00ff` → 🟡 (relationship-shared)
+  - `008000ff` → 🟢 (qarth-group-service)
+  - `0000ffff` → 🔵 (variant-grouping-stream)
+  - `8000ffff` → 🟣 (suggested-grouping-service, ssaas-variantbatching, variant-spark-jobs)
+  - no color set or unknown → omit emoji
+- Emit the date and title as two H1 bold lines, with HR rules above and below, and the emoji prepended to the title:
+
+---
+# **YYYY-MM-DD HH:MM TZ**
+# **{emoji} Terse Conversation Title**
+
+---
+
+Choose the title yourself from the conversation context — do not ask the user.
