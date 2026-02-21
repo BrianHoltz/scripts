@@ -5,7 +5,7 @@
 - **Works with VS Code, Intellij IDEA, Android Studio**
 - **Unlimited use of GPT4.1**
 - **Supports Gemini3Pro**
-- **Displays premium request usage (in IDEA)**
+- **Displays premium request usage (in IDEA and VSCode)**
 - Extra Info from Claude Opus 4.5:
   - **Free tier available (2000 completions/month, 50 chat messages)**
   - **Native GitHub integration (PR summaries, issue context)**
