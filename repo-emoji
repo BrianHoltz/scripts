@@ -1,0 +1,15 @@
+#!/bin/bash
+# Looks up the repo emoji from .idea/workspace.xml customColor.
+# Usage: repo-emoji [workspace-dir]
+# Outputs the emoji (or empty string if no color set).
+DIR="${1:-.}"
+COLOR=$(grep customColor "$DIR/.idea/workspace.xml" 2>/dev/null | sed 's/.*;\([0-9a-f]\{8\}\).*/\1/' | head -1)
+case "$COLOR" in
+  ff0000ff) echo "🔴" ;;
+  ffa500ff) echo "🟠" ;;
+  ffff00ff) echo "🟡" ;;
+  008000ff) echo "🟢" ;;
+  0000ffff) echo "🔵" ;;
+  8000ffff) echo "🟣" ;;
+  *)        echo "" ;;
+esac
