@@ -59,7 +59,7 @@
 ## IDEA
 
 - **Superior features: search/find, git, debug, database, http, yaml preview**
-- *Terminal Blindness*
+- *Terminal Blindness — still confirmed in IDEA 2025.2.5 (2026-02-25)*
 - *command-approval constipation*
 - *Does not fully support parallel agents*
 - *Cannot paste file/line reference!?*
