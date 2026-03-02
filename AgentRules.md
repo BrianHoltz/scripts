@@ -47,7 +47,9 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Never use all-caps to steal attention. Only use all-caps when quoting an all-caps string literal.
 - Use bold/italics sparingly. Don't cry wolf.
   - Bold is fine when acting as a title, e.g. for the first words of a list item or first cell of a row.
-  
+- Preferred footnote glyphs (in order): † (dagger), ‡ (double dagger), ⁑ (double asterisk), 📌 (pushpin).
+- Preferred warning footnote glyphs (in order): ⚠️ (yellow triangle), ❗ (red exclamation), 📣 (megaphone), 🔔 (bell).
+
 ### Planning
 
 - Readers should encounter calls for future work only in two forms: task lists and TODOs.
@@ -110,6 +112,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 ## File Operations
 
+- Always re-read a file immediately before editing it, even if you read it recently. The user or another agent may have modified it in parallel. This enables maximal concurrent work among agents and humans.
 - Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
 - When duplicate/conflicting files exist, always ASK which version to keep before deleting either
 - Show the diff and wait for user decision
@@ -184,6 +187,38 @@ This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output
 - Do not clean up temp files in `tmp/` — they are for debugging and the user may want to inspect them later. The `tmp/` folder should be gitignored.
 - If you still cannot see the output after file redirection, do not attempt further workarounds. Alert the user and recommend that they restart their IDE to (temporarily) restore terminal functionality.
 
+### PingFed Authentication
+
+Many Walmart internal sites (Concord, DX Console, Grafana, etc.) require PingFed SSO authentication. When using agent-browser (or any browser automation) to access these sites:
+
+- **Open your browser immediately.** If a prompt might require agent-browser for any step, open your own headed session as your first action — before reading docs, before planning, before anything else. This lets the user authenticate while you prepare, instead of blocking mid-workflow. Use `$$` (shell PID) for a unique session name that won't collide with other agents. The session persists for the full conversation and must never be closed.
+- Open the page in **headed mode** (`--headed`) so the user can see and interact with the login form.
+- After opening, **poll the page** in a loop (e.g. every 3-5 seconds) waiting for the login wall to disappear. Check for the PingFed login form (look for "User ID" / "Password" fields or the PingFed domain in the URL) and keep polling until the target page content appears.
+- Do not assume a single fixed wait is enough — the user may need 10-30+ seconds to type credentials, handle MFA, etc.
+- Do not try to fill in credentials programmatically. The user will type them.
+- Polling pattern:
+
+```bash
+# Open in headed mode
+$SKILL_DIR/scripts/agent-browser-wrapper.sh open "https://internal-site.walmart.com/..." --headed
+
+# Poll until authenticated (PingFed login form disappears)
+for i in $(seq 1 20); do
+  sleep 3
+  SNAPSHOT=$($SKILL_DIR/scripts/agent-browser-wrapper.sh snapshot -c 2>&1)
+  if echo "$SNAPSHOT" | grep -q "User ID"; then
+    echo "Still on PingFed login page, waiting... ($i)"
+  else
+    echo "Authenticated!"
+    break
+  fi
+done
+```
+
+- If after ~60 seconds the user still hasn't authenticated, inform them and ask if they need more time.
+- **Never close an authenticated browser window.** Do not call `close` at the end of a workflow or between navigations. Every `close` destroys the PingFed session, forcing the user to re-type their password and handle MFA. To navigate elsewhere, just `open` a new URL in the same session. Leave the browser open when the workflow is done.
+- **Reuse your session within a conversation.** Track which browser session you opened and reuse it for all subsequent browser operations in the same conversation. PingFed auth carries across all Walmart internal sites — one login covers Jira, Confluence, Grafana, Atom, Editorial, CCM, etc.
+
 ## Dates and Times
 
 **Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
@@ -238,8 +273,8 @@ When working in any of these repo patterns in `~/src/`:
 
 **Wibey Skills Auto-Discovery:**
 
-- Custom skills in `shared/.wibey/skills/` are automatically available in repos with the shared symlink
-- Skills include: atom-feed, catalog-read, ccm-config, grafana-dashboard, ols-search, service-registry
+- Custom skills live in `shared/.wibey/skills/` (canonical location). Wibey syncs this to `.claude/skills/` but may overwrite `.claude/` copies at any time. **Always edit the `.wibey/skills/` copy — never `.claude/skills/`.**
+- Skills include: atom-feed, catalog-read, ccm-config, grafana-dashboard, jira-standup, jira-ticket, klipboard, md2confluence, ols-search, service-registry
 - See `shared/docs/WibeyMcpSkills.md` for usage examples
 
 **When in doubt:** Check for `AGENTS.md` first, then `shared/docs/` for comprehensive context.
