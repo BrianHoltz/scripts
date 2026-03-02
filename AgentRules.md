@@ -1,16 +1,19 @@
 # AgentRules.md - Global AI Agent Rules
 
-These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict. This file can be stored in (or symlinked from):
+These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
-- ~/.config/github-copilot/intellij/global-copilot-instructions.md
-- ~/.cursor/cursorrules
-- ~/.claude/CLAUDE.md
+The canonical source of this file is `~/bin/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
+
+- `~/.claude/CLAUDE.md` — read by Claude Code CLI and Wibey (VSCode extension)
+- `~/.cursor/cursorrules` — read by Cursor
+
+To update these rules, edit `~/bin/AgentRules.md` and commit in the `~/bin/` repo.
 
 ## Coding Workflow
 
 When implementing a change on checked-in production code with tests, use TDD:
 
-1. If there are uncommitted code (not docs) changes or main needs pulling, stop and ask the user to ensure the repo is in an intended committed known-good state with no changes that need merging from main.
+1. Pull main (`git pull origin main` on `main` branch), then create (or switch to) the feature branch from main. If there are uncommitted code (not docs) changes, stop and ask the user to ensure the repo is in an intended committed known-good state.
 2. Run all unit tests and verify any failures are expected.
 3. Write test(s) that fail on the behavior being changed/added, and verify they fail.
 4. Implement the required changes.
@@ -53,14 +56,14 @@ When implementing a change on checked-in production code with tests, use TDD:
     - Task: a terse title/description, designed not to ever need changing
     - LOE: prior estimated person days. Optional for planning, never for logging.
     - Jira: terse anchor text linked to the task ticket. Optional.
-    - Status: no space between glyph and date
+    - Status: no space between glyph and date. Dates are always MM.DD (never DD.MM).
       - blank: not blocked, not started
-      - ▶️DD.MM: started (date started)
-      - ⏳DD.MM: waiting on external (date blocked)
-      - 👀DD.MM: under review (date submitted)
-      - ✅DD.MM: completed (date completed)
-      - ⏸DD.MM: paused, on hold (date paused)
-      - 🚫DD.MM: won't do (date decided)
+      - ▶️MM.DD: started (date started)
+      - ⏳MM.DD: waiting on external (date blocked)
+      - 👀MM.DD: under review (date submitted)
+      - ✅MM.DD: completed (date completed)
+      - ⏸MM.DD: paused, on hold (date paused)
+      - 🚫MM.DD: won't do (date decided)
       - If the tasks are in a ticketing system, consider using ticket status here
     - Notes: detailed status, explanation, etc. Begins with optional MM.DD status modtime if pertinent.
 - Avoid extraneous content puporting to be about future work.
@@ -92,7 +95,8 @@ When implementing a change on checked-in production code with tests, use TDD:
 ### Ad Hoc Documents
 
 - When creating ad hoc markdown docs during conversations, do not check them into VCS.
-- Place them all into the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
+- For Catalog Relationships repos (those with a `./shared/` symlink), place them in `shared/aidocs/` (i.e. `relationship-shared/aidocs/`) in subfolder yyyy-mm-dd/. Do not use per-repo aidocs/ folders.
+- For all other repos, place them in the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
 - Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime.
 - If updating such an ad hoc doc created on an earlier date, move it into the current date and use modtime for hhmm.
 - Do not create ad hoc documents for short (<100 lines) content that can be presented inline.
@@ -115,6 +119,15 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Never add files to VCS without user confirmation.
 - Never switch branches or switch to a commit or push or pull without user confirmation.
 - Never commit changes or stage or unstage files unless you're absolutely sure the user wants that.
+
+### PR Diff Source of Truth
+
+When reviewing a PR or describing what a branch/PR changes relative to its base:
+
+- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
+- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
+- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
+- If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
 
 ## Environment Setup
 
@@ -200,6 +213,7 @@ When working in any of these repo patterns in `~/src/`:
 1. If `AGENTS.md` exists at repo root, **read it immediately** for project-specific context
 2. If a `./shared/` symlink exists, it points to `../relationship-shared/` which contains:
    - Team documentation in `shared/docs/`
+   - Ad hoc conversation docs in `shared/aidocs/` (use this, not per-repo aidocs/)
    - Custom Wibey skills in `shared/.wibey/skills/`
    - SQL scripts in `shared/sql/`
    - Postman collections in `shared/postman/`
@@ -236,25 +250,19 @@ When working in any of these repo patterns in `~/src/`:
 
 Park the current conversation for identification in Mac workspace/Mission Control switching.
 
-Trigger: user says "convo" or "Convo"
+Trigger: user says "convo [optional title]" or "Convo [optional title]"
 
 Steps:
 - If trigger is capitalized ("Convo"), emit 30 `&nbsp;` lines as raw markdown (not via bash — bash newlines don't render in chat)
-- Run `date "+%Y-%m-%d %H:%M %Z"` via Bash to get the current date
-- Determine the repo emoji by reading `.idea/workspace.xml` in the current workspace and parsing the `customColor` RGBA hex:
-  - `ff0000ff` → 🔴 (relationship-service)
-  - `ffa500ff` → 🟠 (relationship-bootstrap, relationship-airflow, linked-fee-spark)
-  - `ffff00ff` → 🟡 (relationship-shared)
-  - `008000ff` → 🟢 (qarth-group-service)
-  - `0000ffff` → 🔵 (variant-grouping-stream)
-  - `8000ffff` → 🟣 (suggested-grouping-service, ssaas-variantbatching, variant-spark-jobs)
-  - no color set or unknown → omit emoji
+- Run a single Bash command to get both the date and the repo emoji:
+  ```bash
+  date "+%Y-%m-%d %H:%M %Z"; ~/bin/repo-emoji <workspace-dir>
+  ```
+- If the user provided a title after "convo", use it verbatim. Otherwise, choose a terse title from the conversation context.
 - Emit the date and title as two H1 bold lines, with HR rules above and below, and the emoji prepended to the title:
 
 ---
 # **YYYY-MM-DD HH:MM TZ**
-# **{emoji} Terse Conversation Title**
+# **{emoji} Title**
 
 ---
-
-Choose the title yourself from the conversation context — do not ask the user.
