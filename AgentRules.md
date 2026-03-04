@@ -110,6 +110,23 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 ## File Operations
 
+### Critical: Re-read Before Write
+
+**YOU MUST re-read any file immediately before writing to it.** This is non-negotiable.
+
+The file may have changed since you last read it — either by the user, another agent, an auto-formatter, or another process. If you write based on stale content, you WILL overwrite recent changes and cause data loss.
+
+**Required workflow:**
+1. Read the file (or the relevant section) to understand what needs changing
+2. Plan your edits
+3. **Re-read the file immediately before calling any edit tool** (replace_string_in_file, multi_replace_string_in_file, etc.)
+4. Verify the content still matches your expectations
+5. Only then proceed with the edit using the current file content
+
+This applies even if you read the file 5secs ago. Files change. Re-read before editing. Always.
+
+### Other File Operations
+
 - Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
 - When duplicate/conflicting files exist, always ASK which version to keep before deleting either
 - Show the diff and wait for user decision
