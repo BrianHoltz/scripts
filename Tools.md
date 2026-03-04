@@ -3,23 +3,26 @@
 ## Scorecard
 
 
-| Feature            | IDEA            | VS Code   | Cursor |
-|--------------------|-----------------|-----------|--------|
-| search/find        | ✓✓              | ✓         | ✓      |
-| git                | ✓               | ✓✓        | ✓      |
-| debug              | ✓✓              | ✓         | ✓      |
-| database           | ✓✓              | —         | —      |
-| http               | ✓✓              | —         | —      |
-| img paste          | ✓               | ✓         | ✓      |
-| md preview         | toggle per doc  | annoying  | ✓      |
-| md edit plugin     | ✓               | ✓         | ?      |
-| md table edit      | auto format     | ✓         | ✓      |
-| AI diff review     | per change      | per file  | ✓      |
-| terminal           | blindness       | ✓         | ✓      |
-| approval UX        | constipation    | ✓         | ✓      |
-| parallel agents    | —               | ✓         | ✓✓     |
-| Re-prompting? :-(  | Copilot         |           |        |
-| terminal blindness | X               | ✓         | ✓✓     |
+| Feature            | IDEA           | VS Code   | Cursor |
+|--------------------|----------------|-----------|--------|
+| terminal non-blind | X              | ✓         | ✓      |
+| image paste        | ✓              | ✓         | ✓      |
+| rich text paste    | X              | X         | X      |
+| AI diff review     | per delta      | per file  | ✓      |
+| approval UX        | constipation   | ✓         | ✓      |
+| parallel agents    | —              | ✓         | ✓✓     |
+| parallel Wibey     | X              | X         | X      |
+| type @ busy Wibey  | ✓              | X         | X      |
+| md preview         | toggle per doc | annoying  | ✓      |
+| md edit plugin     | ✓              | ✓         | ?      |
+| md table edit      | auto format    | ✓         | ✓      |
+| md pastes details  | X              | ✓         | ✓      |
+| search/find        | ✓✓             | ✓         | ✓      |
+| git                | ✓              | ✓✓        | ✓      |
+| debug              | ✓✓             | ?         | ?      |
+| database           | ✓✓             | X         | X      |
+| http               | ✓✓             | X         | X      |
+| editor history UI  | ✓✓             | ✓         | ✓      |
 
 
 ## Copilot
