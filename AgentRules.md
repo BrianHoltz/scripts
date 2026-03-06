@@ -47,8 +47,11 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Never use all-caps to steal attention. Only use all-caps when quoting an all-caps string literal.
 - Use bold/italics sparingly. Don't cry wolf.
   - Bold is fine when acting as a title, e.g. for the first words of a list item or first cell of a row.
-- Preferred footnote glyphs (in order): † (dagger), ‡ (double dagger), ⁑ (double asterisk), 📌 (pushpin).
-- Preferred warning footnote glyphs (in order): ⚠️ (yellow triangle), ❗ (red exclamation), 📣 (megaphone), 🔔 (bell).
+- Informational footnote glyphs (in order): † (dagger), ‡ (double dagger), ⁑ (double asterisk), 📌 (pushpin). Use for neutral explanations that need no action.
+- Problem footnote glyphs (in order): ⚠️ (yellow triangle), ❗ (red exclamation), 📣 (megaphone), 🔔 (bell). Use for items that need remediation or investigation.
+- A cell should contain at most one footnote glyph. The glyph *is* the cell content when there's no data value; otherwise it's appended to the value (e.g. `sync commit†`).
+- Within a given table or list, each footnote glyph must map to exactly one note — no ambiguity. Glyphs may be freely reused across different tables, lists, or documents.
+- TODO as a cell value means someone just needs to go look up the data. If instead a production/system change is needed before the data can exist, use a problem footnote glyph linking to a note that says TODO and explains the blocker.
 
 ### Planning
 
@@ -56,13 +59,14 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Task Lists
   - All plans should have a single unified tasks list. Acceptable columns:
     - Task: a terse title/description, designed not to ever need changing
-    - LOE: prior estimated person days. Optional for planning, never for logging.
+    - LOE: prior estimated person days. Only needed temporarily for planning Jira ticket sizes, then remove after tickets created. Never for logging effort after the fact.
     - Jira: terse anchor text linked to the task ticket. Optional.
     - Status: no space between glyph and date. Dates are always MM.DD (never DD.MM).
       - blank: not blocked, not started
       - ▶️MM.DD: started (date started)
       - ⏳MM.DD: waiting on external (date blocked)
       - 👀MM.DD: under review (date submitted)
+      - 🔍MM.DD: under investigation (date started)
       - ✅MM.DD: completed (date completed)
       - ⏸MM.DD: paused, on hold (date paused)
       - 🚫MM.DD: won't do (date decided)
@@ -84,7 +88,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Be DRY (Don't Repeat Yourself):
   - Don't include revision history, modtime, etc. if that's available from the platform (e.g. git, Confluence).
   - Never say "End of document" -- even at the end of the document.
-  - In version-controlled docs, never include pointers to repo docs that are not version-controlled.
+  - In version-controlled docs, never include pointers to repo docs that are not version-controlled. In particular, never link to `aidocs/` from git-controlled files — aidocs are ephemeral conversation artifacts, not durable references.
   - Avoid version-controlled comments/docs explaining recent corrections to code/docs. Version-controlled content is for durable info. Git history is the place to record changes.
 
 ### The docs/ Folder
