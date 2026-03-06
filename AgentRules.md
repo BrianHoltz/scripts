@@ -41,6 +41,21 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Never use numbered lists in version-controlled docs, as it forces excessive renumbering updates. Use headers or bullets instead, and name an item if you need to reference it.
 - When updating a document that has a TOC, always check if the TOC needs updating.
 
+### Evidence
+
+- Every verifiable empirical claim in a document (e.g. "the code does X", "there are N rows", "the query returns Y") must cite its source — typically a file path and method reference, a git commit, an OLS/GCP query, a dashboard panel, or a person+date confirmation.
+- Collect evidence in an `## Appendix: Evidence` section (or `## Appendix A: Evidence` when multiple appendices exist). Use inline markdown links to anchored entries: `([evidence](#e-descriptive-slug))`.
+- Each evidence entry needs:
+  - An HTML anchor: `<a id="e-descriptive-slug"></a>`
+  - A heading: `### Brief description of what's being evidenced`
+  - **Claim**: the specific assertion being backed
+  - **Evidence**: the source of truth (query, log output, API response, etc.)
+  - **Screenshot**: relative path to screenshot file (when visual evidence is relevant)
+  - **Caveat**: limitations of the evidence (optional)
+- For documents with many evidence items, letter-number prefixes (A1, A2, ...) are acceptable: `([evidence A1](#a1-slug))`.
+- Unsourced empirical claims are assertions, not findings — label them "Inference:" or "Unverified:" until evidence is added.
+- Footnote glyphs (see Over-Styling) are for table cell annotations; `([evidence](#anchor))` links are for sourcing claims in prose. Don't conflate the two.
+
 ### Over-Styling
 
 - Avoid extraneous "---" horizontal markdown lines. Trust the headings to render appropriately.
