@@ -167,25 +167,19 @@ When running a terminal command that may produce paged output, you need to preve
 
 ### Terminal Blindness
 
-This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal. Problem still happens as of 2026-02-15.
+This issue occurs mainly in GitHub Copilot in Intellij IDEA. The terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the user's terminal.
 
-**Known Issue:** Multiple workarounds have been attempted and none work reliably:
+**Root cause:** The Copilot plugin's `TerminalUtils.collectTerminalOutput()` uses `commandStartY = cursorY + historyLinesCount + cmdLines - 1` to locate output in the terminal buffer via `getText().drop(commandStartY)`. As commands accumulate, `cursorY` grows toward `screenHeight` (terminal row count). When `commandStartY` exceeds the total lines in `getText()`, `drop()` produces an empty sequence and the plugin returns blank output. The Copilot terminal tab is reused across conversations, so drift accumulates across an entire IDEA session.
 
-- Appending `; echo ""` to shell commands
-- Simplifying shell prompts
-- Wrapping commands in `bash -c '...'`
-- Running `exec bash` to replace the shell process - appears to hang the terminal because the agent doesn't see the command finish
-- Switching the default shell to bash (`chsh -s /bin/bash`)
-- Setting the explicit path `/bin/bash` in Preferences → Tools → Terminal → Shell path
-- Add `TerminalOptionsManager` component to `.idea/workspace.xml`:
+**Solution (applied in `~/.bash_profile` and `~/.bashrc`):**
+- `export BASH_SILENCE_DEPRECATION_WARNING=1` in `.bash_profile` — eliminates 3-line macOS bash warning at startup
+- `set +o noclobber` in `.bashrc` IntelliJ block — prevents "cannot overwrite" error messages from file redirects
+- `PROMPT_COMMAND='printf "\e[H\e[2J"'` in `.bashrc` IntelliJ block — after each command, moves screen content to scrollback (preserving output for Copilot to read) and resets `cursorY` to 1 via cursor-home. This prevents `commandStartY` from growing toward `screenHeight`. Terminal height does not significantly affect drift rate with this fix — output volume is what matters.
+- Do NOT use `\e[3J` (ED3) — JediTerm's implementation clears BOTH scrollback AND screen (bug: should only clear scrollback per xterm spec). This destroys output before Copilot can read it.
 
-  ```xml
-  <component name="TerminalOptionsManager">
-    <option name="shellPath" value="/bin/bash" />
-  </component>
-  ```
+**Limitations:** The `\e[H\e[2J` fix provides ~30 commands of reliable output capture per session. After that, gradual drift (off-by-one, then off-by-two) appears from scrollback accumulation. Running `clear` manually resets the drift at any point. Root fix requires changes to the Copilot plugin's `collectTerminalOutput()` polling loop.
 
-**Current best practice:** Use per-project terminal shell configuration as documented above. If terminal output detection issues persist, redirect output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`
+**Fallback if blindness recurs:** Redirect output to a temporary file in the repo's toplevel `tmp/` folder using timestamped naming: `command > tmp/YYYYMMDD_HHMMSS_agent.out 2>&1`
 - Then read the output file directly (e.g., with your file reading tool)
 - Also run `cat` or `tail` on the file in the terminal so the user can read along with you
 - Do not clean up temp files in `tmp/` — they are for debugging and the user may want to inspect them later. The `tmp/` folder should be gitignored.
