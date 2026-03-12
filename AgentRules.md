@@ -7,7 +7,14 @@ The canonical source of this file is `~/bin/AgentRules.md`, version-controlled i
 - `~/.claude/CLAUDE.md` — read by Claude Code CLI and Wibey (VSCode extension)
 - `~/.cursor/cursorrules` — read by Cursor
 
-To update these rules, edit `~/bin/AgentRules.md` and commit in the `~/bin/` repo.
+Other `~/bin/` files symlinked into `~/`:
+
+- `~/.shellrc.common` → `~/bin/shellrc.common` — shared PATH/env for zsh + bash
+- `~/.zprofile` → `~/bin/zprofile` — zsh login shell config
+- `~/.zshrc` → `~/bin/zshrc` — zsh interactive shell config
+- `~/.bash_profile` → `~/bin/bash_profile` — bash login/interactive shell config
+
+To update these files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 
 ## Coding Workflow
 
@@ -29,6 +36,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Be skeptical of existing code/docs and recent statements from both user and AI agents.
 - Feel free to volunteer alternative ideas, and critique user suggestions.
 - If you're not sure about user intent, ask clarifying questions before proceeding.
+- Avoid tables and code blocks/text boxes in conversation output — the conversation window is kept narrow, and wide elements cause horizontal scrolling. Use bullet lists or plain prose instead. Tables and code blocks are fine in files, just not in chat replies.
 
 ## Documentation
 
@@ -37,7 +45,8 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Keep documentation and any comments in sync with code.
 - Code should tend to be self-documenting through naming, so avoid comments that are redundant with a plain reading of the code.
 - Use comments mainly for documenting interfaces (e.g. JavaDoc) and for highlighting important considerations that are not obvious to the average human/agent reader.
-- Never reference explicit file line numbers in comments/docs, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
+- Never reference explicit file line numbers in enduring tech docs or code comments, because such brittle references too easily go stale. Instead reference filenames and class/method names. There is almost never a need to quote code in docs, because code will change and the docs won't be updated.
+  - Exception: Evidence sections (see Evidence below) may and should cite line numbers when they anchor a specific empirical claim to a specific code snapshot. Evidence entries are inherently point-in-time; staleness is expected and acceptable.
 - Never use numbered lists in version-controlled docs, as it forces excessive renumbering updates. Use headers or bullets instead, and name an item if you need to reference it.
 - When updating a document that has a TOC, always check if the TOC needs updating.
 
@@ -66,7 +75,17 @@ When implementing a change on checked-in production code with tests, use TDD:
 - Problem footnote glyphs (in order): ⚠️ (yellow triangle), ❗ (red exclamation), 📣 (megaphone), 🔔 (bell). Use for items that need remediation or investigation.
 - A cell should contain at most one footnote glyph. The glyph *is* the cell content when there's no data value; otherwise it's appended to the value (e.g. `sync commit†`).
 - Within a given table or list, each footnote glyph must map to exactly one note — no ambiguity. Glyphs may be freely reused across different tables, lists, or documents.
-- TODO as a cell value means someone just needs to go look up the data. If instead a production/system change is needed before the data can exist, use a problem footnote glyph linking to a note that says TODO and explains the blocker.
+
+### Table Cell Vocabulary
+
+Standard special values for table cells, in order of increasing concern:
+
+- **— (emdash)**: not applicable. The column's concept doesn't apply to this row.
+- **TBD**: the value exists or will arrive naturally; just needs to be filled in at the appropriate time. No action required beyond looking it up.
+- **TODO**: a piece of work is needed to produce the value. Blocks nothing, is blocked by nothing, so usually isn't worthy of a task or ticket.
+- **?**: unknown whether the value can, should, or does exist. Signals genuine uncertainty, not just missing data.
+- **⚠️**: an alarming situation — something that needs remediation or investigation. Should be linked to a footnote (see Problem footnote glyphs above) that explains the problem and says TODO if action is needed.
+- **blank cell**: acceptable only for visual grouping (e.g. sub-rows inheriting a parent row's value in column 1). Otherwise use one of the above values. If you mean "not applicable", use emdash. If you mean "unknown", use ?.
 
 ### Planning
 
@@ -102,6 +121,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 - Be DRY (Don't Repeat Yourself):
   - Don't include revision history, modtime, etc. if that's available from the platform (e.g. git, Confluence).
+  - Exception: Work Logs in project documents (see ProjectTemplate.md § Work Log) serve a different purpose than revision history — they capture *why* decisions were made and provide recovery context for agents resuming mid-task. These are not WET with git history.
   - Never say "End of document" -- even at the end of the document.
   - In version-controlled docs, never include pointers to repo docs that are not version-controlled. In particular, never link to `aidocs/` from git-controlled files — aidocs are ephemeral conversation artifacts, not durable references.
   - Avoid version-controlled comments/docs explaining recent corrections to code/docs. Version-controlled content is for durable info. Git history is the place to record changes.
@@ -155,16 +175,8 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ### Shell PATH
 
-When using the Bash tool, the default PATH is limited. Use the full user PATH for tool availability:
-
-```bash
-export PATH="/Users/b0h0166/.local/bin:/Users/b0h0166/google-cloud-sdk/bin:/Users/b0h0166/bin:/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home/bin:/Users/b0h0166/.jenv/shims:/opt/homebrew/Cellar/scala@2.12/2.12.18/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/usr/local/sbin:/usr/local/munki:/Users/b0h0166/Library/Application Support/JetBrains/Toolbox/scripts:/Users/b0h0166/.sledge/bin:/opt/homebrew/opt/kafka/bin"
-```
-
-Key tools available:
-- newman: `/opt/homebrew/bin/newman`
-- mvn: IntelliJ bundled at `/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn`
-- java: `/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home/bin/java`
+Wibey's Bash tool inherits the full user PATH from VSCode — no manual `export PATH` needed.
+Shared PATH configuration lives in `~/bin/shellrc.common`, sourced by both `~/bin/zshrc` and `~/bin/bash_profile`.
 
 ## Terminals
 
