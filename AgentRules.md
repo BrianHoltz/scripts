@@ -53,14 +53,13 @@ When implementing a change on checked-in production code with tests, use TDD:
 ### Evidence
 
 - Every verifiable empirical claim in a document (e.g. "the code does X", "there are N rows", "the query returns Y") must cite its source — typically a file path and method reference, a git commit, an OLS/GCP query, a dashboard panel, or a person+date confirmation.
-- Collect evidence in an `## Appendix: Evidence` section (or `## Appendix A: Evidence` when multiple appendices exist). Use inline markdown links to anchored entries: `([evidence](#e-descriptive-slug))`.
+- Collect evidence in an `## Evidence` section. Use inline markdown links to anchored entries: `([evidence](#e-descriptive-slug))`.
 - Each evidence entry needs:
   - An HTML anchor: `<a id="e-descriptive-slug"></a>`
   - A heading: `### Brief description of what's being evidenced`
   - **Claim**: the specific assertion being backed
   - **Evidence**: the source of truth (query, log output, API response, etc.)
-  - **Screenshot**: relative path to screenshot file (when visual evidence is relevant)
-  - **Caveat**: limitations of the evidence (optional)
+  - **Screenshot**: optional: relative path to screenshot file (when visual evidence is relevant)
 - For documents with many evidence items, letter-number prefixes (A1, A2, ...) are acceptable: `([evidence A1](#a1-slug))`.
 - Unsourced empirical claims are assertions, not findings — label them "Inference:" or "Unverified:" until evidence is added.
 - Footnote glyphs (see Over-Styling) are for table cell annotations; `([evidence](#anchor))` links are for sourcing claims in prose. Don't conflate the two.
@@ -78,7 +77,7 @@ When implementing a change on checked-in production code with tests, use TDD:
 
 ### Table Cell Vocabulary
 
-Standard special values for table cells, in order of increasing concern:
+Standard special values for table cells, in order of increasing rarity:
 
 - **— (emdash)**: not applicable. The column's concept doesn't apply to this row.
 - **TBD**: the value exists or will arrive naturally; just needs to be filled in at the appropriate time. No action required beyond looking it up.
@@ -143,24 +142,12 @@ Standard special values for table cells, in order of increasing concern:
 - Do not create ad hoc documents for short (<100 lines) content that can be presented inline.
 - Avoid creating multiple ad hoc markdown documents at one time. Combine them into a single document with a TOC and a summary, to avoid WETness.
 
-### Raw Text for Pasting (e.g. Commit Messages)
-
-- For content that the user might need to paste as text (e.g. raw text commit message, raw markdown PR description), present the content as inline raw text that can be copy-pasted, rather than rich text (e.g. with bullets) that doesn't paste well into text panes.
-- Do not use bullets or rich text. Make it be plain ascii text, like in a text box. Make sure that newlines get included when the user copies it for pasting.
-- Do not write in run-on paragraphs. Use newlines and bullets as appropriate.
-
 ## File Operations
 
 - Always re-read a file immediately before editing it, even if you read it recently. The user or another agent may have modified it in parallel. This enables maximal concurrent work among agents and humans.
 - Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
 - When duplicate/conflicting files exist, always ASK which version to keep before deleting either
-- Show the diff and wait for user decision
-
-## Version Control
-
-- Never add files to VCS without user confirmation.
-- Never switch branches or switch to a commit or push or pull without user confirmation.
-- Never commit changes or stage or unstage files unless you're absolutely sure the user wants that.
+- Do not make any VCS changes unless you're absolutely sure the user wants that.
 
 ### PR Diff Source of Truth
 
@@ -172,6 +159,8 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 - If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
 
 ## Environment Setup
+
+TODO I suspect all the remaining content in this file is either obsolete or should be consolidated into the AGENTS.md file shared across Catalog Relationships repos.
 
 ### Shell PATH
 
