@@ -2,34 +2,34 @@
 
 ## Scorecard
 
-| Feature              | IDEA           | VS Code       | Cursor  |
-|----------------------|----------------|---------------|---------|
-| IDE                  | 2025.3.3       | 1.110 @ 03.05 | 2.5.26  |
-| VSCode engine        | —              | —             | 1.105.1 |
-| Wibey                | 1.0.4          | 1.0.0         | 0.0.21  |
-| parallel Wibey       | X              | X             | X       |
-| type @ busy Wibey    | ✓              | X             | X       |
-| context += @ file    | ✓              | <100KB        | <100KB  |
-| context += selection | cmd-'          | cmd-L         | X       |
-| image paste          | ✓?             | ✓             | ✓       |
-| rich/linked paste    | X              | X             | X       |
-| AI diff review       | per delta      | per file      | ✓       |
-| AI diff in shared    | ✓              | X             | ?       |
-| approval UX          | ✓              | ✓             | ✓       |
-| parallel agents      | —              | ✓             | ✓✓      |
-| terminal non-blind   | X              | ✓             | ✓       |
-| md preview           | toggle per doc | only 1        | only 1  |
-| md preview search    | ✓              | ✓             | X       |
-| md edit plugin       | ~ shuzijun     | ✓✓ zaaack     | ?       |
-| md table edit        | auto format    | ✓             | ✓       |
-| md pastes details    | X              | ✓             | ✓       |
-| search/find          | ✓✓             | ✓             | ✓       |
-| git                  | ✓              | ✓✓            | ✓       |
-| debug                | ✓✓             | ?             | ?       |
-| database             | ✓✓             | X             | X       |
-| http                 | ✓✓             | X             | X       |
-| editor history UI    | ✓✓             | ✓             | ✓       |
-
+| Feature                   | IDEA           | VS Code       | Cursor  |
+|---------------------------|----------------|---------------|---------|
+| IDE                       | 2025.3.3       | 1.110 @ 03.05 | 2.5.26  |
+| VSCode engine             | —              | —             | 1.105.1 |
+| Wibey                     | 1.0.4          | 1.0.0         | 0.0.21  |
+| parallel Wibey            | X              | X             | X       |
+| type @ busy Wibey         | ✓              | X             | X       |
+| context += @ file         | ✓              | <100KB        | <100KB  |
+| context += selection      | cmd-'          | cmd-L         | X       |
+| image paste               | ✓              | ✓             | ✓       |
+| rich/linked paste         | X              | X             | X       |
+| AI diff review            | per delta      | per file      | ✓       |
+| AI diff in shared         | ✓              | X             | ?       |
+| approval UX               | ✓              | ✓             | ✓       |
+| parallel agents           | —              | ✓             | ✓✓      |
+| terminal non-blind        | X              | ✓             | ✓       |
+| md preview                | toggle per doc | only 1        | only 1  |
+| md preview search         | ✓              | ✓             | X       |
+| md edit plugin \*-window  | ✓ shuzijun     | ✓✓ wysiwyg    | ?       |
+| md edit plugin 1-window   | ✓ shuzijun     | ✓✓ zaaack     | ?       |
+| md table edit             | ✓✓ auto format | ✓ reformat    | ?       |
+| md pastes details block   | X              | ✓             | ✓       |
+| search/find               | ✓✓             | ✓             | ✓       |
+| git                       | ✓              | ✓✓            | ✓       |
+| debug                     | ✓✓             | ?             | ?       |
+| database                  | ✓✓             | X             | X       |
+| http                      | ✓✓             | X             | X       |
+| editor history UI         | ✓✓             | ✓             | ✓       |
 
 ## Copilot
 
