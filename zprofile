@@ -2,8 +2,20 @@
 # Canonical location: ~/bin/zprofile (symlinked from ~/.zprofile)
 # Runs once per login shell, after /etc/zprofile (which runs path_helper)
 
-eval "$(/opt/homebrew/bin/brew shellenv)"
-export PATH="/opt/homebrew/Cellar/scala@2.12/2.12.19/bin:$PATH"
+# Detect Homebrew (Apple Silicon: /opt/homebrew; Intel/older: /usr/local)
+for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [ -x "$_brew" ] && eval "$($_brew shellenv)" && break
+done
+unset _brew
+
+# Scala (pin to 2.12.19 if available; brew shellenv exposes scala otherwise)
+for _scala_bin in /opt/homebrew/Cellar/scala@2.12/2.12.19/bin /usr/local/Cellar/scala@2.12/2.12.19/bin; do
+    [ -d "$_scala_bin" ] && export PATH="$_scala_bin:$PATH" && break
+done
+unset _scala_bin
+
+# Intel Homebrew compat (/usr/local/bin)
+export PATH="$PATH:/usr/local/bin"
 
 # Added by Toolbox App
-export PATH="$PATH:/Users/b0h0166/Library/Application Support/JetBrains/Toolbox/scripts"
+export PATH="$PATH:$HOME/Library/Application Support/JetBrains/Toolbox/scripts"

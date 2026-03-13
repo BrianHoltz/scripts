@@ -4,11 +4,17 @@
 source ~/.shellrc.common
 
 # --- Prompt ---
-if [[ "$TERMINAL_EMULATOR" == "JetBrains-JediTerm" ]] || [[ "$TERM_PROGRAM" == "JetBrains-JediTerm" ]]; then
+if [[ "$TERMINAL_EMULATOR" == "JetBrains-JediTerm" ]] || [[ "$TERM_PROGRAM" == "JetBrains-JediTerm" ]] || [[ -n "$INTELLIJ_ENVIRONMENT_READER" ]]; then
     PROMPT='%# '
+    # Reset cursorY after each command to prevent Copilot output capture drift.
+    # ED2 moves screen to scrollback (preserving output), CUP home resets cursor.
+    precmd() { printf "\e[H\e[2J" }
 else
-    export whoami=$(whoami | sed 's/b0h0166/BH/')
+    export whoami=$(whoami | sed 's/b0h0166/BH/' | sed 's/^brian$/BH/')
     export hostname=$(hostname | sed 's/m-c02xf1jsjgh7/mac/' | sed 's/m-c47v699ryp/mac/' | sed 's/qualityengpdp00-ien1-contentquality-1/CQGCP/')
+    case $(hostname) in
+        *MacBook*|BrianMac*|brian-mac*) hostname=mac ;;
+    esac
     export hostname=$(echo $hostname | sed 's/\(......\).*\(..\)/\1..\2/')
     PROMPT=$'%{\e[7m%}'$whoami@$hostname$'%{\e[0m%} %{\e[0;31m%}%D{%m-%d %H:%M} %{\e[0;32m%}%1~%{\e[0m%} %# '
 fi
