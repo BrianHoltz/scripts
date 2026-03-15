@@ -36,8 +36,8 @@
 ## Top Frictions
 
 - Eagerly awaiting parallel Wibey agents. For now I can run all 3 IDEs on the same repo and thus get 3-way parallelism.
-- Top silly frictions: let me buffer up my next prompt, and make it super-easy to reference the current file and selection!
-  - Wibey disables buffering up the next prompt in VSCode and Cursor, but allows it in IDEA. Allowing this would give almost half the value of parallel agents!
+- Top silly frictions: let me buffer up my next prompt, and make it super-easy to reference the current file and selection.
+  - Wibey disables buffering up the next prompt in VSCode and Cursor, but allows it in IDEA. Allowing this would give 30% of the value of parallel agents. I don't like interrupting agents to add their next prompt and then tell them to first finish the previous one.
   - In no IDE does Wibey automatically track the current selection as context, which Github Copilot does in IDEA and VSCode, probably Cursor too.
   - Cursor+Wibey: Cmd-L broke! It now inserts selection context into builtin chat, not Wibey Chat.
 
