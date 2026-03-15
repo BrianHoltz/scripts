@@ -28,6 +28,20 @@ See `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for the full TDD ste
 - If you're not sure about user intent, ask clarifying questions before proceeding.
 - Avoid tables and code blocks/text boxes in conversation output — the conversation window is kept narrow, and wide elements cause horizontal scrolling. Use bullet lists or plain prose instead. Tables and code blocks are fine in files, just not in chat replies.
 
+## Inferring User Intent from Open Editors
+
+When the user references a file ambiguously (e.g., "this file", "that doc", "the config", or just describes content without naming a file), use the IDE's open editor tabs to resolve the reference before asking clarifying questions.
+
+- In Wibey/VSCode, use `getDiagnostics` with scope `open-editors` to list all open tabs. The **active tab** (marked Active) is the strongest signal — it's what the user is looking at right now.
+- Use filenames to decide relevance. If the user says "the test file" and one open tab is `foo.test.ts`, that's almost certainly it. Read the file only if the name alone is ambiguous.
+- If the active tab's filename doesn't match the user's reference, check the remaining open tabs before falling back to workspace-wide search or asking the user.
+- A **dirty** (unsaved) tab indicates recent editing — weight it higher than clean tabs when multiple tabs could match.
+- Prioritization order: active tab → dirty tabs → remaining open tabs → workspace search → ask user.
+
+In CLI agents or other environments without editor tab access, use whatever information is immediately and efficiently available — recent git activity (`git diff`, `git log -1`), shell history, or the current working directory — to infer which file the user most recently accessed.
+
+This is cheaper and faster than asking "which file do you mean?" and almost always resolves the reference correctly.
+
 ## Documentation
 
 See `shared/docs/WibeyProjectMgt.md` § Documentation Principles for the full rules (evidence patterns, styling discipline, task lists, ad hoc doc naming, DRY/history). In repos without a `shared/` symlink, the key rules are:
@@ -72,23 +86,7 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 
 ## Custom Commands
 
-### convo
+When the user triggers a custom command, read the command definition file for full instructions before executing. Command files live in `~/.wibey/commands/` (user-level) and `<workspace>/.wibey/commands/` or `<workspace>/shared/.wibey/commands/` (project-level). Project-level commands override user-level.
 
-Park the current conversation for identification in Mac workspace/Mission Control switching.
-
-Trigger: user says "convo [optional title]" or "Convo [optional title]"
-
-Steps:
-- If trigger is capitalized ("Convo"), emit 30 `&nbsp;` lines as raw markdown (not via bash — bash newlines don't render in chat)
-- Run a single Bash command to get both the date and the repo emoji:
-  ```bash
-  date "+%Y-%m-%d %H:%M %Z"; ~/bin/repo-emoji <workspace-dir>
-  ```
-- If the user provided a title after "convo", use it verbatim. Otherwise, choose a terse title from the conversation context.
-- Emit the date and title as two H1 bold lines, with HR rules above and below, and the emoji prepended to the title:
-
----
-# **YYYY-MM-DD HH:MM TZ**
-# **{emoji} Title**
-
----
+- **convo** — Park the current conversation with a visible title for Mac workspace/Mission Control switching. Definition: `~/.wibey/commands/convo.md`
+- **plando** — Structured plan-and-execute workflow with aidocs task record. Definition: `<workspace>/shared/.wibey/commands/plando.md` (falls back to `~/.wibey/commands/plando.md` if it exists)
