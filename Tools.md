@@ -18,7 +18,7 @@
 | approval UX               | ✓              | ✓             | ✓       |
 | parallel agents           | —              | ✓             | ✓✓      |
 | terminal non-blind        | X              | ✓             | ✓       |
-| md preview                | toggle per doc | only 1        | only 1  |
+| md preview                | per doc        | only 1        | per doc |
 | md preview search         | ✓              | ✓             | X       |
 | md edit plugin \*-window  | ✓ shuzijun     | ✓✓ wysiwyg    | ?       |
 | md edit plugin 1-window   | ✓ shuzijun     | ✓✓ zaaack     | ?       |
@@ -64,6 +64,18 @@
   - **Native Copilot integration with Edit mode**
   - **Remote development (SSH, containers, WSL)**
   - *Chat panel context limited vs dedicated AI IDEs*
+
+### TypeDown Patches
+
+TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no settings for line-height, table padding, or list spacing. Patches to the extension files:
+
+- CSS in `dist/extension.js`:
+  - `.ProseMirror` `line-height`: changed from `1.7` to `1.4`
+  - `.ProseMirror table td, .ProseMirror table th` `padding`: changed from `6px 10px` to `2px 10px`
+  - Added `.ProseMirror table td p, .ProseMirror table th p { margin: 0; }` — ProseMirror wraps cell content in `<p>` tags with browser-default `1em` margins, which is the main source of tall rows
+  - Added `.ProseMirror ul, .ProseMirror ol { margin-top: 0.25em; margin-bottom: 0.25em; }` and `.ProseMirror li p { margin: 0; }` — same `<p>`-in-`<li>` issue as tables
+- Focus bug fix in `src/markdownEditorInitScript.js`: after a brief pause in typing, cursor/focus warped to end of document. Root cause: `onDidSaveTextDocument` sends `documentChanged` back to the webview, which calls `setEditorContent()` → `editor.commands.setContent()`, replacing the entire ProseMirror doc and destroying the selection. Fix: skip `setEditorContent()` in the `documentChanged` handler when the incoming text matches `lastMarkdown`.
+- All patches apply to both `~/.vscode/extensions/` and `~/.cursor/extensions/` under `tarikkavaz.typedown-markdown-editor-<version>/`. Patches are overwritten on extension update — reapply after each update. Reload the window (Developer: Reload Window) after patching.
 
 ## IDEA
 
