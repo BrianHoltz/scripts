@@ -7,14 +7,16 @@
 | IDE                      | 2025.3.3       | 1.110 @ 03.05 | 2.6.19       |
 | VSCode engine            | —              | —             | 1.105.1      |
 | Wibey                    | 1.0.4          | 1.0.0         | 1.0.0        |
-| parallel Wibey           | X              | X             | X            |
-| type @ busy Wibey        | ✓              | X             | X            |
-| context += @ file        | ✓              | <100KB        | <100KB       |
-| context += selection     | cmd-' pill     | cmd-L pill    | XXXXX        |
-| image paste              | ✓              | ✓             | ✓            |
-| rich/linked paste        | X              | X             | X            |
+| └ parallel agents        | X              | X             | X            |
+| └ type @ busy Wibey      | ✓              | ⚠️            | ⚠️           |
+| └ context += @ file      | ✓              | <100KB        | <100KB       |
+| └ context += selection   | cmd-' pill     | cmd-L pill    | ⚠️           |
+| └ image paste            | ✓              | ✓             | ✓            |
+| └ rich/linked paste      | X              | X             | X            |
 | Github Copilot           |                |               |              |
-| .  context += selection  | auto           | auto          | cmd-L inline |
+| └ parallel agents        | ✓              | ✓             | ✓            |
+| └ context += selection   | auto           | auto          | cmd-L inline |
+| └ conversation name      | manual         | auto          | auto         |
 | AI diff review           | per delta      | per file      | per file     |
 | AI diff in shared        | ✓              | X             | ?            |
 | approval UX              | ✓              | ✓             | ✓            |
@@ -35,7 +37,7 @@
 
 ## Top Frictions
 
-- In no IDE does Wibey automatically track the current selection as context, which Github Copilot does in all 3 IDEs.
+- In no IDE does Wibey automatically track the current selection as context, which Github Copilot does in IDEA and VSCode
 - Cursor+Wibey: Cmd-L now inserts selection context into builtin chat, not Wibey Chat
 
 ## Copilot
