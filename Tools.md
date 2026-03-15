@@ -13,7 +13,7 @@
 | └ context += selection   | cmd-' pill     | cmd-L pill    | ⚠️           |
 | └ image paste            | ✓              | ✓             | ✓            |
 | └ rich/linked paste      | X              | X             | X            |
-| Github Copilot           |                |               |              |
+| Github Copilot           | 1.6.1-243      | 0.39.0        | 1.388.0      |
 | └ parallel agents        | ✓              | ✓             | ✓            |
 | └ context += selection   | auto           | auto          | cmd-L inline |
 | └ conversation name      | manual         | auto          | auto         |
@@ -53,6 +53,43 @@
   - *No MCP (Model Context Protocol) support*
 
 ## Cursor
+
+### Proxy (Walmart vs personal laptop)
+
+Proxy is configured **per machine** in Cursor User settings. Personal laptop has proxy disabled; Walmart laptop should keep proxy so Cursor can reach the internet via corporate proxy.
+
+- **Where:** `~/Library/Application Support/Cursor/User/settings.json` (macOS). Each laptop has its own file.
+- **Personal laptop (no proxy):** Remove or leave unset: `http.proxy`, `http.proxySupport`, and the Walmart-only `http.noProxy` entries. Keep `http.noProxy` with just `.local` and `169.254/16` if you like.
+- **Walmart laptop (restore proxy):** Add or restore these in the same `settings.json`:
+
+```json
+"http.noProxy": [
+    ".walmart.com",
+    ".wal-mart.com",
+    ".walmartlabs.com",
+    "wmlink",
+    "wamnetNAD",
+    ".local",
+    "169.254/16"
+],
+"http.proxy": "http://proxy.wal-mart.com:9080",
+"http.proxySupport": "override",
+"http.proxyStrictSSL": true,
+"http.systemCertificates": true,
+"http.fetchAdditionalSupport": true,
+"http.systemCertificatesNode": false,
+```
+
+Then restart Cursor. If you use Settings Sync, turning off sync on the Walmart laptop (or re-adding these after a sync) keeps the proxy from being overwritten.
+
+### Copilot Chat in Cursor (why it wasn’t available)
+
+- **Cause:** Copilot has two extensions. We only installed **GitHub Copilot** (completions). **GitHub Copilot Chat** is separate and was not installed. Cursor’s marketplace doesn’t list it; the latest Chat VSIX from the VS Code marketplace requires VS Code **^1.111.0** and Cursor is on **1.105.1**, so the unpatched install is rejected.
+- **Fix (patched Chat install):** A patched VSIX that accepts engine ^1.105.0 is at `~/bin/copilot-chat-patched.vsix`. **Fully quit Cursor**, then in a terminal run:
+  ```bash
+  cursor --install-extension ~/bin/copilot-chat-patched.vsix
+  ```
+  Then open Cursor again. If you see “Please restart VS Code before reinstalling…”, you must quit Cursor completely and run the command with Cursor closed. After a successful install, **Cmd+Shift+P** → “GitHub Copilot: Open Copilot” (or similar) should appear and the Copilot Chat view/panel should be available.
 
 - *every model request counts against monthly budget*
 - **seamless parallel agents**
