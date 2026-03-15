@@ -15,16 +15,14 @@
 | └ rich/linked paste      | X              | X             | X            |
 | Github Copilot           | 1.6.1-243      | 0.39.0        | 1.388.0      |
 | └ parallel agents        | ✓              | ✓             | ✓            |
-| └ context += selection   | auto           | auto          | cmd-L inline |
+| └ context += selection   | auto           | auto          | ?            |
 | └ conversation name      | manual         | auto          | auto         |
 | AI diff review           | per delta      | per file      | per file     |
-| AI diff in shared        | ✓              | X             | ?            |
+| AI diff in other repo    | ✓              | X             | ?            |
 | approval UX              | ✓              | ✓             | ✓            |
-| parallel agents          | —              | ✓             | ✓✓           |
-| terminal non-blind       | X              | ✓             | ✓            |
 | md preview               | per doc        | only 1        | per doc      |
-| md preview search        | ✓              | ✓             | ✓            |
-| md edit plugin \*-window | ✓ shuzijun     | ✓✓ wysiwyg    | ✓✓ wysiwyg   |
+| md preview search        | ✓              | ✓             | X            |
+| md edit plugin \*-window | ✓ shuzijun     | ✓✓ typedown   | ✓✓ typedown  |
 | md edit plugin 1-window  | ✓ shuzijun     | ✓✓ zaaack     | ✓✓ zaaack    |
 | md table edit            | ✓✓ auto format | ✓ reformat    | ✓ reformat   |
 | md pastes details block  | X              | ✓             | ✓            |
@@ -37,8 +35,11 @@
 
 ## Top Frictions
 
-- In no IDE does Wibey automatically track the current selection as context, which Github Copilot does in IDEA and VSCode
-- Cursor+Wibey: Cmd-L now inserts selection context into builtin chat, not Wibey Chat
+- Eagerly awaiting parallel Wibey agents. For now I can run all 3 IDEs on the same repo and thus get 3-way parallelism.
+- Top silly frictions: let me buffer up my next prompt, and make it super-easy to reference the current file and selection!
+  - Wibey disables buffering up the next prompt in VSCode and Cursor, but allows it in IDEA. Allowing this would give almost half the value of parallel agents!
+  - In no IDE does Wibey automatically track the current selection as context, which Github Copilot does in IDEA and VSCode, probably Cursor too.
+  - Cursor+Wibey: Cmd-L broke! It now inserts selection context into builtin chat, not Wibey Chat.
 
 ## Copilot
 
