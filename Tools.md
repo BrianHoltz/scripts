@@ -2,34 +2,41 @@
 
 ## Scorecard
 
-| Feature                  | IDEA           | VS Code       | Cursor     |
-|--------------------------|----------------|---------------|------------|
-| IDE                      | 2025.3.3       | 1.110 @ 03.05 | 2.6.19     |
-| VSCode engine            | —              | —             | 1.105.1    |
-| Wibey                    | 1.0.4          | 1.0.0         | 1.0.0      |
-| parallel Wibey           | X              | X             | X          |
-| type @ busy Wibey        | ✓              | X             | X          |
-| context += @ file        | ✓              | <100KB        | <100KB     |
-| context += selection     | cmd-'          | cmd-L         | X          |
-| image paste              | ✓              | ✓             | ✓          |
-| rich/linked paste        | X              | X             | X          |
-| AI diff review           | per delta      | per file      | per file   |
-| AI diff in shared        | ✓              | X             | ?          |
-| approval UX              | ✓              | ✓             | ✓          |
-| parallel agents          | —              | ✓             | ✓✓         |
-| terminal non-blind       | X              | ✓             | ✓          |
-| md preview               | per doc        | only 1        | per doc    |
-| md preview search        | ✓              | ✓             | ✓          |
-| md edit plugin \*-window | ✓ shuzijun     | ✓✓ wysiwyg    | ✓✓ wysiwyg |
-| md edit plugin 1-window  | ✓ shuzijun     | ✓✓ zaaack     | ✓✓ zaaack  |
-| md table edit            | ✓✓ auto format | ✓ reformat    | ✓ reformat |
-| md pastes details block  | X              | ✓             | ✓          |
-| search/find              | ✓✓             | ✓             | ✓          |
-| git                      | ✓              | ✓✓            | ✓          |
-| debug                    | ✓✓             | ?             | ?          |
-| database                 | ✓✓             | X             | X          |
-| http                     | ✓✓             | X             | X          |
-| editor history UI        | ✓✓             | ✓             | ✓          |
+| Feature                  | IDEA           | VS Code       | Cursor       |
+|--------------------------|----------------|---------------|--------------|
+| IDE                      | 2025.3.3       | 1.110 @ 03.05 | 2.6.19       |
+| VSCode engine            | —              | —             | 1.105.1      |
+| Wibey                    | 1.0.4          | 1.0.0         | 1.0.0        |
+| parallel Wibey           | X              | X             | X            |
+| type @ busy Wibey        | ✓              | X             | X            |
+| context += @ file        | ✓              | <100KB        | <100KB       |
+| context += selection     | cmd-' pill     | cmd-L pill    | XXXXX        |
+| image paste              | ✓              | ✓             | ✓            |
+| rich/linked paste        | X              | X             | X            |
+| Github Copilot           |                |               |              |
+| .  context += selection  | auto           | auto          | cmd-L inline |
+| AI diff review           | per delta      | per file      | per file     |
+| AI diff in shared        | ✓              | X             | ?            |
+| approval UX              | ✓              | ✓             | ✓            |
+| parallel agents          | —              | ✓             | ✓✓           |
+| terminal non-blind       | X              | ✓             | ✓            |
+| md preview               | per doc        | only 1        | per doc      |
+| md preview search        | ✓              | ✓             | ✓            |
+| md edit plugin \*-window | ✓ shuzijun     | ✓✓ wysiwyg    | ✓✓ wysiwyg   |
+| md edit plugin 1-window  | ✓ shuzijun     | ✓✓ zaaack     | ✓✓ zaaack    |
+| md table edit            | ✓✓ auto format | ✓ reformat    | ✓ reformat   |
+| md pastes details block  | X              | ✓             | ✓            |
+| search/find              | ✓✓             | ✓             | ✓            |
+| git                      | ✓              | ✓✓            | ✓            |
+| debug                    | ✓✓             | ?             | ?            |
+| database                 | ✓✓             | X             | X            |
+| http                     | ✓✓             | X             | X            |
+| editor history UI        | ✓✓             | ✓             | ✓            |
+
+## Top Frictions
+
+- In no IDE does Wibey automatically track the current selection as context, which Github Copilot does in all 3 IDEs.
+- Cursor+Wibey: Cmd-L now inserts selection context into builtin chat, not Wibey Chat
 
 ## Copilot
 
