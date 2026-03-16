@@ -94,7 +94,13 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 
 ## Custom Commands
 
-When the user triggers a custom command, read the command definition file for full instructions before executing. Command files live in `~/.wibey/commands/` (user-level) and `<workspace>/.wibey/commands/` or `<workspace>/shared/.wibey/commands/` (project-level). Project-level commands override user-level.
+When the user triggers a custom command, read the command definition file for full instructions before executing. Command files live in `~/.wibey/commands/` (user-level) and `<workspace>/.wibey/commands/` (project-level). Project-level commands override user-level.
+
+User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, symlinked from `~/.wibey/commands/`):
 
 - **convo** — Park the current conversation with a visible title for Mac workspace/Mission Control switching. Definition: `~/.wibey/commands/convo.md`
-- **plando** — Structured plan-and-execute workflow with aidocs task record. Definition: `<workspace>/shared/.wibey/commands/plando.md` (falls back to `~/.wibey/commands/plando.md` if it exists)
+- **commitz** — Cluster uncommitted diffs into themed buckets, draft a commit message per bucket, commit approved ones. Definition: `~/.wibey/commands/commitz.md`
+
+Project-level commands (version-controlled in the project repo under `.wibey/commands/`):
+
+- **plando** — Structured plan-and-execute workflow with aidocs task record. Definition: `<workspace>/.wibey/commands/plando.md`. Currently exists in `~/src/relationship-shared/.wibey/commands/plando.md`.
