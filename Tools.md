@@ -11,7 +11,7 @@
 | └ type @ busy Wibey      | ✓              | ⚠️            | ⚠️           |
 | └ context += @ file      | ✓              | <100KB        | <100KB       |
 | └ context += selection   | cmd-' pill     | cmd-L pill    | ⚠️           |
-| └ image paste            | ✓              | ✓             | ✓            |
+| └ image paste            | often fails    | ✓             | ✓            |
 | └ rich/linked paste      | X              | X             | X            |
 | Github Copilot           | 1.6.1-243      | 0.39.0        | 1.388.0      |
 | └ parallel agents        | ✓              | ✓             | ✓            |
