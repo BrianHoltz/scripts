@@ -103,4 +103,4 @@ User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, sy
 
 Project-level commands (version-controlled in the project repo under `.wibey/commands/`):
 
-- **plando** — Structured plan-and-execute workflow with aidocs task record. Definition: `<workspace>/.wibey/commands/plando.md`. Currently exists in `~/src/relationship-shared/.wibey/commands/plando.md`.
+- **plando** — Structured plan-and-execute workflow with aidocs task record. Definition: `<workspace>/shared/.wibey/commands/plando.md`. Every repo has a `shared/` symlink pointing to the shared repo; in the shared repo itself `shared/` is a self-referential symlink, so the path is consistent everywhere.
