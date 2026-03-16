@@ -6,7 +6,7 @@
 |--------------------------|----------------|---------------|--------------|
 | IDE                      | 2025.3.3       | 1.110 @ 03.05 | 2.6.19       |
 | VSCode engine            | —              | —             | 1.105.1      |
-| Wibey                    | 1.0.4          | 1.0.0         | 1.0.0        |
+| Wibey                    | 1.0.4          | 1.0.1         | 1.0.1        |
 | └ parallel agents        | X              | X             | X            |
 | └ type @ busy Wibey      | ✓              | ⚠️            | ⚠️           |
 | └ context += @ file      | ✓              | <100KB        | <100KB       |
@@ -136,3 +136,4 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
   - **Unmatched refactoring for Java/Kotlin (type-aware renames, extract method)**
   - **Built-in profiler and memory analysis**
   - *Expensive ($249/yr commercial, $169 w/ AI Assistant)*
+- Shuzijun Markdown Editor plugin: theme follows IDE via `UIUtil.isUnderDarcula()` — no separate theme setting. If the editor renders dark while IDE is light (e.g. after OS theme auto-switch), close and re-open the tab to fix.
