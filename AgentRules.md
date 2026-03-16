@@ -53,10 +53,14 @@ See `shared/docs/WibeyProjectMgt.md` § Documentation Principles for the full ru
 - No all-caps for emphasis. No extraneous horizontal rules. Bold/italics sparingly. Informational glyphs: † ‡ ⁑ 📌. Problem glyphs: ⚠️ ❗ 📣 🔔. One glyph per cell, unambiguous within table/list.
 - Table cell vocabulary — emdash (N/A), TBD (exists, needs lookup), TODO (work needed, blocks nothing), ? (uncertain), ⚠️ (alarming, footnote required), blank only for visual grouping.
 - Future work appears only as task lists or TODOs. No "Critical/Important/urgent" labels — use order. Label sections "Tasks" not "Next Steps/To Do/Action Items/Plan". No future dates unless capturing a commitment.
+- Hyperlinks: link the relevant text, don't parenthetically name the target. Write `dates to at least [2014](#history)` not `dates to at least 2014 (see [History](#history))` or `dates to at least 2014 ([evidence](#history))`.
+- When citing a dated source (incident, analysis, ADR, etc.), put the parenthetical date *after* the action/verb and link the date to the source. Write `Rohith cataloged ([2025.09](#e-bv-sync-issue)) 5 manifestations` not `Rohith (Sep 2025) cataloged 5 manifestations`. The date is the link; the doc name is omitted.
+- When mentioning a document by title, link the title itself — not a separate date or "link" word. Append `(yyyy)` or `(Mon yyyy)` after the linked title if the date provides useful context. Write `the [Variant Detailed Design](url) (Jan 2025) specifies...` not `the Variant Detailed Design page ([Jan 2025](url)) specifies...`.
 
 ## File Operations
 
 - Always re-read a file immediately before editing it, even if you read it recently. The user or another agent may have modified it in parallel. This enables maximal concurrent work among agents and humans.
+- When a re-read reveals unexpected changes (content differs from what you saw earlier), treat this as a possible intentional user edit. Ask before reverting or overwriting — do not silently discard the changes.
 - Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
 - When duplicate/conflicting files exist, always ASK which version to keep before deleting either
 - Do not make any VCS changes unless you're absolutely sure the user wants that.
