@@ -131,6 +131,7 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
 - *command-approval constipation*
 - *Does not fully support parallel agents*
 - *Cannot paste file/line reference!?*
+- *Pending Changes panel sometimes fails to show agent-written files (new untracked files, or edits via MCP/Write tool). Check `git status` to catch anything the panel missed.*
 - Extra Info from Claude Opus 4.5:
   - **AI Assistant with JetBrains' own models + cloud options**
   - **Unmatched refactoring for Java/Kotlin (type-aware renames, extract method)**
