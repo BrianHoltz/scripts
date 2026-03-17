@@ -48,7 +48,7 @@ This is cheaper and faster than asking "which file do you mean?" and almost alwa
 
 ## Documentation
 
-See `shared/docs/WibeyProjectMgt.md` § Documentation Principles for the full rules (evidence patterns, styling discipline, task lists, ad hoc doc naming, DRY/history). In repos without a `shared/` symlink, the key rules are:
+See `shared/docs/WibeyAgentRef.md` § Documentation Principles for the full rules (evidence patterns, styling discipline, task lists, ad hoc doc naming, DRY/history). In repos without a `shared/` symlink, the key rules are:
 
 - Keep docs in sync with code. No redundant comments. No file line numbers in enduring docs. No numbered lists in version-controlled docs. Update TOC when updating a doc.
 - Every verifiable empirical claim must cite its source. Collect in a `## Evidence` section with HTML anchors. Unsourced claims are assertions — label "Inference:" or "Unverified:".
