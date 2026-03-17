@@ -22,7 +22,7 @@ To update these files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 
 ## Coding Workflow
 
-See `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for the full TDD steps. In repos without a `shared/` symlink: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run postman/newman if available, run coverage (100% of new flows/conditions).
+Use the `/tdd` command (`shared/.wibey/commands/tdd.md`) for the full TDD workflow. See `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for context and test execution mechanics. In repos without a `shared/` symlink: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run postman/newman if available, run coverage (100% of new flows/conditions).
 
 ## Communication Style
 
@@ -104,3 +104,4 @@ User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, sy
 Project-level commands (version-controlled in the project repo under `.wibey/commands/`):
 
 - **plando** — Structured plan-and-execute workflow with aidocs task record. Definition: `<workspace>/shared/.wibey/commands/plando.md`. Every repo has a `shared/` symlink pointing to the shared repo; in the shared repo itself `shared/` is a self-referential symlink, so the path is consistent everywhere.
+- **tdd** — TDD workflow enforcer: branch, baseline, red, green, verify, full suite, newman, coverage. Definition: `<workspace>/shared/.wibey/commands/tdd.md`.
