@@ -2,36 +2,46 @@
 
 ## Scorecard
 
-| Feature                  | IDEA           | VS Code       | Cursor       |
-|--------------------------|----------------|---------------|--------------|
-| IDE                      | 2025.3.3       | 1.110 @ 03.05 | 2.6.19       |
-| VSCode engine            | —              | —             | 1.105.1      |
-| Wibey                    | 1.0.4          | 1.0.1         | 1.0.1        |
-| └ parallel agents        | X              | X             | X            |
-| └ type @ busy Wibey      | ✓              | ⚠️            | ⚠️           |
-| └ context += @ file      | ✓              | <100KB        | <100KB       |
-| └ context += selection   | cmd-' pill     | cmd-L pill    | ⚠️           |
-| └ image paste            | often fails    | ✓             | ✓            |
-| └ rich/linked paste      | X              | X             | X            |
-| Github Copilot           | 1.6.1-243      | 0.39.0        | 1.388.0      |
-| └ parallel agents        | ✓              | ✓             | ✓            |
-| └ context += selection   | auto           | auto          | ?            |
-| └ conversation name      | manual         | auto          | auto         |
-| AI diff review           | per delta      | per file      | per file     |
-| AI diff in other repo    | ✓              | X             | ?            |
-| approval UX              | ✓              | ✓             | ✓            |
-| md preview               | per doc        | only 1        | per doc      |
-| md preview search        | ✓              | ✓             | X            |
-| md edit plugin \*-window | ✓ shuzijun     | ✓✓ typedown   | ✓✓ typedown  |
-| md edit plugin 1-window  | ✓ shuzijun     | ✓✓ zaaack     | ✓✓ zaaack    |
-| md table edit            | ✓✓ auto format | ✓ reformat    | ✓ reformat   |
-| md pastes details block  | X              | ✓             | ✓            |
-| search/find              | ✓✓             | ✓             | ✓            |
-| git                      | ✓              | ✓✓            | ✓            |
-| debug                    | ✓✓             | ?             | ?            |
-| database                 | ✓✓             | X             | X            |
-| http                     | ✓✓             | X             | X            |
-| editor history UI        | ✓✓             | ✓             | ✓            |
+| Feature | IDEA | VS Code | Cursor |
+| --- | --- | --- | --- |
+| IDE | 2025.3.3 | 1.110 @ 03.05 | 2.6.19 |
+| VSCode engine | — | — | 1.105.1 |
+| Wibey | 1.0.4 | 1.0.1 | 1.0.1 |
+| └ parallel agents | X | X | X |
+| └ type @ busy Wibey | ✓ | ⚠️ | ⚠️ |
+| └ context += @ file | ✓ | &lt;100KB | &lt;100KB |
+| └ context += selection | cmd-' pill | cmd-L pill | ⚠️ |
+| └ image paste | often fails | ✓ | ✓ |
+| └ rich/linked paste | X | X | X |
+| Github Copilot | 1.6.1-243 | 0.39.0 | 1.388.0 |
+| └ parallel agents | ✓ | ✓ | ✓ |
+| └ context += selection | auto | auto | ? |
+| └ conversation name | manual | auto | auto |
+| AI diff review | per delta | per file | per file |
+| AI diff in linked repo | ✓ | X | ? |
+| git ops in linked repo | ✓ | ✓ | X |
+| approval UX | ✓ | ✓ | ✓ |
+| md preview | per doc | only 1 | per doc |
+| md preview search | ✓ | ✓ | X |
+| md edit plugin\*-window | ✓ shuzijun | ✓✓ typedown | ✓✓ typedown |
+| md edit plugin 1-window | ✓ shuzijun | ✓✓ zaaack | ✓✓ zaaack |
+| md table edit | ✓✓ auto format | ✓ reformat | ✓ reformat |
+| md pastes details block | X | ✓ | ✓ |
+| search/find | ✓✓ | ✓ | ✓ |
+| git | ✓ | ✓✓ | ✓ |
+| debug | ✓✓ | ? | ? |
+| database | ✓✓ | X | X |
+| http | ✓✓ | X | X |
+| editor history UI | ✓✓ | ✓ | ✓ |
+
+## Markdown WYSIWYG Editing Comparison
+
+| Behavior | typedown 1.1.7 | zaaack 0.1.13 | Cursor native | IDEA shuzijun 2.0.5 |
+| --- | --- | --- | --- | --- |
+| wide tables | truncates | ✓ | truncates | scrolls but pads |
+| non-bloated side padding | X | ✓ | X | XX |
+| link editing | X | ✓ | X | ✓ |
+| toolbar | ✓ | ✓ | X | ✓ |
 
 ## Top Frictions
 
@@ -86,17 +96,25 @@ Then restart Cursor. If you use Settings Sync, turning off sync on the Walmart l
 ### Copilot Chat in Cursor (why it wasn’t available)
 
 - **Cause:** Copilot has two extensions. We only installed **GitHub Copilot** (completions). **GitHub Copilot Chat** is separate and was not installed. Cursor’s marketplace doesn’t list it; the latest Chat VSIX from the VS Code marketplace requires VS Code **^1.111.0** and Cursor is on **1.105.1**, so the unpatched install is rejected.
+
 - **Fix (patched Chat install):** A patched VSIX that accepts engine ^1.105.0 is at `~/bin/copilot-chat-patched.vsix`. **Fully quit Cursor**, then in a terminal run:
+
   ```bash
   cursor --install-extension ~/bin/copilot-chat-patched.vsix
   ```
+
   Then open Cursor again. If you see “Please restart VS Code before reinstalling…”, you must quit Cursor completely and run the command with Cursor closed. After a successful install, **Cmd+Shift+P** → “GitHub Copilot: Open Copilot” (or similar) should appear and the Copilot Chat view/panel should be available.
 
 - *every model request counts against monthly budget*
+
 - **seamless parallel agents**
+
 - **Displays premium usage summary (cf. "usage summary")**
+
 - **in-context edit prompt**
+
 - Extra Info from Claude Opus 4.5:
+
   - **Composer mode for multi-file refactoring**
   - **Built-in codebase indexing for semantic search**
   - **Tab completion with diff preview**
@@ -120,6 +138,7 @@ Zaaack WYSIWYG markdown editor (zaaack.markdown-editor) has broken dark theme su
   - Extended `body[data-use-vscode-theme-color="1"] .vditor` block to also override `--textarea-text-color`, `--toolbar-icon-color`, and `--border-color` using VSCode CSS variables (`--vscode-editor-foreground`, `--vscode-panel-border`)
   - Added `body[data-use-vscode-theme-color="1"] .vditor-reset` color override using `var(--vscode-editor-foreground)`
   - Added `.vditor--dark .vditor-reset` overrides for: text color, table `tr`/`td`/`th` backgrounds and borders, `hr`, `blockquote`, `kbd`, `.vditor-panel::after` — all the hardcoded light-theme colors that the original `.vditor--dark` CSS variables didn't reach
+  - Added `font-size` override to `.vditor .vditor-reset` to override the default 16px: **VS Code uses 13px**, **Cursor uses 12px** for better readability
 - Theme change listener in `out/extension.js`:
   - Added `vscode.window.onDidChangeActiveColorTheme` listener that re-sends `type: 'init'` to the webview with the new theme, so the editor re-initializes with correct dark/light mode when VSCode theme changes
   - Fixed initial theme detection to treat `HighContrast` as dark (was only checking `Dark`)
@@ -144,7 +163,7 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
 - *command-approval constipation*
 - *Does not fully support parallel agents*
 - *Cannot paste file/line reference!?*
-- *Pending Changes panel sometimes fails to show agent-written files (new untracked files, or edits via MCP/Write tool). Check `git status` to catch anything the panel missed.*
+- *Pending Changes panel sometimes fails to show agent-written files (new untracked files, or edits via MCP/Write tool). Check* `git status` *to catch anything the panel missed.*
 - Extra Info from Claude Opus 4.5:
   - **AI Assistant with JetBrains' own models + cloud options**
   - **Unmatched refactoring for Java/Kotlin (type-aware renames, extract method)**
