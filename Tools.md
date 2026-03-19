@@ -2,6 +2,8 @@
 
 ## Scorecard
 
+TODO add: bookmarking, title editing, auto title, convo search
+
 | Feature | IDEA | VS Code | Cursor |
 | --- | --- | --- | --- |
 | IDE | 2025.3.3 | 1.110 @ 03.05 | 2.6.19 |
