@@ -1,49 +1,57 @@
 # AI/IDE Toolchain
 
-## Scorecard
+## IDEs
 
-TODO add: bookmarking, title editing, auto title, convo search
+TODO add: title edit, auto title, convo search, convo timestamps, convo bookmark
 
-| Feature | IDEA | VS Code | Cursor |
-| --- | --- | --- | --- |
-| IDE | 2025.3.3 | 1.110 @ 03.05 | 2.6.19 |
-| VSCode engine | — | — | 1.105.1 |
-| Wibey | 1.0.4 | 1.0.1 | 1.0.1 |
-| └ parallel agents | X | X | X |
-| └ type @ busy Wibey | ✓ | ⚠️ | ⚠️ |
-| └ context += @ file | ✓ | &lt;100KB | &lt;100KB |
-| └ context += selection | cmd-' pill | cmd-L pill | ⚠️ |
-| └ image paste | often fails | ✓ | ✓ |
-| └ rich/linked paste | X | X | X |
-| Github Copilot | 1.6.1-243 | 0.39.0 | 1.388.0 |
-| └ parallel agents | ✓ | ✓ | ✓ |
-| └ context += selection | auto | auto | ? |
-| └ conversation name | manual | auto | auto |
-| AI diff review | per delta | per file | per file |
-| AI diff in linked repo | ✓ | X | ? |
-| git ops in linked repo | ✓ | ✓ | X |
-| approval UX | ✓ | ✓ | ✓ |
-| md preview | per doc | only 1 | per doc |
-| md preview search | ✓ | ✓ | X |
-| md edit plugin\*-window | ✓ shuzijun | ✓✓ typedown | ✓✓ typedown |
-| md edit plugin 1-window | ✓ shuzijun | ✓✓ zaaack | ✓✓ zaaack |
-| md table edit | ✓✓ auto format | ✓ reformat | ✓ reformat |
-| md pastes details block | X | ✓ | ✓ |
-| search/find | ✓✓ | ✓ | ✓ |
-| git | ✓ | ✓✓ | ✓ |
-| debug | ✓✓ | ? | ? |
-| database | ✓✓ | X | X |
-| http | ✓✓ | X | X |
-| editor history UI | ✓✓ | ✓ | ✓ |
 
-## Markdown WYSIWYG Editing Comparison
+| Feature                 | IDEA             | VS Code       | Cursor        |
+| ------------------------- | ------------------ | --------------- | --------------- |
+| IDE                     | 2025.3.3         | 1.110 @ 03.05 | 2.6.19        |
+| VSCode engine           | —               | —            | 1.105.1       |
+| Wibey                   | 1.0.4            | 1.0.1         | 1.0.1         |
+| └ parallel agents      | X                | X             | X             |
+| └ type @ busy Wibey    | ✓               | ⚠️          | ⚠️          |
+| └ context += @ file    | ✓               | &lt;100KB     | &lt;100KB     |
+| └ context += selection | cmd-' pill       | cmd-L pill    | ⚠️          |
+| └ image paste          | often fails      | ✓            | ✓            |
+| └ title edit           | X                | ✓            | ✓            |
+| └ auto title           | last prompt      | last prompt   | last prompt   |
+| └ convo search         | X                | ✓            | ✓            |
+| └ convo timestamps     | ✓               | ✓            | ✓            |
+| └ convo bookmark       | X                | ✓            | ✓            |
+| └ rich/linked paste    | X                | X             | X             |
+| Github Copilot          | 1.6.1-243        | 0.39.0        | 1.388.0       |
+| └ parallel agents      | ✓               | ✓            | ✓            |
+| └ context += selection | auto             | auto          | ?             |
+| └ conversation name    | manual           | auto          | auto          |
+| AI diff review          | per delta        | per file      | per file      |
+| AI diff in linked repo  | ✓               | X             | ?             |
+| git ops in linked repo  | ✓               | ✓            | X             |
+| approval UX             | ✓               | ✓            | ✓            |
+| md preview              | per doc          | only 1        | per doc       |
+| md preview search       | ✓               | ✓            | X             |
+| md edit plugin\*-window | ✓ shuzijun      | ✓✓ typedown | ✓✓ typedown |
+| md edit plugin 1-window | ✓ shuzijun      | ✓✓ zaaack   | ✓✓ zaaack   |
+| md table edit           | ✓✓ auto format | ✓ reformat   | ✓ reformat   |
+| md pastes details block | X                | ✓            | ✓            |
+| search/find             | ✓✓             | ✓            | ✓            |
+| git                     | ✓               | ✓✓          | ✓            |
+| debug                   | ✓✓             | ?             | ?             |
+| database                | ✓✓             | X             | X             |
+| http                    | ✓✓             | X             | X             |
+| editor history UI       | ✓✓             | ✓            | ✓            |
 
-| Behavior | typedown 1.1.7 | zaaack 0.1.13 | Cursor native | IDEA shuzijun 2.0.5 |
-| --- | --- | --- | --- | --- |
-| wide tables | truncates | ✓ | truncates | scrolls but pads |
-| non-bloated side padding | X | ✓ | X | XX |
-| link editing | X | ✓ | X | ✓ |
-| toolbar | ✓ | ✓ | X | ✓ |
+## Markdown WYSIWYG Editors
+
+
+| Behavior                 | IDEA shuzijun    | typedown  | zaaack | Cursor native |
+| -------------------------- | ------------------ | ----------- | -------- | --------------- |
+| version                  | 2.0.5            | 1.1.7     | 0.1.13 | 2.6.19        |
+| wide tables              | scrolls but pads | truncates | ✓     | truncates     |
+| non-bloated side padding | XX               | X         | ✓     | X             |
+| link editing             | ✓               | X         | ✓     | X             |
+| toolbar                  | ✓               | ✓        | ✓     | X             |
 
 ## Top Frictions
 
@@ -98,7 +106,6 @@ Then restart Cursor. If you use Settings Sync, turning off sync on the Walmart l
 ### Copilot Chat in Cursor (why it wasn’t available)
 
 - **Cause:** Copilot has two extensions. We only installed **GitHub Copilot** (completions). **GitHub Copilot Chat** is separate and was not installed. Cursor’s marketplace doesn’t list it; the latest Chat VSIX from the VS Code marketplace requires VS Code **^1.111.0** and Cursor is on **1.105.1**, so the unpatched install is rejected.
-
 - **Fix (patched Chat install):** A patched VSIX that accepts engine ^1.105.0 is at `~/bin/copilot-chat-patched.vsix`. **Fully quit Cursor**, then in a terminal run:
 
   ```bash
@@ -106,15 +113,10 @@ Then restart Cursor. If you use Settings Sync, turning off sync on the Walmart l
   ```
 
   Then open Cursor again. If you see “Please restart VS Code before reinstalling…”, you must quit Cursor completely and run the command with Cursor closed. After a successful install, **Cmd+Shift+P** → “GitHub Copilot: Open Copilot” (or similar) should appear and the Copilot Chat view/panel should be available.
-
 - *every model request counts against monthly budget*
-
 - **seamless parallel agents**
-
 - **Displays premium usage summary (cf. "usage summary")**
-
 - **in-context edit prompt**
-
 - Extra Info from Claude Opus 4.5:
 
   - **Composer mode for multi-file refactoring**
