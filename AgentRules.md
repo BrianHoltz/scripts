@@ -52,19 +52,8 @@ This is cheaper and faster than asking "which file do you mean?" and almost alwa
 
 ## Documentation
 
-See `shared/docs/WibeyAgentRef.md` § Documentation Principles for the full rules (evidence patterns, styling discipline, task lists, ad hoc doc naming, DRY/history). In repos without a `shared/` symlink, the key rules are:
-
-- Keep docs in sync with code. No redundant comments. No file line numbers in enduring docs. No numbered lists in version-controlled docs. Update TOC when updating a doc.
-- Every verifiable empirical claim must cite its source. Collect in a `## Evidence` section with HTML anchors. Unsourced claims are assertions — label "Inference:" or "Unverified:".
-- No revision history in docs (git provides it). No "End of document". No links from tracked files to aidocs/tmp/. docs/ never mentions dates except formal production events.
-- ❗ Ad hoc docs: don't check into VCS. **Always place in `shared/aidocs/`** (i.e. `relationship-shared/aidocs/`), never in a per-repo `aidocs/` folder. Every repo's `shared/` symlink points to `relationship-shared`, so the path `shared/aidocs/yyyy-mm-dd/hhmm_CamelCase.md` works from any repo. Per-repo `aidocs/` folders are prohibited — if you find one, move its contents to `shared/aidocs/` and delete the empty directory. Name files hhmm_CamelCase.md in subfolder yyyy-mm-dd/. Don't create for content <100 lines. Combine multiple docs into one with TOC.
-- No all-caps for emphasis. No extraneous horizontal rules. Bold/italics sparingly. Informational glyphs: † ‡ ⁑ 📌. Problem glyphs: ⚠️ ❗ 📣 🔔. One glyph per cell, unambiguous within table/list.
-- Escape dollar signs in prose as `\$`. IntelliJ IDEA's markdown preview treats `$...$` as inline LaTeX math, so two unescaped `$` in the same paragraph render the text between them as italic math. Bare `$` inside table cells are safe (pipes prevent cross-cell pairing).
-- Table cell vocabulary — emdash (N/A), TBD (exists, needs lookup), TODO (work needed, blocks nothing), ? (uncertain), ⚠️ (alarming, footnote required), blank only for visual grouping.
-- Future work appears only as task lists or TODOs. No "Critical/Important/urgent" labels — use order. No capitalized/bolded exclamations (Bug, Gap, Pending, Next). Don't use ⚠️ where it could be confused with a TODO. Label sections "Tasks" not "Next Steps/To Do/Action Items/Plan". No future dates unless capturing a commitment.
-- Hyperlinks: link the relevant text, don't parenthetically name the target. Write `dates to at least [2014](#history)` not `dates to at least 2014 (see [History](#history))` or `dates to at least 2014 ([evidence](#history))`.
-- When citing a dated source (incident, analysis, ADR, etc.), put the parenthetical date *after* the action/verb and link the date to the source. Write `Rohith cataloged ([2025.09](#e-bv-sync-issue)) 5 manifestations` not `Rohith (Sep 2025) cataloged 5 manifestations`. The date is the link; the doc name is omitted.
-- When mentioning a document by title, link the title itself — not a separate date or "link" word. Append `(yyyy)` or `(Mon yyyy)` after the linked title if the date provides useful context. Write `the [Variant Detailed Design](url) (Jan 2025) specifies...` not `the Variant Detailed Design page ([Jan 2025](url)) specifies...`.
+* Ad hoc docs should be created in the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
+* Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime
 
 ## File Operations
 
