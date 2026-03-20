@@ -57,6 +57,18 @@
 
 typedown and zaaack work in both VS Code and Cursor
 
+### Keybindings (swapped from defaults in VS Code and Cursor)
+
+The default keybindings collided with preference — typedown's simpler shortcut was wasted on the less-preferred editor. Swapped via `keybindings.json` in both VS Code and Cursor:
+
+- **typedown** "Open in WYSIWYG mode": default `^ ⌥ ⌘ M` → swapped to `⌥ ⇧ ⌘ M`
+- **zaaack** "Open with markdown editor": default `⌥ ⇧ ⌘ M` → swapped to `^ ⌥ ⌘ M`
+
+Each swap uses a `-` (unbind) entry to remove the extension default, then a positive binding with the other shortcut. typedown also has a toggle pair (`openWysiwygEditor` / `openDefaultEditor` gated on `typedown.editorIsActive`), so both commands are rebound.
+
+Extension command IDs:
+- `typedown.openWysiwygEditor` (when `!typedown.editorIsActive`) / `typedown.openDefaultEditor` (when `typedown.editorIsActive`)
+- `markdown-editor.openEditor` (when `editorTextFocus && editorLangId == markdown`)
 
 | Behavior                 | IDEA shuzijun       | typedown     | zaaack   | Cursor native |
 | -------------------------- | --------------------- | -------------- | ---------- | --------------- |

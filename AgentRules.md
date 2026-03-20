@@ -14,6 +14,10 @@ Other `~/bin/` files symlinked into `~/`:
 - `~/.zshrc` → `~/bin/zshrc` — zsh interactive shell config
 - `~/.bash_profile` → `~/bin/bash_profile` — bash login/interactive shell config
 
+The `~/bin/` repo also contains personal tool settings and reference docs (not symlinked):
+
+- `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
+
 To update these files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 
 ## ❗ Do Not Overwrite Other Writers
