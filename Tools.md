@@ -34,7 +34,7 @@
 | md pastes details block | ❌             | ✔️          | ✔️         |
 | search/find             | ✅             | ✅            | ✅           |
 | git                     | 🟡             | ✅✅          | 🟡           |
-| debug                   | ✅           | ?             | ?            |
+| debug                   | ✅             | ?             | ?            |
 | database                | ✅             | ❌            | ❌           |
 | http                    | ✅             | ❌            | ❌           |
 | editor history UI       | ✅             | 🟡            | 🟡           |
@@ -57,6 +57,17 @@
 
 typedown and zaaack work in both VS Code and Cursor
 
+
+| Behavior                 | IDEA shuzijun       | typedown     | zaaack | Cursor native |
+| -------------------------- | --------------------- | -------------- | -------- | --------------- |
+| version                  | 2.0.5               | 1.1.7        | 0.1.13 | 2.6.19        |
+| >1 tab at a time         | ✅✅                | ✅✅         | ❌     | ✅✅          |
+| wide tables              | 🟡 scrolls but pads | ❌ truncates | ✅✅   | ❌ truncates  |
+| non-bloated side padding | ❌❌                | ❌           | ✅     | ❌            |
+| find in file             | ✅                  | ❌           | ❌     | ❌            |
+| link editing             | ✔️                | ❌           | ✔️   | ❌            |
+| toolbar                  | ✔️                | ✔️         | ✔️   | ❌            |
+
 ### Keybindings (swapped from defaults in VS Code and Cursor)
 
 The default keybindings collided with preference — typedown's simpler shortcut was wasted on the less-preferred editor. Swapped via `keybindings.json` in both VS Code and Cursor:
@@ -67,16 +78,9 @@ The default keybindings collided with preference — typedown's simpler shortcut
 Each swap uses a `-` (unbind) entry to remove the extension default, then a positive binding with the other shortcut. typedown also has a toggle pair (`openWysiwygEditor` / `openDefaultEditor` gated on `typedown.editorIsActive`), so both commands are rebound.
 
 Extension command IDs:
+
 - `typedown.openWysiwygEditor` (when `!typedown.editorIsActive`) / `typedown.openDefaultEditor` (when `typedown.editorIsActive`)
 - `markdown-editor.openEditor` (when `editorTextFocus && editorLangId == markdown`)
-
-| Behavior                 | IDEA shuzijun       | typedown     | zaaack   | Cursor native |
-| -------------------------- | --------------------- | -------------- | ---------- | --------------- |
-| version                  | 2.0.5               | 1.1.7        | 0.1.13   | 2.6.19        |
-| wide tables              | 🟡 scrolls but pads | ❌ truncates | ✅✅     | ❌ truncates  |
-| non-bloated side padding | ❌❌                | ❌           | ✅       | ❌            |
-| link editing             | ✔️            | ❌           | ✔️ | ❌            |
-| toolbar                  | ✔️            | ✔️     | ✔️ | ❌            |
 
 ## Top Frictions
 
@@ -198,6 +202,7 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
   - **Unmatched refactoring for Java/Kotlin (type-aware renames, extract method)**
   - **Built-in profiler and memory analysis**
   - *Expensive ($249/yr commercial, $169 w/ AI Assistant)*
+
 ### Shuzijun Markdown Editor Patches
 
 Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, which hardcodes `font-size: 16px` for body text in `.vditor-reset`, `.vditor-sv`, and `.vditor-ir`. That's too large for IDEA's 13px UI font. Theme follows IDE via `UIUtil.isUnderDarcula()` — no separate theme setting. If the editor renders dark while IDE is light (e.g. after OS theme auto-switch), close and re-open the tab to fix.
