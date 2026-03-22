@@ -68,6 +68,18 @@ typedown and zaaack work in both VS Code and Cursor
 | link editing             | ✔️                | ❌           | ✔️   | ❌            |
 | toolbar                  | ✔️                | ✔️         | ✔️   | ❌            |
 
+### IDE Keybindings
+
+| Action          | IDEA                    | VS Code      | Cursor       |
+| --------------- | ----------------------- | ------------ | ------------ |
+| zoom in / out   | `^⌥=` / `^⌥-` ⚠️        | `⌘=` / `⌘-` | `⌘=` / `⌘-` |
+| open file       | `⇧⌘O`                   | `⌘P`         | `⌘P`         |
+| search project  | `⇧⌘F`                   | `⇧⌘F`        | `⇧⌘F`        |
+| Wibey history   | ?                       | ?            | ?            |
+| Wibey new chat  | ?                       | ?            | ?            |
+
+⚠️ IDEA zoom default `^⌥=` / `^⌥-` (`ZoomInIdeAction` / `ZoomOutIdeAction`) remapped to `⌘=` / `⌘-` to match VS Code/Cursor. Displaced `CollapseRegion` / `ExpandRegion` (fold/unfold) from `⌘=` / `⌘-` — unbound and unneeded.
+
 ### Keybindings (swapped from defaults in VS Code and Cursor)
 
 The default keybindings collided with preference — typedown's simpler shortcut was wasted on the less-preferred editor. Swapped via `keybindings.json` in both VS Code and Cursor:
