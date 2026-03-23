@@ -55,6 +55,29 @@ This is cheaper and faster than asking "which file do you mean?" and almost alwa
 * Ad hoc docs should be created in the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
 * Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime
 
+### Evidence
+
+In documents the user designates as requiring cited evidence for empirical claims, collect evidence in a dedicated `## Evidence` section placed near the bottom of the document, above any log or TODO sections. Link claims inline with the Unicode dagger character U+2020 (†), with no space before it: `claim text[†](#e-descriptive-slug)`. The `†` renders as a clickable link immediately after the supported text. Example: "Latency dropped 40% after the cache change[†](#e-latency-drop)."
+
+Each evidence entry is a `###` heading followed by structured fields:
+
+```
+### <brief description of what is being evidenced>
+
+<a id="e-descriptive-slug"></a>
+
+- **Claim**: the specific assertion being backed
+- **Source**: URL, file path, git commit SHA, dashboard name, or person name + role — include a locator within the source where applicable (line number, timestamp, query, panel ID, etc.)
+- **Dates**: source vintage (when the source was authored/published/recorded) and date collected (ISO YYYY-MM-DD, when you retrieved or observed it)
+- **Quote / data**: exact text excerpt, metric value, or command output that supports the claim
+```
+
+Omit any field that genuinely does not apply, but include as many as possible. The goal is that a skeptical reader could independently re-verify the claim from the entry alone, without asking anyone.
+
+When a URL is available, prefer a Markdown link with descriptive anchor text over printing the raw URL — embed the locator (line number, timestamp, etc.) in the link target rather than repeating it in prose. For example, write `[AuthService:L42](https://github.com/…/auth.ts#L42)` instead of `https://github.com/…/auth.ts, line 42`.
+
+The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via the md2confluence pipeline in `~/src/relationship-shared/`).
+
 ## File Operations
 
 - ❗ **Re-read immediately before every edit — no exceptions.** This is the single most important rule. Other agents and humans modify files concurrently. Writing from stale content silently destroys their work. This has happened repeatedly. If the re-read shows unexpected changes, **stop and ask** — never overwrite.
