@@ -32,6 +32,7 @@
 | md preview search       | ✅             | ✅            | ❌❌         |
 | md table format         | ✅✅ auto      | 🟡 manual     | 🟡 manual    |
 | md pastes details block | ❌             | ✔️          | ✔️         |
+| md headers paste bold to Slack | ✅      | ❌            | ❌           |
 | search/find             | ✅             | ✅            | ✅           |
 | git                     | 🟡             | ✅✅          | 🟡           |
 | debug                   | ✅             | ?             | ?            |
