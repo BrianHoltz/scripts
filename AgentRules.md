@@ -52,8 +52,10 @@ This is cheaper and faster than asking "which file do you mean?" and almost alwa
 
 ## Documentation
 
-* Ad hoc docs should be created in the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
-* Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime
+- Ad hoc docs should be created in the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
+- Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime
+- Do not use horizontal lines unless absolutely necessary
+- Do not number list items unless absolutely necessary e.g. to refer to step numbers (and even then, better to have bolded step names)
 
 ### Evidence
 
