@@ -82,6 +82,11 @@ The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target env
 
 ## File Operations
 
+- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Always use inode-preserving writes instead:
+  - **Python:** `open(path, 'w').write(new_content)` or `pathlib.Path(path).write_text(new_content)` — truncates in place, inode unchanged
+  - **VS Code tool:** `replace_string_in_file` already preserves inodes — always prefer it for targeted edits
+  - **Never use:** `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern
+
 - ❗ **Re-read immediately before every edit — no exceptions.** This is the single most important rule. Other agents and humans modify files concurrently. Writing from stale content silently destroys their work. This has happened repeatedly. If the re-read shows unexpected changes, **stop and ask** — never overwrite.
 - Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
 - When duplicate/conflicting files exist, always ASK which version to keep before deleting either
