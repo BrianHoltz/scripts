@@ -2,42 +2,43 @@
 
 ## IDEs
 
-| Feature | IDEA | VS Code | Cursor |
-| --- | --- | --- | --- |
-| Score | 17 | 17 | 12.5 |
-| IDE | 2025.3.3 | 1.112 @ 03.17 | 2.6.19 |
-| VSCode engine | — | — | 1.105.1 |
-| Wibey | 1.0.4 | 1.0.1 | 1.0.1 |
-| └ parallel agents | ❌ | ❌ | ❌ |
-| └ type @ busy Wibey | ✅ | ❌❌ | ❌❌ |
-| └ context += @ file | ✅ | 🟡&lt;100KB | 🟡&lt;100KB |
-| └ context += selection | ✅ cmd-' pill | ✅ cmd-L pill | ❌❌ |
-| └ image paste | ❌ often fails | ✅ | ✅ |
-| └ convo title edit | ❌ | ✅ | ✅ |
-| └ convo title auto | last prompt | last prompt | last prompt |
-| └ convo search | ❌ | ✅ | ✅ |
-| └ convo timestamps | ✅ | ✅ | ✅ |
-| └ convo bookmark | ❌ | ✅ | ✅ |
-| └ rich/linked paste | ❌ | ❌ | ❌ |
-| Github Copilot | 1.6.1-243 | 0.39.0 | 1.388.0 |
-| └ parallel agents | ✅ | ✅ | ✅ |
-| └ context += selection | ✅ auto | ✅ auto | ? |
-| └ convo title | 🟡 manual | ✅ auto | ✅ auto |
-| AI diff review | ✅ per delta | 🟡 per file | 🟡 per file |
-| AI diff in linked repo | ✅ | ❌ | ❌ |
-| git ops in linked repo | ✅ | ✅ | ❌ |
-| approval UX | ✅ | ✅ | ✅ |
-| md preview | ✅ | 🟡 only 1 | ✅✅ wysiwyg |
-| md preview search | ✅ | ✅ | ❌❌ |
-| md table format | ✅✅ auto | 🟡 manual | 🟡 manual |
-| md pastes details block | ❌ | ✔️ | ✔️ |
-| md headers paste bold to Slack | ✅ | ❌ | ❌ |
-| search/find | ✅ | ✅ | ✅ |
-| git | 🟡 | ✅✅ | 🟡 |
-| debug | ✅ | ? | ? |
-| database | ✅ | ❌ | ❌ |
-| http | ✅ | ❌ | ❌ |
-| editor history UI | ✅ | 🟡 | 🟡 |
+
+| Feature                        | IDEA           | VS Code       | Cursor       |
+| -------------------------------- | ---------------- | --------------- | -------------- |
+| Score                          | 17             | 17            | 12.5         |
+| IDE                            | 2025.3.3       | 1.113 @ 03.24 | 2.6.19       |
+| VSCode engine                  | —             | —            | 1.105.1      |
+| Wibey                          | 1.0.4          | 1.0.3         | 1.0.1->1.0.3 |
+| └ parallel agents             | ❌             | ❌            | ❌           |
+| └ type @ busy Wibey           | ✅             | ❌❌          | ❌❌         |
+| └ context += @ file           | ✅             | 🟡&lt;100KB   | 🟡&lt;100KB  |
+| └ context += selection        | ✅ cmd-' pill  | ✅ cmd-L pill | ❌❌         |
+| └ image paste                 | ❌ often fails | ✅            | ✅           |
+| └ convo title edit            | ❌             | ✅            | ✅           |
+| └ convo title auto            | last prompt    | last prompt   | last prompt  |
+| └ convo search                | ❌             | ✅            | ✅           |
+| └ convo timestamps            | ✅             | ✅            | ✅           |
+| └ convo bookmark              | ❌             | ✅            | ✅           |
+| └ rich/linked paste           | ❌             | ❌            | ❌           |
+| Github Copilot                 | 1.6.1-243      | 0.39.0        | 1.388.0      |
+| └ parallel agents             | ✅             | ✅            | ✅           |
+| └ context += selection        | ✅ auto        | ✅ auto       | ?            |
+| └ convo title                 | 🟡 manual      | ✅ auto       | ✅ auto      |
+| AI diff review                 | ✅ per delta   | 🟡 per file   | 🟡 per file  |
+| AI diff in linked repo         | ✅             | ❌            | ❌           |
+| git ops in linked repo         | ✅             | ✅            | ❌           |
+| approval UX                    | ✅             | ✅            | ✅           |
+| md preview                     | ✅             | 🟡 only 1     | ✅✅ wysiwyg |
+| md preview search              | ✅             | ✅            | ❌❌         |
+| md table format                | ✅✅ auto      | 🟡 manual     | 🟡 manual    |
+| md pastes details block        | ❌             | ✔️          | ✔️         |
+| md headers paste bold to Slack | ✅             | ❌            | ❌           |
+| search/find                    | ✅             | ✅            | ✅           |
+| git                            | 🟡             | ✅✅          | 🟡           |
+| debug                          | ✅             | ?             | ?            |
+| database                       | ✅             | ❌            | ❌           |
+| http                           | ✅             | ❌            | ❌           |
+| editor history UI              | ✅             | 🟡            | 🟡           |
 
 &lt;details&gt;
 &lt;summary&gt;Score rubric&lt;/summary&gt;
@@ -57,27 +58,29 @@
 
 typedown and zaaack work in both VS Code and Cursor
 
-| Behavior | IDEA viewer | IDEA shuzijun | typedown | zaaack | Cursor native |
-| --- | --- | --- | --- | --- | --- |
-| version | 2025.3.3 | 2.0.5 | 1.1.7 | 0.1.13 | 2.6.19 |
-| &gt;1 tab at a time | ✅ | ✅✅ | ✅✅ | ❌ | ✅✅ |
-| re-read changed file | ? | ? | ✅ | ? | ? |
-| wide tables | ? | 🟡 scrolls but pads | ❌ truncates | ✅✅ | ❌ truncates |
-| non-bloated side padding | ? | ❌❌ | ❌ | ✅ | ❌ |
-| shows images | ? | ? | ? | ? | ? |
-| find in file | ✅ | ✅ | ❌ | ❌ | ❌ |
-| link editing | ? | ✔️ | ❌ | ✔️ | ❌ |
-| toolbar | ? | ✔️ | ✔️ | ✔️ | ❌ |
+
+| Behavior                 | IDEA viewer | IDEA shuzijun       | typedown     | zaaack | Cursor native |
+| -------------------------- | ------------- | --------------------- | -------------- | -------- | --------------- |
+| version                  | 2025.3.3    | 2.0.5               | 1.1.7        | 0.1.13 | 2.6.19        |
+| &gt;1 tab at a time      | ✅          | ✅✅                | ✅✅         | ❌     | ✅✅          |
+| re-read changed file     | ?           | ?                   | ✅           | ?      | ?             |
+| wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅   | ❌ truncates  |
+| non-bloated side padding | ?           | ❌❌                | ❌           | ✅     | ❌            |
+| shows images             | ?           | ?                   | ?            | ?      | ?             |
+| find in file             | ✅          | ✅                  | ❌           | ❌     | ❌            |
+| link editing             | ?           | ✔️                | ❌           | ✔️   | ❌            |
+| toolbar                  | ?           | ✔️                | ✔️         | ✔️   | ❌            |
 
 ### IDE Keybindings
 
-| Action | IDEA | VS Code | Cursor |
-| --- | --- | --- | --- |
-| zoom in / out | `^⌥=` / `^⌥-` ⚠️ | `⌘=` / `⌘-` | `⌘=` / `⌘-` |
-| open file | `⇧⌘O` ⚠️ | `⌘P` | `⌘P` |
-| search project | `⇧⌘F` | `⇧⌘F` | `⇧⌘F` |
-| Wibey history | ? | ? | ? |
-| Wibey new chat | ? | ? | ? |
+
+| Action         | IDEA                 | VS Code       | Cursor        |
+| ---------------- | ---------------------- | --------------- | --------------- |
+| zoom in / out  | `^⌥=` / `^⌥-` ⚠️ | `⌘=` / `⌘-` | `⌘=` / `⌘-` |
+| open file      | `⇧⌘O` ⚠️         | `⌘P`         | `⌘P`         |
+| search project | `⇧⌘F`              | `⇧⌘F`       | `⇧⌘F`       |
+| Wibey history  | ?                    | ?             | ?             |
+| Wibey new chat | ?                    | ?             | ?             |
 
 IDEA keybinding overrides (defaults shown in table, actual bindings below):
 
@@ -151,13 +154,9 @@ Proxy is configured **per machine** in Cursor User settings. Personal laptop has
 Then restart Cursor. If you use Settings Sync, turning off sync on the Walmart laptop (or re-adding these after a sync) keeps the proxy from being overwritten.
 
 - *every model request counts against monthly budget*
-
 - **seamless parallel agents**
-
 - **Displays premium usage summary (cf. "usage summary")**
-
 - **in-context edit prompt**
-
 - Extra Info from Claude Opus 4.5:
 
   - **Composer mode for multi-file refactoring**
