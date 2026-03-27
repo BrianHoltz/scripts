@@ -1,5 +1,7 @@
 # AgentRules.md - Global AI Agent Rules
 
+> **Before you touch a single file: re-read it immediately before every edit — no exceptions.** Assume humans and other agents are concurrently editing every file at all times. Writing from stale content silently destroys their work. Keep edits incremental and surgical. Full rules: [§ Do Not Overwrite Other Writers](#-do-not-overwrite-other-writers) and [§ File Operations](#file-operations).
+
 These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
 The canonical source of this file is `~/bin/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
@@ -18,11 +20,36 @@ The `~/bin/` repo also contains personal tool settings and reference docs (not s
 
 - `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
 
+**When the user mentions a file by name without a path, check `~/bin/` first** — it is the primary location for personal scripts, reference docs, and config files.
+
 To update these files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 
 ## ❗ Do Not Overwrite Other Writers
 
-**Re-read every file immediately before every edit.** Other agents and humans are editing files concurrently. If you write based on stale content, you silently destroy their work. This has happened repeatedly and is the single most damaging mistake an agent can make. No edit is so urgent that it justifies skipping the re-read. If the content changed since you last saw it, stop and ask — do not overwrite.
+**Always assume humans and other agents are concurrently editing every file, at all times.** This is not a theoretical concern — it happens constantly. There is no safe window where you can treat your cached view of a file as current.
+
+**Re-read every file immediately before every edit — no exceptions.** If you write based on stale content, you silently destroy concurrent work. This has happened repeatedly and is the single most damaging mistake an agent can make. No edit is so urgent that it justifies skipping the re-read. If the content changed since you last read it, stop and ask — do not overwrite.
+
+**Plan updates to be incremental and surgical.** Prefer targeted edits (replace a specific string, append to a section) over full-file rewrites. The smaller your write surface, the less concurrent work you can accidentally clobber — and the less work is lost if someone clobbers you. Never rewrite a whole file when you only need to change one section.
+
+## File Operations
+
+- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Always use inode-preserving writes instead:
+  - **Python:** `open(path, 'w').write(new_content)` or `pathlib.Path(path).write_text(new_content)` — truncates in place, inode unchanged
+  - **VS Code tool:** `replace_string_in_file` already preserves inodes — always prefer it for targeted edits
+  - **Never use:** `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern
+- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
+- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
+- Do not make any VCS changes unless you're absolutely sure the user wants that.
+
+### PR Diff Source of Truth
+
+When reviewing a PR or describing what a branch/PR changes relative to its base:
+
+- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
+- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
+- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
+- If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
 
 ## Coding Workflow
 
@@ -49,6 +76,21 @@ When the user references a file ambiguously (e.g., "this file", "that doc", "the
 In CLI agents or other environments without editor tab access, use whatever information is immediately and efficiently available — recent git activity (`git diff`, `git log -1`), shell history, or the current working directory — to infer which file the user most recently accessed.
 
 This is cheaper and faster than asking "which file do you mean?" and almost always resolves the reference correctly.
+
+## Dates and Times
+
+**Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
+
+```bash
+date "+%Y-%m-%d %H:%M %Z"
+```
+
+This is cheap (a few tokens for the command and output) and prevents embarrassing date hallucinations. Run this once per session or whenever you need to use the current date.
+
+**Use EDTF (Extended Date/Time Format) for all dates**, with these modifications:
+
+- Use **periods** as date component separators instead of hyphens (e.g. `2026.03.27` not `2026-03-27`). Periods prevent unwanted line breaks in cramped table layouts, are analogous to decimal points, save space in variable-width fonts, and cannot be confused with ranges.
+- Use **space-separated em dashes** as range indicators instead of slashes (e.g. `2026.03.01 — 2026.03.27` not `2026-03-01/2026-03-27`). Slashes read like ratios or alternatives, not ranges.
 
 ## Documentation
 
@@ -79,41 +121,6 @@ Omit any field that genuinely does not apply, but include as many as possible. T
 When a URL is available, prefer a Markdown link with descriptive anchor text over printing the raw URL — embed the locator (line number, timestamp, etc.) in the link target rather than repeating it in prose. For example, write `[AuthService:L42](https://github.com/…/auth.ts#L42)` instead of `https://github.com/…/auth.ts, line 42`.
 
 The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via the md2confluence pipeline in `~/src/relationship-shared/`).
-
-## File Operations
-
-- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Always use inode-preserving writes instead:
-  - **Python:** `open(path, 'w').write(new_content)` or `pathlib.Path(path).write_text(new_content)` — truncates in place, inode unchanged
-  - **VS Code tool:** `replace_string_in_file` already preserves inodes — always prefer it for targeted edits
-  - **Never use:** `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern
-
-- ❗ **Re-read immediately before every edit — no exceptions.** This is the single most important rule. Other agents and humans modify files concurrently. Writing from stale content silently destroys their work. This has happened repeatedly. If the re-read shows unexpected changes, **stop and ask** — never overwrite.
-- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
-- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
-- Do not make any VCS changes unless you're absolutely sure the user wants that.
-
-### PR Diff Source of Truth
-
-When reviewing a PR or describing what a branch/PR changes relative to its base:
-
-- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
-- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
-- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
-- If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
-
-## Terminals
-
-<!-- Pager hangs, heredoc hangs, and terminal blindness guidance moved to git history — not seen recently. -->
-
-## Dates and Times
-
-**Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
-
-```bash
-date "+%Y-%m-%d %H:%M %Z"
-```
-
-This is cheap (a few tokens for the command and output) and prevents embarrassing date hallucinations. Run this once per session or whenever you need to use the current date.
 
 ## Custom Commands
 
