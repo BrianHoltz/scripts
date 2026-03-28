@@ -8,6 +8,7 @@ The canonical source of this file is `~/bin/AgentRules.md`, version-controlled i
 
 - `~/.claude/CLAUDE.md` — read by Claude Code CLI and Wibey (VSCode extension)
 - `~/.cursor/cursorrules` — read by Cursor
+- VS Code `settings.json` `github.copilot.chat.codeGeneration.instructions`: `[{ "file": "/Users/brian/bin/AgentRules.md" }]` — read by GitHub Copilot
 
 Other `~/bin/` files symlinked into `~/`:
 
