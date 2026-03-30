@@ -86,31 +86,42 @@ This is the baseline modern pattern for preventing agent clobbering.
 #### Non-negotiables
 
 - Locking does not replace re-reading; re-reading does not replace locking.
-- Any write done without lock + CAS is best-effort only and must be called out explicitly.
-- If protocol cannot be applied, stop and ask before writing.
+- **There are ZERO exceptions to the lock + CAS protocol.** Every file write — source code, config, docs, generated artifacts, anything — must go through `write_if_unchanged`. "Low-contention" files, quick single-line edits, and IDE tool convenience are not exemptions. None.
+- VS Code tools such as `replace_string_in_file` do NOT implement lock + CAS and are **never** acceptable substitutes for `write_if_unchanged`.
+- If `write_if_unchanged` genuinely cannot be invoked, stop and ask the user. There is no fallback, no best-effort mode, and no self-granted exception.
 
 ### Concrete tool: `write_if_unchanged`
 
-`~/bin/write_if_unchanged` implements the full protocol above for any file write performed by an agent or shell script. Use it instead of writing files directly.
+`~/bin/write_if_unchanged` implements the full protocol above. **It must be used for every single file write — no exceptions, no shortcuts, no substitutes.** There is no file type, perceived contention level, or tool convenience that justifies bypassing it.
 
-**Basic usage — pipe stdin to a file:**
+**Preferred pattern — write new content to a temp file, then apply:**
 ```sh
-# Caller reads the file and records its hash *before* preparing new content
+# 1. Capture hash BEFORE preparing new content
 HASH=$(shasum -a 256 config.json | awk '{print $1}')
-# ... agent prepares new content ...
-echo "$NEW_CONTENT" | ~/bin/write_if_unchanged config.json \
-  --stdin \
-  --expect-sha256 "$HASH" \
-  --note "agent=claude, task=abc123, request='update config keys'"
-```
-
-**From a file:**
-```sh
+# 2. Write new content to a temp file (NOT a pipe — temp files can be inspected and cannot be zeroed by pipe failure)
+python3 my_transform.py > /tmp/new_config.json
+# 3. Optionally verify the temp file before committing
+grep -q "expected_key" /tmp/new_config.json || { echo "Transform failed"; exit 1; }
+# 4. Apply with CAS
 ~/bin/write_if_unchanged config.json \
   --from /tmp/new_config.json \
   --expect-sha256 "$HASH" \
   --note "agent=claude, task=abc123"
 ```
+
+**`--stdin` (avoid for existing files):**
+```sh
+echo "$NEW_CONTENT" | ~/bin/write_if_unchanged config.json \
+  --stdin \
+  --expect-sha256 "$HASH" \
+  --note "agent=claude, task=abc123, request='update config keys'"
+```
+Avoid `--stdin` when the target already exists: if the pipe fails silently and produces 0 bytes, `write_if_unchanged` will abort (hard guard, exit 1) — but you still lose the write. Use `--from` instead so the content exists as a verifiable file before the write is attempted.
+
+**`--from` vs `--stdin` — always prefer `--from` for existing files:**
+- With `--from`, the new content exists as a temp file you can inspect, diff, and grep before committing the write.
+- With `--stdin`, a silent pipe failure produces 0 bytes. `write_if_unchanged` has a hard guard that aborts and preserves the target in that case, but the write still fails with no output produced.
+- Never pipe a transformation of a file back into `write_if_unchanged` targeting that same file: `transform TARGET | write_if_unchanged TARGET` is unconditionally forbidden.
 
 **Arguments:**
 - `TARGET` — file to write (created if absent)

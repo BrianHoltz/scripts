@@ -499,6 +499,57 @@ def _test_lock_cleaned_up(tmpdir: Path, lock_root: str, details: list[str]) -> b
     return True
 
 
+
+def _test_stdin_zero_bytes_aborts_if_target_nonempty(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Hard guard: --stdin with 0 bytes must abort (exit 1) if target exists and is non-empty."""
+    target = tmpdir / "existing.txt"
+    target.write_bytes(b"important content")
+    orig_content = target.read_bytes()
+
+    r = run(str(target), stdin_data=b"", lock_root=lock_root)
+    details.append(f"exit={r.returncode} stderr={r.stderr!r}")
+    if r.returncode != 1:
+        details.append(f"expected exit 1 (hard guard), got {r.returncode}")
+        return False
+    if target.read_bytes() != orig_content:
+        details.append("FATAL: file was modified (zeroed) despite hard guard")
+        return False
+    if b"FATAL" not in r.stderr and b"0 bytes" not in r.stderr:
+        details.append("expected error message mentioning 0 bytes in stderr")
+        return False
+    return True
+
+
+def _test_stdin_zero_bytes_ok_if_target_new(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Hard guard does not fire when target does not yet exist (creating empty file is allowed)."""
+    target = tmpdir / "new_empty.txt"
+    r = run(str(target), stdin_data=b"", lock_root=lock_root)
+    details.append(f"exit={r.returncode} stderr={r.stderr!r}")
+    if r.returncode != 0:
+        details.append(f"expected exit 0 for new target with empty stdin, got {r.returncode}")
+        return False
+    return True
+
+
+
+def _test_from_devnull_zeros_existing_file(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """--from /dev/null intentionally zeros an existing file (hard guard does not apply to --from)."""
+    target = tmpdir / "to_zero.txt"
+    target.write_bytes(b"content to erase")
+
+    cmd = [PYTHON, str(SCRIPT), str(target), "--from", "/dev/null",
+           "--lock-root", lock_root, "--owner", "test"]
+    r = subprocess.run(cmd, capture_output=True)
+    details.append(f"exit={r.returncode} stderr={r.stderr!r}")
+    if r.returncode != 0:
+        details.append(f"expected exit 0, got {r.returncode}")
+        return False
+    if target.read_bytes() != b"":
+        details.append(f"expected empty file, got {target.read_bytes()!r}")
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Test registry
 # ---------------------------------------------------------------------------
@@ -521,6 +572,9 @@ TESTS = [
     ("raw usage matches --help output",             _test_usage_matches_help_output),
     ("binary content roundtrips",                   _test_binary_content),
     ("lock cleaned up after write",                 _test_lock_cleaned_up),
+    ("--stdin 0 bytes aborts if target non-empty",  _test_stdin_zero_bytes_aborts_if_target_nonempty),
+    ("--stdin 0 bytes ok if target is new",         _test_stdin_zero_bytes_ok_if_target_new),
+    ("--from /dev/null zeros existing file",         _test_from_devnull_zeros_existing_file),
 ]
 
 

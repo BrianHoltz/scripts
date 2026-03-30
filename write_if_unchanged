@@ -33,8 +33,13 @@ ARGUMENTS
     TARGET                File to write (created if it does not exist)
 
 OPTIONS
-    --from SOURCE         Read new content from SOURCE
-    --stdin               Read new content from stdin
+    --from SOURCE         Read new content from SOURCE. Preferred over --stdin for
+                          existing files: content can be verified before write and
+                          cannot be zeroed by pipe failure.
+    --stdin               Read new content from stdin. If stdin produces 0 bytes and
+                          TARGET exists and is non-empty, the write is aborted (exit 1).
+                          Prefer --from with a temp file for existing files.
+                          To intentionally zero a file, use --from /dev/null.
     --expect-sha256 HASH  SHA-256 of TARGET as caller last read it; aborts with exit 3
                           if the file has since changed. Omit to skip CAS check.
                           If TARGET does not yet exist, its effective sha256 is that of
@@ -321,8 +326,13 @@ def show_usage() -> None:
     W(NL)
 
     section("OPTIONS")
-    W(f"    {flag('--from')} {fs_var('SOURCE')}         Read new content from {fs_var('SOURCE')}{NL}")
-    W(f"    {flag('--stdin')}               Read new content from stdin{NL}")
+    W(f"    {flag('--from')} {fs_var('SOURCE')}         Read new content from {fs_var('SOURCE')}. {BOLD}Preferred{RESET} over {flag('--stdin')} for{NL}")
+    W(f"                          existing files: content can be verified before write and{NL}")
+    W(f"                          cannot be zeroed by pipe failure.{NL}")
+    W(f"    {flag('--stdin')}               Read new content from stdin. If stdin produces 0 bytes and{NL}")
+    W(f"                          {fs_var('TARGET')} exists and is non-empty, the write is aborted (exit {arg_lit('1')}).{NL}")
+    W(f"                          Prefer {flag('--from')} with a temp file for existing files.{NL}")
+    W(f"                          To intentionally zero a file, use {flag('--from')} {fs_lit('/dev/null')}.{NL}")
     W(f"    {flag('--expect-sha256')} {arg_var('HASH')}  SHA-256 of {fs_var('TARGET')} as caller last read it; aborts with exit {arg_lit('3')}{NL}")
     W(f"                          if the file has since changed. Omit to skip CAS check.{NL}")
     W(f"                          If {fs_var('TARGET')} does not yet exist, its effective sha256 is that of{NL}")
@@ -391,6 +401,15 @@ def main() -> int:
 
     if args.stdin:
         new_data = sys.stdin.buffer.read()
+        # Hard guard: empty stdin with non-empty existing target always aborts — no override.
+        if len(new_data) == 0 and target.exists() and target.stat().st_size > 0:
+            print(
+                f"FATAL: --stdin produced 0 bytes but {target} is non-empty "
+                f"({target.stat().st_size} bytes). Refusing to zero the file. "
+                f"Use --from with a temp file instead, or --from /dev/null to intentionally zero it.",
+                file=sys.stderr,
+            )
+            return 1
     else:
         new_data = Path(args.from_file).expanduser().read_bytes()
 
