@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 usage_msg = """\
 NAME
-    write_unless_changed - Write a file only if it matches expected content (advisory lock + CAS)
+    write_unless_changed - Write a file only if it matches expected content (advisory lock + Compare And Swap)
 
 SYNOPSIS
-    write_unless_changed TARGET (--from FILE | --stdin) [--expect-sha256 HASH] [--note TEXT]
+    write_unless_changed TARGET (--from SOURCE | --stdin) [--expect-sha256 HASH] [--note TEXT]
         [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL] [-H]
 
 DESCRIPTION
@@ -29,13 +29,14 @@ DESCRIPTION
 
 OPTIONS
     TARGET                File to write (created if it does not exist)
-    --from FILE           Read new content from FILE
+    --from SOURCE         Read new content from SOURCE
     --stdin               Read new content from stdin
     --expect-sha256 HASH  SHA-256 of TARGET as caller last read it; aborts with exit 3
                           if the file has since changed. Omit to skip CAS check.
     --note TEXT           Free-form label stored in lock metadata: agent name, task ID,
                           prompt summary, etc. Shown in stderr when a stale lock breaks.
     --lock-root DIR       Directory for lock entries (default: /tmp/write_unless_changed.locks)
+                          Must be shared by all cooperating writers.
     --ttl SECS            Stale lock TTL in seconds (default: 120)
     --wait SECS           Max seconds to wait for lock acquisition (default: 30)
     --owner LABEL         Owner label in lock metadata (default: $USER)

@@ -29,7 +29,7 @@ import tempfile
 import time
 from pathlib import Path
 
-SCRIPT = Path(__file__).parent / "write_unless_changed.py"
+SCRIPT = Path(__file__).parent / "write_unless_changed"
 PYTHON = sys.executable
 
 

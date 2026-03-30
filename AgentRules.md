@@ -89,16 +89,16 @@ This is the baseline modern pattern for preventing agent clobbering.
 - Any write done without lock + CAS is best-effort only and must be called out explicitly.
 - If protocol cannot be applied, stop and ask before writing.
 
-### Concrete tool: `write_unless_changed.py`
+### Concrete tool: `write_unless_changed`
 
-`~/bin/write_unless_changed.py` implements the full protocol above for any file write performed by an agent or shell script. Use it instead of writing files directly.
+`~/bin/write_unless_changed` implements the full protocol above for any file write performed by an agent or shell script. Use it instead of writing files directly.
 
 **Basic usage — pipe stdin to a file:**
 ```sh
 # Caller reads the file and records its hash *before* preparing new content
 HASH=$(shasum -a 256 config.json | awk '{print $1}')
 # ... agent prepares new content ...
-echo "$NEW_CONTENT" | python3 ~/bin/write_unless_changed.py config.json \
+echo "$NEW_CONTENT" | ~/bin/write_unless_changed config.json \
   --stdin \
   --expect-sha256 "$HASH" \
   --note "agent=claude, task=abc123, request='update config keys'"
@@ -106,7 +106,7 @@ echo "$NEW_CONTENT" | python3 ~/bin/write_unless_changed.py config.json \
 
 **From a file:**
 ```sh
-python3 ~/bin/write_unless_changed.py config.json \
+~/bin/write_unless_changed config.json \
   --from /tmp/new_config.json \
   --expect-sha256 "$HASH" \
   --note "agent=claude, task=abc123"
