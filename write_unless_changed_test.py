@@ -21,7 +21,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import hashlib
+import re
 import shutil
 import subprocess
 import sys
@@ -82,6 +82,10 @@ keep_artifacts: bool = False
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def strip_ansi(data: bytes) -> bytes:
+    return re.sub(rb"\x1b\[[0-9;]*[A-Za-z]", b"", data)
 
 
 def run(
@@ -434,6 +438,31 @@ def _test_help_flag_exits_0(tmpdir: Path, lock_root: str, details: list[str]) ->
     return True
 
 
+def _test_usage_matches_help_output(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Raw usage (-H) must exactly match color-stripped help output (-h)."""
+    raw = subprocess.run([PYTHON, str(SCRIPT), "-H"], capture_output=True)
+    help_out = subprocess.run([PYTHON, str(SCRIPT), "-h"], capture_output=True)
+
+    details.append(
+        f"raw_exit={raw.returncode} help_exit={help_out.returncode} "
+        f"raw_len={len(raw.stdout)} help_len={len(help_out.stdout)}"
+    )
+
+    if raw.returncode != 0:
+        details.append(f"-H exited {raw.returncode}: stderr={raw.stderr!r}")
+        return False
+    if help_out.returncode != 0:
+        details.append(f"-h exited {help_out.returncode}: stderr={help_out.stderr!r}")
+        return False
+
+    stripped_help = strip_ansi(help_out.stdout)
+    if raw.stdout != stripped_help:
+        details.append(f"raw stdout={raw.stdout!r}")
+        details.append(f"stripped help stdout={stripped_help!r}")
+        return False
+    return True
+
+
 def _test_binary_content(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
     """Binary data (null bytes, high bytes) should roundtrip correctly."""
     target = tmpdir / "bin.dat"
@@ -485,9 +514,10 @@ TESTS = [
     ("inode preserved on overwrite",                _test_inode_preserved),
     ("stdout reports byte count",                   _test_stdout_reports_bytes),
     ("usage error exits 1",                         _test_usage_error_exits_1),
-    ("-h flag exits 0 with usage",                   _test_help_flag_exits_0),
-    ("binary content roundtrips",                    _test_binary_content),
-    ("lock cleaned up after write",                  _test_lock_cleaned_up),
+    ("-h flag exits 0 with usage",                  _test_help_flag_exits_0),
+    ("raw usage matches --help output",             _test_usage_matches_help_output),
+    ("binary content roundtrips",                   _test_binary_content),
+    ("lock cleaned up after write",                 _test_lock_cleaned_up),
 ]
 
 
