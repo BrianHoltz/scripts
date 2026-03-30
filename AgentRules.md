@@ -89,16 +89,16 @@ This is the baseline modern pattern for preventing agent clobbering.
 - Any write done without lock + CAS is best-effort only and must be called out explicitly.
 - If protocol cannot be applied, stop and ask before writing.
 
-### Concrete tool: `write_unless_changed`
+### Concrete tool: `write_if_unchanged`
 
-`~/bin/write_unless_changed` implements the full protocol above for any file write performed by an agent or shell script. Use it instead of writing files directly.
+`~/bin/write_if_unchanged` implements the full protocol above for any file write performed by an agent or shell script. Use it instead of writing files directly.
 
 **Basic usage — pipe stdin to a file:**
 ```sh
 # Caller reads the file and records its hash *before* preparing new content
 HASH=$(shasum -a 256 config.json | awk '{print $1}')
 # ... agent prepares new content ...
-echo "$NEW_CONTENT" | ~/bin/write_unless_changed config.json \
+echo "$NEW_CONTENT" | ~/bin/write_if_unchanged config.json \
   --stdin \
   --expect-sha256 "$HASH" \
   --note "agent=claude, task=abc123, request='update config keys'"
@@ -106,7 +106,7 @@ echo "$NEW_CONTENT" | ~/bin/write_unless_changed config.json \
 
 **From a file:**
 ```sh
-~/bin/write_unless_changed config.json \
+~/bin/write_if_unchanged config.json \
   --from /tmp/new_config.json \
   --expect-sha256 "$HASH" \
   --note "agent=claude, task=abc123"
@@ -117,7 +117,7 @@ echo "$NEW_CONTENT" | ~/bin/write_unless_changed config.json \
 - `--from FILE` or `--stdin` — source of new content (required, mutually exclusive)
 - `--expect-sha256 HASH` — SHA-256 of the file *as the caller last read it*; write aborts (exit 3) if the file changed since then. Omit only if CAS is genuinely not needed (advisory lock only).
 - `--note TEXT` — free-form label stored in lock metadata: agent name, task ID, prompt summary, etc. Shown in stderr when a stale lock is broken — lets you trace which agent or request got stuck.
-- `--lock-root DIR` — directory for lock entries (default: `/tmp/write_unless_changed.locks/`)
+- `--lock-root DIR` — directory for lock entries (default: `/tmp/write_if_unchanged.locks/`)
 - `--ttl SECS` — stale lock TTL in seconds (default: 120)
 - `--wait SECS` — max seconds to wait for lock (default: 30)
 - `--owner LABEL` — owner label in lock metadata (default: `$USER`)

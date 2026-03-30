@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 usage_msg = """\
 NAME
-    write_unless_changed - Write a file only if unchanged since last read (advisory lock + compare-and-swap)
+    write_if_unchanged - Write a file only if unchanged since last read (advisory lock + compare-and-swap)
 
 SYNOPSIS
-    write_unless_changed TARGET (--from SOURCE | --stdin) [--expect-sha256 HASH] [--note TEXT]
+    write_if_unchanged TARGET (--from SOURCE | --stdin) [--expect-sha256 HASH] [--note TEXT]
         [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL]
 
 DESCRIPTION
@@ -12,16 +12,16 @@ DESCRIPTION
     --expect-sha256, using an advisory mkdir lock to serialize concurrent writers
     and a heartbeat thread to detect and recover from crashed agents.
 
-    Caller protocol:
-      1. Read TARGET and record its sha256 (shasum -a 256 TARGET | awk '{print $1}')
-      2. Prepare new content
-      3. Invoke write_unless_changed with --expect-sha256 set to the hash from step 1
-      If the file changed between steps 1 and 3, the write is aborted (exit 3).
+        Caller protocol:
+            1. Read TARGET and record its sha256 (shasum -a 256 TARGET | awk '{print $1}')
+            2. Prepare new content
+            3. Invoke write_if_unchanged with --expect-sha256 set to the hash from step 1
+            If the file changed between steps 1 and 3, the write is aborted (exit 3).
 
     Writes in-place (truncate + rewrite), preserving the inode. File watchers and
     open file descriptors continue to see the file at the same inode.
 
-    Lock files live under --lock-root (default: /tmp/write_unless_changed.locks/).
+    Lock files live under --lock-root (default: /tmp/write_if_unchanged.locks/).
     All cooperating agents must use the same --lock-root to rendezvous.
     A lock held by a crashed writer (heartbeat older than --ttl seconds) is
     automatically broken and the stale owner and note are logged to stderr.
@@ -39,7 +39,7 @@ OPTIONS
                           unconditionally.
     --note TEXT           Free-form label stored in lock metadata: agent name, task ID,
                           prompt summary, etc. Shown in stderr when a stale lock breaks.
-    --lock-root DIR       Directory for lock entries (default: /tmp/write_unless_changed.locks)
+    --lock-root DIR       Directory for lock entries (default: /tmp/write_if_unchanged.locks)
                           Must be shared by all cooperating writers.
     --ttl SECS            Stale lock TTL in seconds (default: 120)
     --wait SECS           Max seconds to wait for lock acquisition (default: 30)
@@ -56,7 +56,7 @@ EXIT CODES
 
 EXAMPLE
     HASH=$(shasum -a 256 config.json | awk '{print $1}')
-    write_unless_changed config.json \\
+    write_if_unchanged config.json \\
         --from new_config.json --expect-sha256 "$HASH" \\
         --note "agent=claude, task=abc123"
 """
@@ -239,13 +239,13 @@ def show_usage() -> None:
     BOLD      = "\033[1m"
     UNDERLINE = "\033[4m"
     ITALIC    = "\033[3m"
-    CMD       = "\033[1;34m"   # bright blue   — commands
-    FLAG      = "\033[1;36m"   # bright cyan   — flags
-    FS_VAR    = "\033[32m"     # green         — filesystem variable
-    FS_LIT    = "\033[1;32m"   # bright green  — filesystem literal
-    ARG_VAR   = "\033[33m"     # yellow        — argument variable
-    ARG_LIT   = "\033[1;33m"   # bright yellow — argument literal
-    FF_VAR    = "\033[35m"     # magenta       — freeform variable
+    CMD       = "\033[1;34m"
+    FLAG      = "\033[1;36m"
+    FS_VAR    = "\033[32m"
+    FS_LIT    = "\033[1;32m"
+    ARG_VAR   = "\033[33m"
+    ARG_LIT   = "\033[1;33m"
+    FF_VAR    = "\033[35m"
     W = sys.stdout.write
     NL = "\n"
 
@@ -278,12 +278,12 @@ def show_usage() -> None:
     note_example = ff_var('"agent=claude, task=abc123"')
 
     section("NAME")
-    W(f"    {cmd('write_unless_changed')} - Write a file only if unchanged since last read"
+    W(f"    {cmd('write_if_unchanged')} - Write a file only if unchanged since last read"
       f" (advisory lock + compare-and-swap){NL}")
     W(NL)
 
     section("SYNOPSIS")
-    W(f"    {cmd('write_unless_changed')} {fs_var('TARGET')}"
+    W(f"    {cmd('write_if_unchanged')} {fs_var('TARGET')}"
       f" ({flag('--from')} {fs_var('SOURCE')} | {flag('--stdin')})"
       f" [{flag('--expect-sha256')} {arg_var('HASH')}] [{flag('--note')} {ff_var('TEXT')}]{NL}")
     W(f"        [{flag('--lock-root')} {fs_var('DIR')}]"
@@ -297,17 +297,17 @@ def show_usage() -> None:
     W(f"    {flag('--expect-sha256')}, using an advisory {cmd('mkdir')} lock to serialize concurrent writers{NL}")
     W(f"    and a heartbeat thread to detect and recover from crashed agents.{NL}")
     W(NL)
-    W(f"    Caller protocol:{NL}")
-    W(f"      1. Read {fs_var('TARGET')} and record its sha256"
-            f" ({cmd('shasum')} {flag('-a')} {arg_lit('256')} {fs_var('TARGET')} | {cmd('awk')} {awk_print}){NL}")
-    W(f"      2. Prepare new content{NL}")
-    W(f"      3. Invoke {cmd('write_unless_changed')} with {flag('--expect-sha256')} set to the hash from step 1{NL}")
-    W(f"      If the file changed between steps 1 and 3, the write is aborted (exit {arg_lit('3')}).{NL}")
+    W(f"        Caller protocol:{NL}")
+    W(f"            1. Read {fs_var('TARGET')} and record its sha256"
+      f" ({cmd('shasum')} {flag('-a')} {arg_lit('256')} {fs_var('TARGET')} | {cmd('awk')} {awk_print}){NL}")
+    W(f"            2. Prepare new content{NL}")
+    W(f"            3. Invoke {cmd('write_if_unchanged')} with {flag('--expect-sha256')} set to the hash from step 1{NL}")
+    W(f"            If the file changed between steps 1 and 3, the write is aborted (exit {arg_lit('3')}).{NL}")
     W(NL)
     W(f"    Writes in-place (truncate + rewrite), preserving the inode. File watchers and{NL}")
     W(f"    open file descriptors continue to see the file at the same inode.{NL}")
     W(NL)
-    W(f"    Lock files live under {flag('--lock-root')} (default: {fs_lit('/tmp/write_unless_changed.locks/')}).{NL}")
+    W(f"    Lock files live under {flag('--lock-root')} (default: {fs_lit('/tmp/write_if_unchanged.locks/')}).{NL}")
     W(f"    All cooperating agents must use the same {flag('--lock-root')} to rendezvous.{NL}")
     W(f"    A lock held by a crashed writer (heartbeat older than {flag('--ttl')} seconds) is{NL}")
     W(f"    automatically broken and the stale owner and note are logged to stderr.{NL}")
@@ -327,7 +327,7 @@ def show_usage() -> None:
     W(f"                          unconditionally.{NL}")
     W(f"    {flag('--note')} {ff_var('TEXT')}           Free-form label stored in lock metadata: agent name, task ID,{NL}")
     W(f"                          prompt summary, etc. Shown in stderr when a stale lock breaks.{NL}")
-    W(f"    {flag('--lock-root')} {fs_var('DIR')}       Directory for lock entries (default: {fs_lit('/tmp/write_unless_changed.locks')}){NL}")
+    W(f"    {flag('--lock-root')} {fs_var('DIR')}       Directory for lock entries (default: {fs_lit('/tmp/write_if_unchanged.locks')}){NL}")
     W(f"                          Must be shared by all cooperating writers.{NL}")
     W(f"    {flag('--ttl')} {arg_var('SECS')}            Stale lock TTL in seconds (default: {arg_lit('120')}){NL}")
     W(f"    {flag('--wait')} {arg_var('SECS')}           Max seconds to wait for lock acquisition (default: {arg_lit('30')}){NL}")
@@ -346,7 +346,7 @@ def show_usage() -> None:
 
     section("EXAMPLE")
     W(f"    {ARG_VAR}HASH{RESET}=$(shasum -a 256 {fs_lit('config.json')} | awk '{{print $1}}'){NL}")
-    W(f"    {cmd('write_unless_changed')} {fs_lit('config.json')} \\{NL}")
+    W(f"    {cmd('write_if_unchanged')} {fs_lit('config.json')} \\{NL}")
     W(f"        {flag('--from')} {fs_lit('new_config.json')} {flag('--expect-sha256')} {hash_var} \\{NL}")
     W(f"        {flag('--note')} {note_example}{NL}")
 
@@ -357,7 +357,7 @@ def parse_args() -> argparse.Namespace:
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--from", dest="from_file", help="Path to file containing new content")
     src.add_argument("--stdin", action="store_true", help="Read new content from stdin")
-    p.add_argument("--lock-root", default="/tmp/write_unless_changed.locks", help="Directory for lock entries")
+    p.add_argument("--lock-root", default="/tmp/write_if_unchanged.locks", help="Directory for lock entries")
     p.add_argument("--ttl", type=int, default=120, help="Stale lock TTL in seconds")
     p.add_argument("--wait", type=int, default=30, help="Max seconds to wait for lock")
     p.add_argument("--owner", default=os.environ.get("USER", "unknown"), help="Owner label in lock metadata")
@@ -380,8 +380,8 @@ def main() -> int:
     try:
         args = parse_args()
     except (argparse.ArgumentError, SystemExit):
-        print("usage: write_unless_changed TARGET (--from SOURCE | --stdin) [OPTIONS]", file=sys.stderr)
-        print("Run 'write_unless_changed -h' for help.", file=sys.stderr)
+        print("usage: write_if_unchanged TARGET (--from SOURCE | --stdin) [OPTIONS]", file=sys.stderr)
+        print("Run 'write_if_unchanged -h' for help.", file=sys.stderr)
         return 1
     target = Path(args.target).expanduser()
     lock_root = Path(args.lock_root).expanduser()

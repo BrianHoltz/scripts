@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Tests for write_unless_changed.py.
+"""Tests for write_if_unchanged.
 
 Usage:
-  write_unless_changed_test.py [-v] [-l] [-t N] [--keep-artifacts]
+    write_if_unchanged_test.py [-v] [-l] [-t N] [--keep-artifacts]
 
 Options:
   -h, --help          Show this message and exit
@@ -29,7 +29,7 @@ import tempfile
 import time
 from pathlib import Path
 
-SCRIPT = Path(__file__).parent / "write_unless_changed"
+SCRIPT = Path(__file__).parent / "write_if_unchanged"
 PYTHON = sys.executable
 
 
@@ -165,7 +165,7 @@ def test_case(desc: str, fn) -> None:
     if specific_test is not None and specific_test != current_test_num:
         return
 
-    tmpdir = Path(tempfile.mkdtemp(prefix="wuc_test_"))
+    tmpdir = Path(tempfile.mkdtemp(prefix="wiu_test_"))
     lock_root = str(tmpdir / "locks")
     details: list[str] = []
     result = True
@@ -432,7 +432,7 @@ def _test_help_flag_exits_0(tmpdir: Path, lock_root: str, details: list[str]) ->
     if r.returncode != 0:
         details.append(f"expected exit 0, got {r.returncode}")
         return False
-    if b"write_unless_changed" not in r.stdout:
+    if b"write_if_unchanged" not in r.stdout:
         details.append("expected usage text in stdout")
         return False
     return True
@@ -533,7 +533,7 @@ def list_tests() -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Tests for write_unless_changed.py",
+        description="Tests for write_if_unchanged",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("-v", dest="verbose", action="store_true",
