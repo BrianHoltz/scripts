@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 usage_msg = """\
 NAME
-    write_unless_changed - Write a file only if it matches expected content (advisory lock + Compare And Swap)
+    write_unless_changed - Write a file only if it hasn't changed since last read
+                           (advisory lock + compare-and-swap)
 
 SYNOPSIS
     write_unless_changed TARGET (--from SOURCE | --stdin) [--expect-sha256 HASH] [--note TEXT]
-        [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL] [-H]
+        [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL]
 
 DESCRIPTION
-    Writes new content to TARGET only if the file matches the caller's expected sha256,
-    using an advisory mkdir lock to serialize concurrent writers and a heartbeat
-    thread to detect and recover from crashed agents.
+    Writes new content to TARGET only if the file's current sha256 matches
+    --expect-sha256, using an advisory mkdir lock to serialize concurrent writers
+    and a heartbeat thread to detect and recover from crashed agents.
 
     Caller protocol:
       1. Read TARGET and record its sha256 (shasum -a 256 TARGET | awk '{print $1}')
       2. Prepare new content
       3. Invoke write_unless_changed with --expect-sha256 set to the hash from step 1
       If the file changed between steps 1 and 3, the write is aborted (exit 3).
-      Omit --expect-sha256 to use advisory locking only (no CAS check).
 
     Writes in-place (truncate + rewrite), preserving the inode. File watchers and
     open file descriptors continue to see the file at the same inode.
@@ -27,8 +27,10 @@ DESCRIPTION
     A lock held by a crashed writer (heartbeat older than --ttl seconds) is
     automatically broken and the stale owner and note are logged to stderr.
 
-OPTIONS
+ARGUMENTS
     TARGET                File to write (created if it does not exist)
+
+OPTIONS
     --from SOURCE         Read new content from SOURCE
     --stdin               Read new content from stdin
     --expect-sha256 HASH  SHA-256 of TARGET as caller last read it; aborts with exit 3
@@ -51,8 +53,8 @@ EXIT CODES
 
 EXAMPLE
     HASH=$(shasum -a 256 config.json | awk '{print $1}')
-    cat new_config.json | write_unless_changed config.json \\
-        --stdin --expect-sha256 $HASH \\
+    write_unless_changed config.json \\
+        --from new_config.json --expect-sha256 "$HASH" \\
         --note "agent=claude, task=abc123"
 """
 
