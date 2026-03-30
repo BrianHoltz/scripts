@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Brian Holtz
+# SPDX-License-Identifier: MIT
+
 usage_msg = """\
 NAME
     write_if_unchanged - Write a file only if unchanged since last read (advisory lock + compare-and-swap)

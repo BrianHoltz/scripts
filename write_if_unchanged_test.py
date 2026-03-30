@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Brian Holtz
+# SPDX-License-Identifier: MIT
+
 """Tests for write_if_unchanged.
 
 Usage:
