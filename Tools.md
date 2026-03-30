@@ -93,6 +93,7 @@ The default keybindings collided with preference — typedown's simpler shortcut
 
 - **typedown** "Open in WYSIWYG mode": default `^ ⌥ ⌘ M` → swapped to `⌥ ⇧ ⌘ M`
 - **zaaack** "Open with markdown editor": default `⌥ ⇧ ⌘ M` → swapped to `^ ⌥ ⌘ M`
+- **Markdown Preview Enhanced** (`shd101wyy.markdown-preview-enhanced`): bound `⇧ ⌘ V` to `markdown-preview-enhanced.openPreview` so Cmd+Shift+V opens Enhanced preview (which supports intra-doc anchor links) instead of the built-in preview (which has broken intra-doc links in some cases). Done via `keybindings.json`: unbind built-in `workbench.action.markdown.openPreview` from `⇧⌘V`, then bind `markdown-preview-enhanced.openPreview` to `⇧⌘V`.
 
 Each swap uses a `-` (unbind) entry to remove the extension default, then a positive binding with the other shortcut. typedown also has a toggle pair (`openWysiwygEditor` / `openDefaultEditor` gated on `typedown.editorIsActive`), so both commands are rebound.
 
@@ -173,6 +174,19 @@ Then restart Cursor. If you use Settings Sync, turning off sync on the Walmart l
   - **Native Copilot integration with Edit mode**
   - **Remote development (SSH, containers, WSL)**
   - *Chat panel context limited vs dedicated AI IDEs*
+
+### Markdown Preview Font Size
+
+The built-in preview `markdown.preview.fontSize` defaults to something tiny (was accidentally set to 6). Current settings in `~/Library/Application Support/Code/User/settings.json`:
+
+```json
+"markdown.preview.fontSize": 14,
+"markdown.preview.lineHeight": 1.2,
+```
+
+### Cmd+Shift+V → Markdown Preview Enhanced
+
+The built-in Markdown preview has broken intra-doc anchor links in some situations. Markdown Preview Enhanced (`shd101wyy.markdown-preview-enhanced`) handles them correctly. `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` (scoped to `editorLangId == markdown`).
 
 ### Zaaack Markdown Editor Patches
 

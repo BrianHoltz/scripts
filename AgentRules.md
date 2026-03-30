@@ -1,11 +1,14 @@
 # AgentRules.md - Global AI Agent Rules
 
+> **Before you touch a single file: re-read it immediately before every edit — no exceptions.** Assume humans and other agents are concurrently editing every file at all times. Writing from stale content silently destroys their work. Keep edits incremental and surgical. Full rules: [§ Do Not Overwrite Other Writers](#-do-not-overwrite-other-writers) and [§ File Operations](#file-operations).
+
 These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
 The canonical source of this file is `~/bin/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
 
 - `~/.claude/CLAUDE.md` — read by Claude Code CLI and Wibey (VSCode extension)
 - `~/.cursor/cursorrules` — read by Cursor
+- `.github/copilot-instructions.md` symlink in each repo root — read by GitHub Copilot (VS Code). GitHub Copilot does NOT read `~/.claude/CLAUDE.md`; it only reads this file from the open repo root.
 
 Other `~/bin/` files symlinked into `~/`:
 
@@ -18,11 +21,140 @@ The `~/bin/` repo also contains personal tool settings and reference docs (not s
 
 - `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
 
-To update these files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
+To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
+
+When the user mentions a file by name without a path, check under `~/bin/` and `~/src/relationship-shared/` (if it exists).
 
 ## ❗ Do Not Overwrite Other Writers
 
-**Re-read every file immediately before every edit.** Other agents and humans are editing files concurrently. If you write based on stale content, you silently destroy their work. This has happened repeatedly and is the single most damaging mistake an agent can make. No edit is so urgent that it justifies skipping the re-read. If the content changed since you last saw it, stop and ask — do not overwrite.
+**Always assume humans and other agents are concurrently editing every file, at all times.** This is not a theoretical concern — it happens constantly. There is no safe window where you can treat your cached view of a file as current.
+
+**Re-read every file immediately before every edit — no exceptions.** If you write based on stale content, you silently destroy concurrent work. This has happened repeatedly and is the single most damaging mistake an agent can make. No edit is so urgent that it justifies skipping the re-read. If the content changed since you last read it, stop and ask — do not overwrite.
+
+**Plan updates to be incremental and surgical.** Prefer targeted edits (replace a specific string, append to a section) over full-file rewrites. The smaller your write surface, the less concurrent work you can accidentally clobber — and the less work is lost if someone clobbers you. Never rewrite a whole file when you only need to change one section.
+
+### Required Write Concurrency Protocol
+
+Re-reading is necessary but not sufficient. For any non-trivial write, use **both**:
+
+- **Advisory lock** to serialize cooperating writers.
+- **Optimistic compare-and-swap (CAS) check** to detect stale reads before write.
+
+This is the baseline modern pattern for preventing agent clobbering.
+
+#### 1) Acquire per-file lock (or resource lock)
+
+- Use a lock path under `.agent-locks/` keyed by canonical target path (or resource key).
+- Acquire lock atomically (`mkdir` lockdir or open with `O_CREAT|O_EXCL`).
+- Write lock metadata (`owner`, `pid`, `hostname`, `started_at`, `heartbeat_at`, `target`).
+- Refresh heartbeat while working.
+
+#### 2) Read and fingerprint
+
+- Read target file **after** lock acquisition.
+- Compute/store fingerprint (at minimum content hash; preferably hash + size + mtime).
+
+#### 3) Edit with minimal surface area
+
+- Make the smallest possible change.
+- Avoid whole-file rewrites unless explicitly required.
+
+#### 4) CAS revalidation immediately before write
+
+- Re-read or restat target immediately before writing.
+- If fingerprint changed since step 2, **abort write**, rebase/merge, and only continue once conflict is resolved.
+- Never "last writer wins" over unseen changes.
+
+#### 5) Write and verify, then release lock
+
+- Perform write.
+- Verify expected mutation landed correctly.
+- Release lock in `finally`/defer cleanup path.
+
+#### Stale lock handling
+
+- If lock heartbeat is older than lease TTL (for example 90-120s), treat as stale.
+- Log who held it and why it is considered stale.
+- Break stale lock safely, then retry acquisition.
+
+#### Sentinel fallback (when advisory locking is unavailable)
+
+- Use a sentinel file/dir with atomic create semantics (`mkdir` or `O_EXCL` create).
+- Do **not** do check-then-create (TOCTOU race).
+- Sentinel must include owner + timestamp + target and follow the same stale-lease rule.
+
+#### Non-negotiables
+
+- Locking does not replace re-reading; re-reading does not replace locking.
+- **There are ZERO exceptions to the lock + CAS protocol.** Every file write — source code, config, docs, generated artifacts, anything — must go through `write_if_unchanged`. "Low-contention" files, quick single-line edits, and IDE tool convenience are not exemptions. None.
+- VS Code tools such as `replace_string_in_file` do NOT implement lock + CAS and are **never** acceptable substitutes for `write_if_unchanged`.
+- If `write_if_unchanged` genuinely cannot be invoked, stop and ask the user. There is no fallback, no best-effort mode, and no self-granted exception.
+
+### Concrete tool: `write_if_unchanged`
+
+`~/bin/write_if_unchanged` implements the full protocol above. **It must be used for every single file write — no exceptions, no shortcuts, no substitutes.** There is no file type, perceived contention level, or tool convenience that justifies bypassing it.
+
+**Preferred pattern — write new content to a temp file, then apply:**
+```sh
+# 1. Capture hash BEFORE preparing new content
+HASH=$(shasum -a 256 config.json | awk '{print $1}')
+# 2. Write new content to a temp file (NOT a pipe — temp files can be inspected and cannot be zeroed by pipe failure)
+python3 my_transform.py > /tmp/new_config.json
+# 3. Optionally verify the temp file before committing
+grep -q "expected_key" /tmp/new_config.json || { echo "Transform failed"; exit 1; }
+# 4. Apply with CAS
+~/bin/write_if_unchanged config.json \
+  --from /tmp/new_config.json \
+  --expect-sha256 "$HASH" \
+  --note "agent=claude, task=abc123"
+```
+
+**`--stdin` (avoid for existing files):**
+```sh
+echo "$NEW_CONTENT" | ~/bin/write_if_unchanged config.json \
+  --stdin \
+  --expect-sha256 "$HASH" \
+  --note "agent=claude, task=abc123, request='update config keys'"
+```
+Avoid `--stdin` when the target already exists: if the pipe fails silently and produces 0 bytes, `write_if_unchanged` will abort (hard guard, exit 1) — but you still lose the write. Use `--from` instead so the content exists as a verifiable file before the write is attempted.
+
+**`--from` vs `--stdin` — always prefer `--from` for existing files:**
+- With `--from`, the new content exists as a temp file you can inspect, diff, and grep before committing the write.
+- With `--stdin`, a silent pipe failure produces 0 bytes. `write_if_unchanged` has a hard guard that aborts and preserves the target in that case, but the write still fails with no output produced.
+- Never pipe a transformation of a file back into `write_if_unchanged` targeting that same file: `transform TARGET | write_if_unchanged TARGET` is unconditionally forbidden.
+
+**Arguments:**
+- `TARGET` — file to write (created if absent)
+- `--from FILE` or `--stdin` — source of new content (required, mutually exclusive)
+- `--expect-sha256 HASH` — SHA-256 of the file *as the caller last read it*; write aborts (exit 3) if the file changed since then. Omit only if CAS is genuinely not needed (advisory lock only).
+- `--note TEXT` — free-form label stored in lock metadata: agent name, task ID, prompt summary, etc. Shown in stderr when a stale lock is broken — lets you trace which agent or request got stuck.
+- `--lock-root DIR` — directory for lock entries (default: `/tmp/write_if_unchanged.locks/`)
+- `--ttl SECS` — stale lock TTL in seconds (default: 120)
+- `--wait SECS` — max seconds to wait for lock (default: 30)
+- `--owner LABEL` — owner label in lock metadata (default: `$USER`)
+
+**Exit codes:** 0 success · 2 lock timeout · 3 CAS mismatch (file changed) · 4 post-write verification failure
+
+**Inode note:** writes in-place (`truncate + rewrite`), preserving the inode. File watchers and open descriptors continue to see the file correctly.
+
+## File Operations
+
+- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Always use inode-preserving writes instead:
+  - **Python:** `open(path, 'w').write(new_content)` or `pathlib.Path(path).write_text(new_content)` — truncates in place, inode unchanged
+  - **VS Code tool:** `replace_string_in_file` already preserves inodes — always prefer it for targeted edits
+  - **Never use:** `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern
+- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
+- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
+- Do not make any VCS changes unless you're absolutely sure the user wants that.
+
+### PR Diff Source of Truth
+
+When reviewing a PR or describing what a branch/PR changes relative to its base:
+
+- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
+- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
+- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
+- If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
 
 ## Coding Workflow
 
@@ -49,6 +181,21 @@ When the user references a file ambiguously (e.g., "this file", "that doc", "the
 In CLI agents or other environments without editor tab access, use whatever information is immediately and efficiently available — recent git activity (`git diff`, `git log -1`), shell history, or the current working directory — to infer which file the user most recently accessed.
 
 This is cheaper and faster than asking "which file do you mean?" and almost always resolves the reference correctly.
+
+## Dates and Times
+
+**Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
+
+```bash
+date "+%Y-%m-%d %H:%M %Z"
+```
+
+This is cheap (a few tokens for the command and output) and prevents embarrassing date hallucinations. Run this once per session or whenever you need to use the current date.
+
+**Use EDTF (Extended Date/Time Format) for all dates**, with these modifications:
+
+- Use **periods** as date component separators instead of hyphens (e.g. `2026.03.27` not `2026-03-27`). Periods prevent unwanted line breaks in cramped table layouts, are analogous to decimal points, save space in variable-width fonts, and cannot be confused with ranges.
+- Use hyphens as range indicators instead of slashes (e.g. `2026.03.01-2026.03.27` not `2026-03-01/2026-03-27`). Slashes read like ratios or alternatives, not ranges.
 
 ## Documentation
 
@@ -79,41 +226,6 @@ Omit any field that genuinely does not apply, but include as many as possible. T
 When a URL is available, prefer a Markdown link with descriptive anchor text over printing the raw URL — embed the locator (line number, timestamp, etc.) in the link target rather than repeating it in prose. For example, write `[AuthService:L42](https://github.com/…/auth.ts#L42)` instead of `https://github.com/…/auth.ts, line 42`.
 
 The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via the md2confluence pipeline in `~/src/relationship-shared/`).
-
-## File Operations
-
-- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Always use inode-preserving writes instead:
-  - **Python:** `open(path, 'w').write(new_content)` or `pathlib.Path(path).write_text(new_content)` — truncates in place, inode unchanged
-  - **VS Code tool:** `replace_string_in_file` already preserves inodes — always prefer it for targeted edits
-  - **Never use:** `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern
-
-- ❗ **Re-read immediately before every edit — no exceptions.** This is the single most important rule. Other agents and humans modify files concurrently. Writing from stale content silently destroys their work. This has happened repeatedly. If the re-read shows unexpected changes, **stop and ask** — never overwrite.
-- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
-- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
-- Do not make any VCS changes unless you're absolutely sure the user wants that.
-
-### PR Diff Source of Truth
-
-When reviewing a PR or describing what a branch/PR changes relative to its base:
-
-- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
-- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
-- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
-- If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
-
-## Terminals
-
-<!-- Pager hangs, heredoc hangs, and terminal blindness guidance moved to git history — not seen recently. -->
-
-## Dates and Times
-
-**Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
-
-```bash
-date "+%Y-%m-%d %H:%M %Z"
-```
-
-This is cheap (a few tokens for the command and output) and prevents embarrassing date hallucinations. Run this once per session or whenever you need to use the current date.
 
 ## Custom Commands
 
