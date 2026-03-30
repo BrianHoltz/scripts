@@ -21,9 +21,9 @@ The `~/bin/` repo also contains personal tool settings and reference docs (not s
 
 - `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
 
-**When the user mentions a file by name without a path, check `~/bin/` first** — it is the primary location for personal scripts, reference docs, and config files.
+To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 
-To update these files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
+When the user mentions a file by name without a path, check under `~/bin/` and `~/src/relationship-shared/` (if it exists).
 
 ## ❗ Do Not Overwrite Other Writers
 
@@ -32,6 +32,99 @@ To update these files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 **Re-read every file immediately before every edit — no exceptions.** If you write based on stale content, you silently destroy concurrent work. This has happened repeatedly and is the single most damaging mistake an agent can make. No edit is so urgent that it justifies skipping the re-read. If the content changed since you last read it, stop and ask — do not overwrite.
 
 **Plan updates to be incremental and surgical.** Prefer targeted edits (replace a specific string, append to a section) over full-file rewrites. The smaller your write surface, the less concurrent work you can accidentally clobber — and the less work is lost if someone clobbers you. Never rewrite a whole file when you only need to change one section.
+
+### Required Write Concurrency Protocol
+
+Re-reading is necessary but not sufficient. For any non-trivial write, use **both**:
+
+- **Advisory lock** to serialize cooperating writers.
+- **Optimistic compare-and-swap (CAS) check** to detect stale reads before write.
+
+This is the baseline modern pattern for preventing agent clobbering.
+
+#### 1) Acquire per-file lock (or resource lock)
+
+- Use a lock path under `.agent-locks/` keyed by canonical target path (or resource key).
+- Acquire lock atomically (`mkdir` lockdir or open with `O_CREAT|O_EXCL`).
+- Write lock metadata (`owner`, `pid`, `hostname`, `started_at`, `heartbeat_at`, `target`).
+- Refresh heartbeat while working.
+
+#### 2) Read and fingerprint
+
+- Read target file **after** lock acquisition.
+- Compute/store fingerprint (at minimum content hash; preferably hash + size + mtime).
+
+#### 3) Edit with minimal surface area
+
+- Make the smallest possible change.
+- Avoid whole-file rewrites unless explicitly required.
+
+#### 4) CAS revalidation immediately before write
+
+- Re-read or restat target immediately before writing.
+- If fingerprint changed since step 2, **abort write**, rebase/merge, and only continue once conflict is resolved.
+- Never "last writer wins" over unseen changes.
+
+#### 5) Write and verify, then release lock
+
+- Perform write.
+- Verify expected mutation landed correctly.
+- Release lock in `finally`/defer cleanup path.
+
+#### Stale lock handling
+
+- If lock heartbeat is older than lease TTL (for example 90-120s), treat as stale.
+- Log who held it and why it is considered stale.
+- Break stale lock safely, then retry acquisition.
+
+#### Sentinel fallback (when advisory locking is unavailable)
+
+- Use a sentinel file/dir with atomic create semantics (`mkdir` or `O_EXCL` create).
+- Do **not** do check-then-create (TOCTOU race).
+- Sentinel must include owner + timestamp + target and follow the same stale-lease rule.
+
+#### Non-negotiables
+
+- Locking does not replace re-reading; re-reading does not replace locking.
+- Any write done without lock + CAS is best-effort only and must be called out explicitly.
+- If protocol cannot be applied, stop and ask before writing.
+
+### Concrete tool: `write_unless_changed.py`
+
+`~/bin/write_unless_changed.py` implements the full protocol above for any file write performed by an agent or shell script. Use it instead of writing files directly.
+
+**Basic usage — pipe stdin to a file:**
+```sh
+# Caller reads the file and records its hash *before* preparing new content
+HASH=$(shasum -a 256 config.json | awk '{print $1}')
+# ... agent prepares new content ...
+echo "$NEW_CONTENT" | python3 ~/bin/write_unless_changed.py config.json \
+  --stdin \
+  --expect-sha256 "$HASH" \
+  --note "agent=claude, task=abc123, request='update config keys'"
+```
+
+**From a file:**
+```sh
+python3 ~/bin/write_unless_changed.py config.json \
+  --from /tmp/new_config.json \
+  --expect-sha256 "$HASH" \
+  --note "agent=claude, task=abc123"
+```
+
+**Arguments:**
+- `TARGET` — file to write (created if absent)
+- `--from FILE` or `--stdin` — source of new content (required, mutually exclusive)
+- `--expect-sha256 HASH` — SHA-256 of the file *as the caller last read it*; write aborts (exit 3) if the file changed since then. Omit only if CAS is genuinely not needed (advisory lock only).
+- `--note TEXT` — free-form label stored in lock metadata: agent name, task ID, prompt summary, etc. Shown in stderr when a stale lock is broken — lets you trace which agent or request got stuck.
+- `--lock-root DIR` — directory for lock entries (default: `.agent-locks/`)
+- `--ttl SECS` — stale lock TTL in seconds (default: 120)
+- `--wait SECS` — max seconds to wait for lock (default: 30)
+- `--owner LABEL` — owner label in lock metadata (default: `$USER`)
+
+**Exit codes:** 0 success · 2 lock timeout · 3 CAS mismatch (file changed) · 4 post-write verification failure
+
+**Inode note:** writes in-place (`truncate + rewrite`), preserving the inode. File watchers and open descriptors continue to see the file correctly.
 
 ## File Operations
 
@@ -91,7 +184,7 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 **Use EDTF (Extended Date/Time Format) for all dates**, with these modifications:
 
 - Use **periods** as date component separators instead of hyphens (e.g. `2026.03.27` not `2026-03-27`). Periods prevent unwanted line breaks in cramped table layouts, are analogous to decimal points, save space in variable-width fonts, and cannot be confused with ranges.
-- Use **space-separated em dashes** as range indicators instead of slashes (e.g. `2026.03.01 — 2026.03.27` not `2026-03-01/2026-03-27`). Slashes read like ratios or alternatives, not ranges.
+- Use hyphens as range indicators instead of slashes (e.g. `2026.03.01-2026.03.27` not `2026-03-01/2026-03-27`). Slashes read like ratios or alternatives, not ranges.
 
 ## Documentation
 
