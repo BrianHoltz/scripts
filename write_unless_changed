@@ -235,8 +235,120 @@ def release_lock(lock_path: Path) -> None:
 
 
 def show_usage() -> None:
-    # TODO: implement colorized output matching usage_msg
-    sys.stdout.write(usage_msg)
+    RESET     = "\033[0m"
+    BOLD      = "\033[1m"
+    UNDERLINE = "\033[4m"
+    ITALIC    = "\033[3m"
+    CMD       = "\033[1;34m"   # bright blue   — commands
+    FLAG      = "\033[1;36m"   # bright cyan   — flags
+    FS_VAR    = "\033[32m"     # green         — filesystem variable
+    FS_LIT    = "\033[1;32m"   # bright green  — filesystem literal
+    ARG_VAR   = "\033[33m"     # yellow        — argument variable
+    ARG_LIT   = "\033[1;33m"   # bright yellow — argument literal
+    FF_VAR    = "\033[35m"     # magenta       — freeform variable
+    W = sys.stdout.write
+    NL = "\n"
+
+    def section(title: str) -> None:
+        W(f"{BOLD}{UNDERLINE}{title}{RESET}{NL}")
+
+    def flag(s: str) -> str:
+        return f"{FLAG}{s}{RESET}"
+
+    def cmd(s: str) -> str:
+        return f"{CMD}{s}{RESET}"
+
+    def fs_var(s: str) -> str:
+        return f"{FS_VAR}{UNDERLINE}{ITALIC}{s}{RESET}"
+
+    def fs_lit(s: str) -> str:
+        return f"{FS_LIT}{UNDERLINE}{s}{RESET}"
+
+    def arg_var(s: str) -> str:
+        return f"{ARG_VAR}{ITALIC}{s}{RESET}"
+
+    def arg_lit(s: str) -> str:
+        return f"{ARG_LIT}{s}{RESET}"
+
+    def ff_var(s: str) -> str:
+        return f"{FF_VAR}{ITALIC}{s}{RESET}"
+
+    awk_print = arg_lit("'{print $1}'")
+    hash_var = f"{ARG_VAR}{ITALIC}\"$HASH\"{RESET}"
+    note_example = ff_var('"agent=claude, task=abc123"')
+
+    section("NAME")
+    W(f"    {cmd('write_unless_changed')} - Write a file only if unchanged since last read"
+      f" (advisory lock + compare-and-swap){NL}")
+    W(NL)
+
+    section("SYNOPSIS")
+    W(f"    {cmd('write_unless_changed')} {fs_var('TARGET')}"
+      f" ({flag('--from')} {fs_var('SOURCE')} | {flag('--stdin')})"
+      f" [{flag('--expect-sha256')} {arg_var('HASH')}] [{flag('--note')} {ff_var('TEXT')}]{NL}")
+    W(f"        [{flag('--lock-root')} {fs_var('DIR')}]"
+      f" [{flag('--ttl')} {arg_var('SECS')}]"
+      f" [{flag('--wait')} {arg_var('SECS')}]"
+      f" [{flag('--owner')} {ff_var('LABEL')}]{NL}")
+    W(NL)
+
+    section("DESCRIPTION")
+    W(f"    Writes new content to {fs_var('TARGET')} only if the file's current sha256 matches{NL}")
+    W(f"    {flag('--expect-sha256')}, using an advisory {cmd('mkdir')} lock to serialize concurrent writers{NL}")
+    W(f"    and a heartbeat thread to detect and recover from crashed agents.{NL}")
+    W(NL)
+    W(f"    Caller protocol:{NL}")
+    W(f"      1. Read {fs_var('TARGET')} and record its sha256"
+            f" ({cmd('shasum')} {flag('-a')} {arg_lit('256')} {fs_var('TARGET')} | {cmd('awk')} {awk_print}){NL}")
+    W(f"      2. Prepare new content{NL}")
+    W(f"      3. Invoke {cmd('write_unless_changed')} with {flag('--expect-sha256')} set to the hash from step 1{NL}")
+    W(f"      If the file changed between steps 1 and 3, the write is aborted (exit {arg_lit('3')}).{NL}")
+    W(NL)
+    W(f"    Writes in-place (truncate + rewrite), preserving the inode. File watchers and{NL}")
+    W(f"    open file descriptors continue to see the file at the same inode.{NL}")
+    W(NL)
+    W(f"    Lock files live under {flag('--lock-root')} (default: {fs_lit('/tmp/write_unless_changed.locks/')}).{NL}")
+    W(f"    All cooperating agents must use the same {flag('--lock-root')} to rendezvous.{NL}")
+    W(f"    A lock held by a crashed writer (heartbeat older than {flag('--ttl')} seconds) is{NL}")
+    W(f"    automatically broken and the stale owner and note are logged to stderr.{NL}")
+    W(NL)
+
+    section("ARGUMENTS")
+    W(f"    {fs_var('TARGET')}                File to write (created if it does not exist){NL}")
+    W(NL)
+
+    section("OPTIONS")
+    W(f"    {flag('--from')} {fs_var('SOURCE')}         Read new content from {fs_var('SOURCE')}{NL}")
+    W(f"    {flag('--stdin')}               Read new content from stdin{NL}")
+    W(f"    {flag('--expect-sha256')} {arg_var('HASH')}  SHA-256 of {fs_var('TARGET')} as caller last read it; aborts with exit {arg_lit('3')}{NL}")
+    W(f"                          if the file has since changed. Omit to skip CAS check.{NL}")
+    W(f"                          If {fs_var('TARGET')} does not yet exist, its effective sha256 is that of{NL}")
+    W(f"                          the empty string ({arg_lit('e3b0c44298fc...')}); omit this flag to create{NL}")
+    W(f"                          unconditionally.{NL}")
+    W(f"    {flag('--note')} {ff_var('TEXT')}           Free-form label stored in lock metadata: agent name, task ID,{NL}")
+    W(f"                          prompt summary, etc. Shown in stderr when a stale lock breaks.{NL}")
+    W(f"    {flag('--lock-root')} {fs_var('DIR')}       Directory for lock entries (default: {fs_lit('/tmp/write_unless_changed.locks')}){NL}")
+    W(f"                          Must be shared by all cooperating writers.{NL}")
+    W(f"    {flag('--ttl')} {arg_var('SECS')}            Stale lock TTL in seconds (default: {arg_lit('120')}){NL}")
+    W(f"    {flag('--wait')} {arg_var('SECS')}           Max seconds to wait for lock acquisition (default: {arg_lit('30')}){NL}")
+    W(f"    {flag('--owner')} {ff_var('LABEL')}         Owner label in lock metadata (default: {arg_lit('$USER')}){NL}")
+    W(f"    {flag('-H')}, {flag('--raw-help')}        Show this raw usage text and exit{NL}")
+    W(f"    {flag('-h')}, {flag('--help')}            Show colorized usage and exit{NL}")
+    W(NL)
+
+    section("EXIT CODES")
+    W(f"    {arg_lit('0')}  success{NL}")
+    W(f"    {arg_lit('1')}  usage error (bad arguments){NL}")
+    W(f"    {arg_lit('2')}  lock acquisition timeout{NL}")
+    W(f"    {arg_lit('3')}  CAS mismatch \u2014 file changed since {flag('--expect-sha256')} was recorded{NL}")
+    W(f"    {arg_lit('4')}  post-write verification failure{NL}")
+    W(NL)
+
+    section("EXAMPLE")
+    W(f"    {ARG_VAR}HASH{RESET}=$(shasum -a 256 {fs_lit('config.json')} | awk '{{print $1}}'){NL}")
+    W(f"    {cmd('write_unless_changed')} {fs_lit('config.json')} \\{NL}")
+    W(f"        {flag('--from')} {fs_lit('new_config.json')} {flag('--expect-sha256')} {hash_var} \\{NL}")
+    W(f"        {flag('--note')} {note_example}{NL}")
 
 
 def parse_args() -> argparse.Namespace:
