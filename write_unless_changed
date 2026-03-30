@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 usage_msg = """\
 NAME
-    write_unless_changed - Write a file only if it hasn't changed since last read
-                           (advisory lock + compare-and-swap)
+    write_unless_changed - Write a file only if unchanged since last read (advisory lock + compare-and-swap)
 
 SYNOPSIS
     write_unless_changed TARGET (--from SOURCE | --stdin) [--expect-sha256 HASH] [--note TEXT]
@@ -35,6 +34,9 @@ OPTIONS
     --stdin               Read new content from stdin
     --expect-sha256 HASH  SHA-256 of TARGET as caller last read it; aborts with exit 3
                           if the file has since changed. Omit to skip CAS check.
+                          If TARGET does not yet exist, its effective sha256 is that of
+                          the empty string (e3b0c44298fc...); omit this flag to create
+                          unconditionally.
     --note TEXT           Free-form label stored in lock metadata: agent name, task ID,
                           prompt summary, etc. Shown in stderr when a stale lock breaks.
     --lock-root DIR       Directory for lock entries (default: /tmp/write_unless_changed.locks)
@@ -47,6 +49,7 @@ OPTIONS
 
 EXIT CODES
     0  success
+    1  usage error (bad arguments)
     2  lock acquisition timeout
     3  CAS mismatch — file changed since --expect-sha256 was recorded
     4  post-write verification failure
@@ -176,6 +179,9 @@ def acquire_lock(lock_dir: Path, target: Path, ttl: int, wait_s: int, owner: str
                     os.rmdir(lock_path)
                 except Exception:
                     pass
+                if time.time() >= deadline:
+                    return None
+                time.sleep(0.25)
             else:
                 if now >= deadline:
                     return None
@@ -234,7 +240,7 @@ def show_usage() -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(add_help=False)
+    p = argparse.ArgumentParser(add_help=False, exit_on_error=False)
     p.add_argument("target", help="Target file path")
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--from", dest="from_file", help="Path to file containing new content")
@@ -251,13 +257,20 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    if "-H" in sys.argv or "--raw-help" in sys.argv:
+    # Pre-scan for help flags only in the first argument position to avoid
+    # false positives when -h/-H appear as option values (e.g. --note "-h").
+    if len(sys.argv) > 1 and sys.argv[1] in ("-H", "--raw-help"):
         sys.stdout.write(usage_msg)
         return 0
-    if "-h" in sys.argv or "--help" in sys.argv:
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
         show_usage()
         return 0
-    args = parse_args()
+    try:
+        args = parse_args()
+    except (argparse.ArgumentError, SystemExit):
+        print("usage: write_unless_changed TARGET (--from SOURCE | --stdin) [OPTIONS]", file=sys.stderr)
+        print("Run 'write_unless_changed -h' for help.", file=sys.stderr)
+        return 1
     target = Path(args.target).expanduser()
     lock_root = Path(args.lock_root).expanduser()
 

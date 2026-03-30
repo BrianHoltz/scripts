@@ -21,7 +21,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -362,9 +362,7 @@ def _test_note_stored_in_lock_json(tmpdir: Path, lock_root: str, details: list[s
 
     src = tmpdir / "src.txt"
     src.write_bytes(b"new")
-    stale_hash = sha256(b"something stale")
 
-    # CAS will fail, so the lock dir gets created but write aborts — lock is released in finally.
     # We can't easily inspect lock.json mid-flight without threading, so just confirm note
     # is surfaced when the lock is stale (tested in _test_stale_lock_note_in_message).
     # Here: just verify --note doesn't break a successful write.
@@ -411,6 +409,64 @@ def _test_stdout_reports_bytes(tmpdir: Path, lock_root: str, details: list[str])
     return True
 
 
+def _test_usage_error_exits_1(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Missing --from/--stdin should exit 1 (usage error), not 2."""
+    cmd = [PYTHON, str(SCRIPT), str(tmpdir / "x.txt"), "--lock-root", lock_root]
+    r = subprocess.run(cmd, capture_output=True)
+    details.append(f"exit={r.returncode} stderr={r.stderr!r}")
+    if r.returncode != 1:
+        details.append(f"expected exit 1, got {r.returncode}")
+        return False
+    return True
+
+
+def _test_help_flag_exits_0(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """-h should exit 0 and print usage text."""
+    cmd = [PYTHON, str(SCRIPT), "-h"]
+    r = subprocess.run(cmd, capture_output=True)
+    details.append(f"exit={r.returncode} stdout_len={len(r.stdout)}")
+    if r.returncode != 0:
+        details.append(f"expected exit 0, got {r.returncode}")
+        return False
+    if b"write_unless_changed" not in r.stdout:
+        details.append("expected usage text in stdout")
+        return False
+    return True
+
+
+def _test_binary_content(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Binary data (null bytes, high bytes) should roundtrip correctly."""
+    target = tmpdir / "bin.dat"
+    payload = bytes(range(256)) * 4  # 1024 bytes, all byte values
+    r = run(str(target), stdin_data=payload, lock_root=lock_root)
+    details.append(f"exit={r.returncode}")
+    if r.returncode != 0:
+        return False
+    actual = target.read_bytes()
+    if actual != payload:
+        details.append(f"content mismatch: expected {len(payload)} bytes, got {len(actual)}")
+        return False
+    return True
+
+
+def _test_lock_cleaned_up(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """After a successful write the lock directory should be removed."""
+    target = tmpdir / "clean.txt"
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"data")
+    r = run(str(target), from_file=str(src), lock_root=lock_root)
+    details.append(f"exit={r.returncode}")
+    if r.returncode != 0:
+        return False
+    lock_root_path = Path(lock_root)
+    remaining = list(lock_root_path.glob("*.lock")) if lock_root_path.exists() else []
+    details.append(f"remaining locks: {remaining}")
+    if remaining:
+        details.append("lock directory not cleaned up")
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Test registry
 # ---------------------------------------------------------------------------
@@ -428,6 +484,10 @@ TESTS = [
     ("--note accepted without breaking write",      _test_note_stored_in_lock_json),
     ("inode preserved on overwrite",                _test_inode_preserved),
     ("stdout reports byte count",                   _test_stdout_reports_bytes),
+    ("usage error exits 1",                         _test_usage_error_exits_1),
+    ("-h flag exits 0 with usage",                   _test_help_flag_exits_0),
+    ("binary content roundtrips",                    _test_binary_content),
+    ("lock cleaned up after write",                  _test_lock_cleaned_up),
 ]
 
 
