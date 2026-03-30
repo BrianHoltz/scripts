@@ -3,42 +3,42 @@
 ## IDEs
 
 
-| Feature                        | IDEA           | VS Code       | Cursor       |
-| -------------------------------- | ---------------- | --------------- | -------------- |
-| Score                          | 17             | 17            | 12.5         |
-| IDE                            | 2025.3.3       | 1.113 @ 03.24 | 2.6.19       |
-| VSCode engine                  | —             | —            | 1.105.1      |
-| Wibey                          | 1.0.4          | 1.0.3         | 1.0.1->1.0.3 |
-| └ parallel agents             | ❌             | ❌            | ❌           |
-| └ type @ busy Wibey           | ✅             | ❌❌          | ❌❌         |
-| └ context += @ file           | ✅             | 🟡&lt;100KB   | 🟡&lt;100KB  |
-| └ context += selection        | ✅ cmd-' pill  | ✅ cmd-L pill | ❌❌         |
-| └ image paste                 | ❌ often fails | ✅            | ✅           |
-| └ convo title edit            | ❌             | ✅            | ✅           |
-| └ convo title auto            | last prompt    | last prompt   | last prompt  |
-| └ convo search                | ❌             | ✅            | ✅           |
-| └ convo timestamps            | ✅             | ✅            | ✅           |
-| └ convo bookmark              | ❌             | ✅            | ✅           |
-| └ rich/linked paste           | ❌             | ❌            | ❌           |
-| Github Copilot                 | 1.6.1-243      | 0.39.0        | 1.388.0      |
-| └ parallel agents             | ✅             | ✅            | ✅           |
-| └ context += selection        | ✅ auto        | ✅ auto       | ?            |
-| └ convo title                 | 🟡 manual      | ✅ auto       | ✅ auto      |
-| AI diff review                 | ✅ per delta   | 🟡 per file   | 🟡 per file  |
-| AI diff in linked repo         | ✅             | ❌            | ❌           |
-| git ops in linked repo         | ✅             | ✅            | ❌           |
-| approval UX                    | ✅             | ✅            | ✅           |
-| md preview                     | ✅             | 🟡 only 1     | ✅✅ wysiwyg |
-| md preview search              | ✅             | ✅            | ❌❌         |
-| md table format                | ✅✅ auto      | 🟡 manual     | 🟡 manual    |
-| md pastes details block        | ❌             | ✔️          | ✔️         |
-| md headers paste bold to Slack | ✅             | ❌            | ❌           |
-| search/find                    | ✅             | ✅            | ✅           |
-| git                            | 🟡             | ✅✅          | 🟡           |
-| debug                          | ✅             | ?             | ?            |
-| database                       | ✅             | ❌            | ❌           |
-| http                           | ✅             | ❌            | ❌           |
-| editor history UI              | ✅             | 🟡            | 🟡           |
+| Feature                        | IDEA          | VS Code       | Cursor       |
+| -------------------------------- | --------------- | --------------- | -------------- |
+| Score                          | 21            | 18            | 13           |
+| IDE                            | 2025.3.3      | 1.113 @ 03.24 | 2.6.19       |
+| VSCode engine                  | —            | —            | 1.105.1      |
+| Wibey                          | 1.0.4         | 1.0.3         | 1.0.3        |
+| └ parallel agents             | ❌            | ❌            | ❌           |
+| └ type @ busy Wibey           | ✅            | ❌❌          | ❌❌         |
+| └ context += @ file           | ✅            | 🟡&lt;100KB   | 🟡&lt;100KB  |
+| └ context += selection        | ✅ cmd-' pill | ✅ cmd-L pill | ❌❌         |
+| └ image paste                 | ❌❌          | ✅            | ✅           |
+| └ convo title edit            | ❌            | ✅            | ✅           |
+| └ convo title auto            | last prompt   | last prompt   | last prompt  |
+| └ convo search                | ❌            | ✅            | ✅           |
+| └ convo timestamps            | ✅            | ✅            | ✅           |
+| └ convo bookmark              | ❌            | ✅            | ✅           |
+| └ rich/linked paste           | ❌            | ❌            | ❌           |
+| Github Copilot                 | 1.6.1-243     | 0.39.0        | 1.388.0      |
+| └ parallel agents             | ✅            | ✅            | ✅           |
+| └ context += selection        | ✅ auto       | ✅ auto       | ?            |
+| └ convo title                 | 🟡 manual     | ✅ auto       | ✅ auto      |
+| AI diff review                 | ✅ per delta  | 🟡 per file   | 🟡 per file  |
+| AI diff in linked repo         | ✅            | ❌            | ❌           |
+| git ops in linked repo         | ✅            | ✅            | ❌           |
+| approval UX                    | ✅            | ✅            | ✅           |
+| md preview                     | ✅            | 🟡 only 1     | ✅✅ wysiwyg |
+| md preview search              | ✅            | ✅            | ❌❌         |
+| md table format                | ✅✅ auto     | 🟡 manual     | 🟡 manual    |
+| md pastes details block        | ❌            | ✔️          | ✔️         |
+| md headers paste bold to Slack | ✅            | ❌            | ❌           |
+| search/find                    | ✅            | ✅            | ✅           |
+| git                            | 🟡            | ✅✅          | 🟡           |
+| debug                          | ✅            | ?             | ?            |
+| database                       | ✅            | ❌            | ❌           |
+| http                           | ✅            | ❌            | ❌           |
+| editor history UI              | ✅            | 🟡            | 🟡           |
 
 &lt;details&gt;
 &lt;summary&gt;Score rubric&lt;/summary&gt;
@@ -47,7 +47,7 @@
 - Version/text-only cells (version numbers, descriptive text) = excluded
 - Copilot rows excluded from IDE score
 - Editor score: each IDE gets the maximum score achievable by any editor available to it
-  - IDEA: shuzijun only (0.5 pts)
+  - IDEA: shuzijun only (3.5 pts)
   - VS Code: best of typedown / zaaack → zaaack (4 pts)
   - Cursor: best of typedown / zaaack / Cursor native → zaaack (4 pts)
 - Final score = IDE row subtotal + best editor subtotal
@@ -222,3 +222,7 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
   - Added `font-size: 13px !important` override on `.vditor .vditor-reset`, `.vditor .vditor-sv`, `.vditor .vditor-ir` — overrides the Vditor default 16px across preview, split-view, and IR editing modes
 - Patches apply to `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/plugins/markdown-editor/lib/markdown-editor-2.0.5.jar`. Patches are overwritten on plugin update — reapply after each update. Restart IDEA after patching (tab close/reopen is not enough — IDEA caches plugin JAR resources at startup).
 - Patch procedure: extract `vditor/style.css` from the JAR, add the override, repack with `jar uf`
+
+## History
+
+- 2026.03.26 Thu: Opus gets stuck in IDEA last few days, switching to Sonnet
