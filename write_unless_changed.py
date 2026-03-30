@@ -1,22 +1,67 @@
 #!/usr/bin/env python3
-"""Safely write file content with advisory lock + CAS revalidation.
+usage_msg = """\
+NAME
+    write_unless_changed - Write a file only if it matches expected content (advisory lock + CAS)
 
-Usage:
-  write_unless_changed.py TARGET --from NEW_CONTENT_FILE --expect-sha256 HASH [--note TEXT] [--lock-root /tmp/write_unless_changed.locks] [--ttl 120]
-  cat new.txt | write_unless_changed.py TARGET --stdin --expect-sha256 HASH [--note TEXT] [--lock-root /tmp/write_unless_changed.locks] [--ttl 120]
+SYNOPSIS
+    write_unless_changed TARGET (--from FILE | --stdin) [--expect-sha256 HASH] [--note TEXT]
+        [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL] [-H]
 
---expect-sha256 is the sha256 of the file as the caller read it before deciding to write.
-  If the file has changed since then (CAS mismatch), the write is aborted with exit 3.
-  Omit to skip the CAS check (advisory lock only).
+DESCRIPTION
+    Writes new content to TARGET only if the file matches the caller's expected sha256,
+    using an advisory mkdir lock to serialize concurrent writers and a heartbeat
+    thread to detect and recover from crashed agents.
 
-Exit codes:
-  0 success
-  2 lock acquisition timeout
-  3 stale read / CAS mismatch
-  4 verification failure
+    Caller protocol:
+      1. Read TARGET and record its sha256 (shasum -a 256 TARGET | awk '{print $1}')
+      2. Prepare new content
+      3. Invoke write_unless_changed with --expect-sha256 set to the hash from step 1
+      If the file changed between steps 1 and 3, the write is aborted (exit 3).
+      Omit --expect-sha256 to use advisory locking only (no CAS check).
+
+    Writes in-place (truncate + rewrite), preserving the inode. File watchers and
+    open file descriptors continue to see the file at the same inode.
+
+    Lock files live under --lock-root (default: /tmp/write_unless_changed.locks/).
+    All cooperating agents must use the same --lock-root to rendezvous.
+    A lock held by a crashed writer (heartbeat older than --ttl seconds) is
+    automatically broken and the stale owner and note are logged to stderr.
+
+OPTIONS
+    TARGET                File to write (created if it does not exist)
+    --from FILE           Read new content from FILE
+    --stdin               Read new content from stdin
+    --expect-sha256 HASH  SHA-256 of TARGET as caller last read it; aborts with exit 3
+                          if the file has since changed. Omit to skip CAS check.
+    --note TEXT           Free-form label stored in lock metadata: agent name, task ID,
+                          prompt summary, etc. Shown in stderr when a stale lock breaks.
+    --lock-root DIR       Directory for lock entries (default: /tmp/write_unless_changed.locks)
+    --ttl SECS            Stale lock TTL in seconds (default: 120)
+    --wait SECS           Max seconds to wait for lock acquisition (default: 30)
+    --owner LABEL         Owner label in lock metadata (default: $USER)
+    -H, --raw-help        Show this raw usage text and exit
+    -h, --help            Show colorized usage and exit
+
+EXIT CODES
+    0  success
+    2  lock acquisition timeout
+    3  CAS mismatch — file changed since --expect-sha256 was recorded
+    4  post-write verification failure
+
+EXAMPLE
+    HASH=$(shasum -a 256 config.json | awk '{print $1}')
+    cat new_config.json | write_unless_changed config.json \\
+        --stdin --expect-sha256 $HASH \\
+        --note "agent=claude, task=abc123"
 """
 
-from __future__ import annotations
+# usage_msg is intentionally placed at the very top for human readers and future agents.
+# It must start on the second line of the script, right below the shebang.
+# usage_msg formatting and content ALWAYS trumps show_usage(). If you change usage_msg,
+# you MUST update show_usage() to match it EXACTLY, including newlines and spacing.
+# Agents must not update usage_msg without explicit instructions to do so.
+# When they aren't in sync, agents must update show_usage()'s underlying
+# non-colorized text to match usage_msg, while keeping all colorization intact.
 
 import argparse
 import hashlib
@@ -180,8 +225,13 @@ def release_lock(lock_path: Path) -> None:
             pass
 
 
+def show_usage() -> None:
+    # TODO: implement colorized output matching usage_msg
+    sys.stdout.write(usage_msg)
+
+
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Safe write with advisory lock and CAS revalidation")
+    p = argparse.ArgumentParser(add_help=False)
     p.add_argument("target", help="Target file path")
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--from", dest="from_file", help="Path to file containing new content")
@@ -198,6 +248,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    if "-H" in sys.argv or "--raw-help" in sys.argv:
+        sys.stdout.write(usage_msg)
+        return 0
+    if "-h" in sys.argv or "--help" in sys.argv:
+        show_usage()
+        return 0
     args = parse_args()
     target = Path(args.target).expanduser()
     lock_root = Path(args.lock_root).expanduser()
