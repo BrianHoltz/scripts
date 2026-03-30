@@ -12,11 +12,11 @@ DESCRIPTION
     --expect-sha256, using an advisory mkdir lock to serialize concurrent writers
     and a heartbeat thread to detect and recover from crashed agents.
 
-        Caller protocol:
-            1. Read TARGET and record its sha256 (shasum -a 256 TARGET | awk '{print $1}')
-            2. Prepare new content
-            3. Invoke write_if_unchanged with --expect-sha256 set to the hash from step 1
-            If the file changed between steps 1 and 3, the write is aborted (exit 3).
+    Caller protocol:
+      1. Read TARGET and record its sha256 (shasum -a 256 TARGET | awk '{print $1}')
+      2. Prepare new content
+      3. Invoke write_if_unchanged with --expect-sha256 set to the hash from step 1
+      If the file changed between steps 1 and 3, the write is aborted (exit 3).
 
     Writes in-place (truncate + rewrite), preserving the inode. File watchers and
     open file descriptors continue to see the file at the same inode.
@@ -297,12 +297,12 @@ def show_usage() -> None:
     W(f"    {flag('--expect-sha256')}, using an advisory {cmd('mkdir')} lock to serialize concurrent writers{NL}")
     W(f"    and a heartbeat thread to detect and recover from crashed agents.{NL}")
     W(NL)
-    W(f"        Caller protocol:{NL}")
-    W(f"            1. Read {fs_var('TARGET')} and record its sha256"
+    W(f"    Caller protocol:{NL}")
+    W(f"      1. Read {fs_var('TARGET')} and record its sha256"
       f" ({cmd('shasum')} {flag('-a')} {arg_lit('256')} {fs_var('TARGET')} | {cmd('awk')} {awk_print}){NL}")
-    W(f"            2. Prepare new content{NL}")
-    W(f"            3. Invoke {cmd('write_if_unchanged')} with {flag('--expect-sha256')} set to the hash from step 1{NL}")
-    W(f"            If the file changed between steps 1 and 3, the write is aborted (exit {arg_lit('3')}).{NL}")
+    W(f"      2. Prepare new content{NL}")
+    W(f"      3. Invoke {cmd('write_if_unchanged')} with {flag('--expect-sha256')} set to the hash from step 1{NL}")
+    W(f"      If the file changed between steps 1 and 3, the write is aborted (exit {arg_lit('3')}).{NL}")
     W(NL)
     W(f"    Writes in-place (truncate + rewrite), preserving the inode. File watchers and{NL}")
     W(f"    open file descriptors continue to see the file at the same inode.{NL}")
