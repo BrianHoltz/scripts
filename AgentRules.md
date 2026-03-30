@@ -117,7 +117,7 @@ python3 ~/bin/write_unless_changed.py config.json \
 - `--from FILE` or `--stdin` — source of new content (required, mutually exclusive)
 - `--expect-sha256 HASH` — SHA-256 of the file *as the caller last read it*; write aborts (exit 3) if the file changed since then. Omit only if CAS is genuinely not needed (advisory lock only).
 - `--note TEXT` — free-form label stored in lock metadata: agent name, task ID, prompt summary, etc. Shown in stderr when a stale lock is broken — lets you trace which agent or request got stuck.
-- `--lock-root DIR` — directory for lock entries (default: `.agent-locks/`)
+- `--lock-root DIR` — directory for lock entries (default: `/tmp/write_unless_changed.locks/`)
 - `--ttl SECS` — stale lock TTL in seconds (default: 120)
 - `--wait SECS` — max seconds to wait for lock (default: 30)
 - `--owner LABEL` — owner label in lock metadata (default: `$USER`)

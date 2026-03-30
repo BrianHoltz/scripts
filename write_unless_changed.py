@@ -2,8 +2,8 @@
 """Safely write file content with advisory lock + CAS revalidation.
 
 Usage:
-  write_unless_changed.py TARGET --from NEW_CONTENT_FILE --expect-sha256 HASH [--note TEXT] [--lock-root .agent-locks] [--ttl 120]
-  cat new.txt | write_unless_changed.py TARGET --stdin --expect-sha256 HASH [--note TEXT] [--lock-root .agent-locks] [--ttl 120]
+  write_unless_changed.py TARGET --from NEW_CONTENT_FILE --expect-sha256 HASH [--note TEXT] [--lock-root /tmp/write_unless_changed.locks] [--ttl 120]
+  cat new.txt | write_unless_changed.py TARGET --stdin --expect-sha256 HASH [--note TEXT] [--lock-root /tmp/write_unless_changed.locks] [--ttl 120]
 
 --expect-sha256 is the sha256 of the file as the caller read it before deciding to write.
   If the file has changed since then (CAS mismatch), the write is aborted with exit 3.
@@ -186,7 +186,7 @@ def parse_args() -> argparse.Namespace:
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--from", dest="from_file", help="Path to file containing new content")
     src.add_argument("--stdin", action="store_true", help="Read new content from stdin")
-    p.add_argument("--lock-root", default=".agent-locks", help="Directory for lock entries")
+    p.add_argument("--lock-root", default="/tmp/write_unless_changed.locks", help="Directory for lock entries")
     p.add_argument("--ttl", type=int, default=120, help="Stale lock TTL in seconds")
     p.add_argument("--wait", type=int, default=30, help="Max seconds to wait for lock")
     p.add_argument("--owner", default=os.environ.get("USER", "unknown"), help="Owner label in lock metadata")
