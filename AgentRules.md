@@ -1,8 +1,12 @@
 # AgentRules.md - Global AI Agent Rules
 
-> **Before you touch a single file: re-read it immediately before every edit — no exceptions.** Assume humans and other agents are concurrently editing every file at all times. Writing from stale content silently destroys their work. Keep edits incremental and surgical. Full rules: [§ Do Not Overwrite Other Writers](#-do-not-overwrite-other-writers) and [§ File Operations](#file-operations).
+> **Every file write must go through `~/bin/write_if_unchanged`.** Not the IDE Edit tool, not `Write`, not `sed`, not `echo >`. There are zero exceptions. When you find yourself reaching for Edit or Write, that impulse is your cue to use `write_if_unchanged` instead. See [§ Mandatory tool: write_if_unchanged](#mandatory-tool-write_if_unchanged).
+>
+> **Write your work to disk as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Sessions die without warning; unwritten work is lost. See [§ Save As You Go](#save-as-you-go).
 
 These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
+
+## ~/bin/ structure
 
 The canonical source of this file is `~/bin/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
 
@@ -25,74 +29,29 @@ To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` r
 
 When the user mentions a file by name without a path, check under `~/bin/` and `~/src/relationship-shared/` (if it exists).
 
-## ❗ Do Not Overwrite Other Writers
+## Save As You Go
 
-**Always assume humans and other agents are concurrently editing every file, at all times.** This is not a theoretical concern — it happens constantly. There is no safe window where you can treat your cached view of a file as current.
+After completing each logical unit of work, write it to disk immediately:
 
-**Re-read every file immediately before every edit — no exceptions.** If you write based on stale content, you silently destroy concurrent work. This has happened repeatedly and is the single most damaging mistake an agent can make. No edit is so urgent that it justifies skipping the re-read. If the content changed since you last read it, stop and ask — do not overwrite.
+- One function implemented → write it
+- One config value updated → write it
+- One table row verified → write it
+- About to attempt something risky (complex refactor, long transformation) → write what you have first
 
-**Plan updates to be incremental and surgical.** Prefer targeted edits (replace a specific string, append to a section) over full-file rewrites. The smaller your write surface, the less concurrent work you can accidentally clobber — and the less work is lost if someone clobbers you. Never rewrite a whole file when you only need to change one section.
+Don't accumulate changes across multiple files or many edits and write them all at the end. If your session is interrupted — by an error, a timeout, or a crash — everything already written is preserved. Everything not yet written is lost.
 
-### Required Write Concurrency Protocol
+This also applies to project state: update Active Work sections and Work Log entries incrementally, not at the end of a task.
 
-Re-reading is necessary but not sufficient. For any non-trivial write, use **both**:
+## File Operations
 
-- **Advisory lock** to serialize cooperating writers.
-- **Optimistic compare-and-swap (CAS) check** to detect stale reads before write.
+- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. `write_if_unchanged` already preserves inodes (truncate + rewrite). For other contexts: use `open(path, 'w').write()` in Python; never use `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern.
+- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
+- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
+- Do not make any VCS changes unless you're absolutely sure the user wants that.
 
-This is the baseline modern pattern for preventing agent clobbering.
+### Mandatory tool: `write_if_unchanged`
 
-#### 1) Acquire per-file lock (or resource lock)
-
-- Use a lock path under `.agent-locks/` keyed by canonical target path (or resource key).
-- Acquire lock atomically (`mkdir` lockdir or open with `O_CREAT|O_EXCL`).
-- Write lock metadata (`owner`, `pid`, `hostname`, `started_at`, `heartbeat_at`, `target`).
-- Refresh heartbeat while working.
-
-#### 2) Read and fingerprint
-
-- Read target file **after** lock acquisition.
-- Compute/store fingerprint (at minimum content hash; preferably hash + size + mtime).
-
-#### 3) Edit with minimal surface area
-
-- Make the smallest possible change.
-- Avoid whole-file rewrites unless explicitly required.
-
-#### 4) CAS revalidation immediately before write
-
-- Re-read or restat target immediately before writing.
-- If fingerprint changed since step 2, **abort write**, rebase/merge, and only continue once conflict is resolved.
-- Never "last writer wins" over unseen changes.
-
-#### 5) Write and verify, then release lock
-
-- Perform write.
-- Verify expected mutation landed correctly.
-- Release lock in `finally`/defer cleanup path.
-
-#### Stale lock handling
-
-- If lock heartbeat is older than lease TTL (for example 90-120s), treat as stale.
-- Log who held it and why it is considered stale.
-- Break stale lock safely, then retry acquisition.
-
-#### Sentinel fallback (when advisory locking is unavailable)
-
-- Use a sentinel file/dir with atomic create semantics (`mkdir` or `O_EXCL` create).
-- Do **not** do check-then-create (TOCTOU race).
-- Sentinel must include owner + timestamp + target and follow the same stale-lease rule.
-
-#### Non-negotiables
-
-- Locking does not replace re-reading; re-reading does not replace locking.
-- **There are ZERO exceptions to the lock + CAS protocol.** Every file write — source code, config, docs, generated artifacts, anything — must go through `write_if_unchanged`. "Low-contention" files, quick single-line edits, and IDE tool convenience are not exemptions. None.
-- VS Code tools such as `replace_string_in_file` do NOT implement lock + CAS and are **never** acceptable substitutes for `write_if_unchanged`.
-- If `write_if_unchanged` genuinely cannot be invoked, stop and ask the user. There is no fallback, no best-effort mode, and no self-granted exception.
-
-### Concrete tool: `write_if_unchanged`
-
-`~/bin/write_if_unchanged` implements the full protocol above. **It must be used for every single file write — no exceptions, no shortcuts, no substitutes.** There is no file type, perceived contention level, or tool convenience that justifies bypassing it.
+`~/bin/write_if_unchanged` implements advisory locking + compare-and-swap for safe concurrent file writes. The sole exemption is **agent-owned ephemeral temp files**. If `write_if_unchanged` genuinely cannot be invoked, stop and ask the user.
 
 **Preferred pattern — write new content to a temp file, then apply:**
 ```sh
@@ -109,43 +68,9 @@ grep -q "expected_key" /tmp/new_config.json || { echo "Transform failed"; exit 1
   --note "agent=claude, task=abc123"
 ```
 
-**`--stdin` (avoid for existing files):**
-```sh
-echo "$NEW_CONTENT" | ~/bin/write_if_unchanged config.json \
-  --stdin \
-  --expect-sha256 "$HASH" \
-  --note "agent=claude, task=abc123, request='update config keys'"
-```
-Avoid `--stdin` when the target already exists: if the pipe fails silently and produces 0 bytes, `write_if_unchanged` will abort (hard guard, exit 1) — but you still lose the write. Use `--from` instead so the content exists as a verifiable file before the write is attempted.
+**On CAS mismatch (exit 3):** the file changed between your hash capture and write attempt. Re-read, rebuild content from the new state, and retry. Never reuse stale content on retry.
 
-**`--from` vs `--stdin` — always prefer `--from` for existing files:**
-- With `--from`, the new content exists as a temp file you can inspect, diff, and grep before committing the write.
-- With `--stdin`, a silent pipe failure produces 0 bytes. `write_if_unchanged` has a hard guard that aborts and preserves the target in that case, but the write still fails with no output produced.
-- Never pipe a transformation of a file back into `write_if_unchanged` targeting that same file: `transform TARGET | write_if_unchanged TARGET` is unconditionally forbidden.
-
-**Arguments:**
-- `TARGET` — file to write (created if absent)
-- `--from FILE` or `--stdin` — source of new content (required, mutually exclusive)
-- `--expect-sha256 HASH` — SHA-256 of the file *as the caller last read it*; write aborts (exit 3) if the file changed since then. Omit only if CAS is genuinely not needed (advisory lock only).
-- `--note TEXT` — free-form label stored in lock metadata: agent name, task ID, prompt summary, etc. Shown in stderr when a stale lock is broken — lets you trace which agent or request got stuck.
-- `--lock-root DIR` — directory for lock entries (default: `/tmp/write_if_unchanged.locks/`)
-- `--ttl SECS` — stale lock TTL in seconds (default: 120)
-- `--wait SECS` — max seconds to wait for lock (default: 30)
-- `--owner LABEL` — owner label in lock metadata (default: `$USER`)
-
-**Exit codes:** 0 success · 2 lock timeout · 3 CAS mismatch (file changed) · 4 post-write verification failure
-
-**Inode note:** writes in-place (`truncate + rewrite`), preserving the inode. File watchers and open descriptors continue to see the file correctly.
-
-## File Operations
-
-- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Always use inode-preserving writes instead:
-  - **Python:** `open(path, 'w').write(new_content)` or `pathlib.Path(path).write_text(new_content)` — truncates in place, inode unchanged
-  - **VS Code tool:** `replace_string_in_file` already preserves inodes — always prefer it for targeted edits
-  - **Never use:** `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern
-- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
-- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
-- Do not make any VCS changes unless you're absolutely sure the user wants that.
+Run `write_if_unchanged -h` for the full argument reference.
 
 ### PR Diff Source of Truth
 
