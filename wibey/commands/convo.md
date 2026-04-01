@@ -7,7 +7,7 @@ Review the conversation history and choose a terse, descriptive title (5-10 word
 
 Then run:
 ```bash
-python3 -c "print('\n' * 30)" && date "+%Y-%m-%d %H:%M %Z"
+date "+%Y-%m-%d %H:%M %Z"
 ```
 
 Then respond with ONLY the title as an `# **H1 bold**` markdown heading. No other text.
