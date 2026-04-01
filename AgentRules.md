@@ -227,6 +227,11 @@ When a URL is available, prefer a Markdown link with descriptive anchor text ove
 
 The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via the md2confluence pipeline in `~/src/relationship-shared/`).
 
+
+## Family Reference Documents
+
+When the user asks a question about family members, genealogy, life events, relationships, DNA, or any person in the Holtz/Lusin family tree, **first consult `~/Documents/Google Drive/FamilyDocuments/FamilyEncyclopedia.md`** before asking the user or searching the GED. The encyclopedia is the authoritative, human-readable reference designed specifically so agents can answer family questions without bothering the user. Only fall back to the GED (`Holtz Lusin.ged`) for low-level GEDCOM detail not covered there.
+
 ## Custom Commands
 
 When the user triggers a custom command, read the command definition file for full instructions before executing. Command files live in `~/.wibey/commands/` (user-level) and `<workspace>/.wibey/commands/` (project-level). Project-level commands override user-level.
