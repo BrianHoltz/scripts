@@ -10,7 +10,7 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 
 The canonical source of this file is `~/bin/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
 
-- `~/.claude/CLAUDE.md` — read by Claude Code CLI and Wibey (VSCode extension)
+- `~/.claude/CLAUDE.md` — read by Claude Code CLI (and Wibey at Walmart)
 - `~/.cursor/cursorrules` — read by Cursor
 - `.github/copilot-instructions.md` symlink in each repo root — read by GitHub Copilot (VS Code). GitHub Copilot does NOT read `~/.claude/CLAUDE.md`; it only reads this file from the open repo root.
 
@@ -27,7 +27,7 @@ The `~/bin/` repo also contains personal tool settings and reference docs (not s
 
 To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 
-When the user mentions a file by name without a path, check under `~/bin/` and `~/src/relationship-shared/` (if it exists).
+When the user mentions a file by name without a path, check under `~/bin/`.
 
 ## Save As You Go
 
@@ -48,6 +48,8 @@ This also applies to project state: update Active Work sections and Work Log ent
 - Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
 - When duplicate/conflicting files exist, always ASK which version to keep before deleting either
 - Do not make any VCS changes unless you're absolutely sure the user wants that.
+- Commit granularity: independent changes should be committed independently; interdependent changes should be committed together.
+- **Two-tier commit policy**: For purely mechanical changes (regenerate build artifacts, cleanup, formatting), commit directly. For substantive changes (logic, data corrections, content edits), `git add` only and summarize what's staged so the user can review before committing. The user can override with "just commit it" or "let me review first".
 
 ### Mandatory tool: `write_if_unchanged`
 
@@ -83,7 +85,7 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ## Coding Workflow
 
-Use the project's `/tdd` command for the full TDD workflow. In repos using the agent-toolkit pattern (with a `shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for test execution mechanics. Otherwise: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run postman/newman if available, run coverage (100% of new flows/conditions).
+Use the project's `/tdd` command for the full TDD workflow: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run coverage (100% of new flows/conditions). See also [§ Work Environment (Walmart)](#work-environment-walmart) for additional workflow details used at work.
 
 ## Communication Style
 
@@ -97,7 +99,7 @@ Use the project's `/tdd` command for the full TDD workflow. In repos using the a
 
 When the user references a file ambiguously (e.g., "this file", "that doc", "the config", or just describes content without naming a file), use the IDE's open editor tabs to resolve the reference before asking clarifying questions.
 
-- In Wibey/VSCode, use `getDiagnostics` with scope `open-editors` to list all open tabs. The **active tab** (marked Active) is the strongest signal — it's what the user is looking at right now.
+- In Wibey (Walmart only), use `getDiagnostics` with scope `open-editors` to list all open tabs. The **active tab** (marked Active) is the strongest signal — it's what the user is looking at right now.
 - Use filenames to decide relevance. If the user says "the test file" and one open tab is `foo.test.ts`, that's almost certainly it. Read the file only if the name alone is ambiguous.
 - If the active tab's filename doesn't match the user's reference, check the remaining open tabs before falling back to workspace-wide search or asking the user.
 - A **dirty** (unsaved) tab indicates recent editing — weight it higher than clean tabs when multiple tabs could match.
@@ -121,6 +123,7 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 
 - Use **periods** as date component separators instead of hyphens (e.g. `2026.03.27` not `2026-03-27`). Periods prevent unwanted line breaks in cramped table layouts, are analogous to decimal points, save space in variable-width fonts, and cannot be confused with ranges.
 - Use hyphens as range indicators instead of slashes (e.g. `2026.03.01-2026.03.27` not `2026-03-01/2026-03-27`). Slashes read like ratios or alternatives, not ranges.
+- Use &gt;yyyy or &lt;yyyy instead of aft/bef if space is tight or you want to prevent line wraps in Markdown prose. Use >yyyy and <yyyy in data values.
 
 ## Documentation
 
@@ -159,6 +162,8 @@ When the user asks a question about family members, genealogy, life events, rela
 
 ## Custom Commands
 
+> **Wibey only (Walmart).** Skip this section if Wibey is not available.
+
 When the user triggers a custom command, read the command definition file for full instructions before executing. Command files live in `~/.wibey/commands/` (user-level) and `<workspace>/.wibey/commands/` (project-level). Project-level commands override user-level.
 
 User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, symlinked from `~/.wibey/commands/`):
@@ -166,7 +171,21 @@ User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, sy
 - **convo** — Park the current conversation with a visible title for Mac workspace/Mission Control switching. Definition: `~/.wibey/commands/convo.md`
 - **commitz** — Cluster uncommitted diffs into themed buckets, draft a commit message per bucket, commit approved ones. Definition: `~/.wibey/commands/commitz.md`
 
-Project-level commands (version-controlled in the project repo under `.wibey/commands/`). In teams using the agent-toolkit shared repo pattern, commands live at `<workspace>/shared/.wibey/commands/` and are consistent across all repos via the `shared/` symlink:
+Project-level commands are version-controlled in the project repo under `.wibey/commands/`. See [§ Work Environment (Walmart)](#work-environment-walmart) for project-level commands used at work.
+
+## Work Environment (Walmart)
+
+> **Skip this section if `~/src/relationship-shared/` does not exist.**
+
+When the user mentions a file by name without a path, also check under `~/src/relationship-shared/`.
+
+### Coding Workflow (Work)
+
+In repos using the agent-toolkit pattern (with a `shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for test execution mechanics. Run postman/newman if available.
+
+### Project-Level Commands (Work)
+
+In teams using the agent-toolkit shared repo pattern, commands live at `<workspace>/shared/.wibey/commands/` and are consistent across all repos via the `shared/` symlink:
 
 - **plando** — Structured plan-and-execute workflow with aidocs task record.
 - **tdd** — TDD workflow enforcer: branch, baseline, red, green, verify, full suite, newman, coverage.
