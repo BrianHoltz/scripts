@@ -84,7 +84,7 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ## Coding Workflow
 
-Use the `/tdd` command (`shared/.wibey/commands/tdd.md`) for the full TDD workflow. See `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for context and test execution mechanics. In repos without a `shared/` symlink: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run postman/newman if available, run coverage (100% of new flows/conditions).
+Use the project's `/tdd` command for the full TDD workflow. In repos using the agent-toolkit pattern (with a `shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for test execution mechanics. Otherwise: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run postman/newman if available, run coverage (100% of new flows/conditions).
 
 ## Communication Style
 
@@ -152,7 +152,7 @@ Omit any field that genuinely does not apply, but include as many as possible. T
 
 When a URL is available, prefer a Markdown link with descriptive anchor text over printing the raw URL — embed the locator (line number, timestamp, etc.) in the link target rather than repeating it in prose. For example, write `[AuthService:L42](https://github.com/…/auth.ts#L42)` instead of `https://github.com/…/auth.ts, line 42`.
 
-The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via the md2confluence pipeline in `~/src/relationship-shared/`).
+The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via any md2confluence pipeline).
 
 
 ## Family Reference Documents
@@ -168,7 +168,7 @@ User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, sy
 - **convo** — Park the current conversation with a visible title for Mac workspace/Mission Control switching. Definition: `~/.wibey/commands/convo.md`
 - **commitz** — Cluster uncommitted diffs into themed buckets, draft a commit message per bucket, commit approved ones. Definition: `~/.wibey/commands/commitz.md`
 
-Project-level commands (version-controlled in the project repo under `.wibey/commands/`):
+Project-level commands (version-controlled in the project repo under `.wibey/commands/`). In teams using the agent-toolkit shared repo pattern, commands live at `<workspace>/shared/.wibey/commands/` and are consistent across all repos via the `shared/` symlink:
 
-- **plando** — Structured plan-and-execute workflow with aidocs task record. Definition: `<workspace>/shared/.wibey/commands/plando.md`. Every repo has a `shared/` symlink pointing to the shared repo; in the shared repo itself `shared/` is a self-referential symlink, so the path is consistent everywhere.
-- **tdd** — TDD workflow enforcer: branch, baseline, red, green, verify, full suite, newman, coverage. Definition: `<workspace>/shared/.wibey/commands/tdd.md`.
+- **plando** — Structured plan-and-execute workflow with aidocs task record.
+- **tdd** — TDD workflow enforcer: branch, baseline, red, green, verify, full suite, newman, coverage.
