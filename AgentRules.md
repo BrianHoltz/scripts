@@ -48,6 +48,7 @@ This also applies to project state: update Active Work sections and Work Log ent
 - Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
 - When duplicate/conflicting files exist, always ASK which version to keep before deleting either
 - Do not make any VCS changes unless you're absolutely sure the user wants that.
+- Commit granularity: independent changes should be committed independently; interdependent changes should be committed together.
 
 ### Mandatory tool: `write_if_unchanged`
 
@@ -121,6 +122,7 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 
 - Use **periods** as date component separators instead of hyphens (e.g. `2026.03.27` not `2026-03-27`). Periods prevent unwanted line breaks in cramped table layouts, are analogous to decimal points, save space in variable-width fonts, and cannot be confused with ranges.
 - Use hyphens as range indicators instead of slashes (e.g. `2026.03.01-2026.03.27` not `2026-03-01/2026-03-27`). Slashes read like ratios or alternatives, not ranges.
+- Use &gt;yyyy or &lt;yyyy instead of aft/bef if space is tight or you want to prevent line wraps in Markdown prose. Use >yyyy and <yyyy in data values.
 
 ## Documentation
 
