@@ -55,6 +55,8 @@ This also applies to project state: update Active Work sections and Work Log ent
 
 `~/bin/write_if_unchanged` implements advisory locking + compare-and-swap for safe concurrent file writes. The sole exemption is **agent-owned ephemeral temp files**. If `write_if_unchanged` genuinely cannot be invoked, stop and ask the user.
 
+**IDE Accept buttons are a rule violation indicator.** If an Accept/Reject diff button appears in your IDE after you write a file, it means the agent used the `Edit` or `Write` tool instead of this one. That is a violation: the write is unprotected and potentially racing with other agents.
+
 **Preferred pattern — write new content to a temp file, then apply:**
 ```sh
 # 1. Capture hash BEFORE preparing new content
