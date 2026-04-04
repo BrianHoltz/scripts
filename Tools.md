@@ -184,6 +184,17 @@ The built-in preview `markdown.preview.fontSize` defaults to something tiny (was
 "markdown.preview.lineHeight": 1.2,
 ```
 
+### Markdown Preview Theme (auto-switch)
+
+If your Markdown preview (for example, Markdown Preview Enhanced) does not switch between light/dark automatically when VS Code or your OS changes theme, add this to your user `settings.json`:
+
+```json
+"markdown-preview-enhanced.previewColorScheme": "systemColorScheme"
+```
+
+This makes the preview follow the active VS Code editor theme (and thus `window.autoDetectColorScheme`). If you prefer the preview to follow the OS system color scheme directly, use `"systemColorScheme"` instead of `"editorColorScheme"`.
+
+
 ### Cmd+Shift+V → Markdown Preview Enhanced
 
 The built-in Markdown preview has broken intra-doc anchor links in some situations. Markdown Preview Enhanced (`shd101wyy.markdown-preview-enhanced`) handles them correctly. `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` (scoped to `editorLangId == markdown`).
