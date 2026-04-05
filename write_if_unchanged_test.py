@@ -98,6 +98,8 @@ def run(
     stdin_data: bytes | None = None,
     expect_sha256: str | None = None,
     note: str | None = None,
+    allow_empty_write: bool = False,
+    backup_to: str | None = None,
     lock_root: str,
     ttl: int = 120,
     wait: int = 5,
@@ -112,6 +114,10 @@ def run(
         cmd += ["--expect-sha256", expect_sha256]
     if note is not None:
         cmd += ["--note", note]
+    if allow_empty_write:
+        cmd += ["--allow-empty-write"]
+    if backup_to is not None:
+        cmd += ["--backup-to", backup_to]
     cmd += ["--lock-root", lock_root, "--ttl", str(ttl), "--wait", str(wait), "--owner", owner]
     return subprocess.run(
         cmd,
@@ -533,19 +539,76 @@ def _test_stdin_zero_bytes_ok_if_target_new(tmpdir: Path, lock_root: str, detail
 
 
 def _test_from_devnull_zeros_existing_file(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
-    """--from /dev/null intentionally zeros an existing file (hard guard does not apply to --from)."""
+    """--from /dev/null zeros an existing file only with explicit override."""
     target = tmpdir / "to_zero.txt"
     target.write_bytes(b"content to erase")
 
-    cmd = [PYTHON, str(SCRIPT), str(target), "--from", "/dev/null",
-           "--lock-root", lock_root, "--owner", "test"]
-    r = subprocess.run(cmd, capture_output=True)
-    details.append(f"exit={r.returncode} stderr={r.stderr!r}")
+    r = run(
+        str(target),
+        from_file="/dev/null",
+        allow_empty_write=True,
+        lock_root=lock_root,
+    )
+    details.append(f"exit={r.returncode} stdout={r.stdout!r} stderr={r.stderr!r}")
     if r.returncode != 0:
-        details.append(f"expected exit 0, got {r.returncode}")
+        details.append(f"expected exit 0 with override, got {r.returncode}")
         return False
     if target.read_bytes() != b"":
         details.append(f"expected empty file, got {target.read_bytes()!r}")
+        return False
+    return True
+
+
+def _test_backup_to_filename_writes_original(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    target = tmpdir / "doc.txt"
+    target.write_bytes(b"original")
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"updated")
+    backup = tmpdir / "explicit.bak"
+
+    r = run(str(target), from_file=str(src), backup_to=str(backup), lock_root=lock_root)
+    details.append(f"exit={r.returncode} stdout={r.stdout!r} stderr={r.stderr!r}")
+    if r.returncode != 0:
+        return False
+    if not backup.exists():
+        details.append("expected backup file to be created")
+        return False
+    if backup.read_bytes() != b"original":
+        details.append(f"expected backup to contain original content, got {backup.read_bytes()!r}")
+        return False
+    if target.read_bytes() != b"updated":
+        details.append("expected target content to be updated")
+        return False
+    return True
+
+
+def _test_backup_to_dir_uses_timestamped_variant(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    target = tmpdir / "report.md"
+    target.write_bytes(b"before")
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"after")
+    backup_dir = tmpdir / "backups"
+    backup_dir.mkdir()
+
+    r = run(str(target), from_file=str(src), backup_to=str(backup_dir), lock_root=lock_root)
+    details.append(f"exit={r.returncode} stdout={r.stdout!r} stderr={r.stderr!r}")
+    if r.returncode != 0:
+        return False
+
+    files = list(backup_dir.iterdir())
+    details.append(f"backup files={files}")
+    if len(files) != 1:
+        details.append("expected exactly one backup file in backup directory")
+        return False
+    backup_name = files[0].name
+    if not re.fullmatch(r"report\.\d{8}T\d{6}\.md(?:\.\d+)?", backup_name):
+        details.append(f"unexpected backup filename format: {backup_name}")
+        return False
+    if files[0].read_bytes() != b"before":
+        details.append("backup content mismatch")
+        return False
+    if target.read_bytes() != b"after":
+        details.append("target content mismatch")
         return False
     return True
 
@@ -575,6 +638,8 @@ TESTS = [
     ("--stdin 0 bytes aborts if target non-empty",  _test_stdin_zero_bytes_aborts_if_target_nonempty),
     ("--stdin 0 bytes ok if target is new",         _test_stdin_zero_bytes_ok_if_target_new),
     ("--from /dev/null zeros existing file",         _test_from_devnull_zeros_existing_file),
+    ("--backup-to filename stores original",         _test_backup_to_filename_writes_original),
+    ("--backup-to directory uses timestamped name",  _test_backup_to_dir_uses_timestamped_variant),
 ]
 
 

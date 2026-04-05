@@ -8,7 +8,8 @@ NAME
 
 SYNOPSIS
     write_if_unchanged TARGET (--from SOURCE | --stdin) [--expect-sha256 HASH] [--note TEXT]
-        [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL]
+        [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL] [--allow-empty-write]
+        [--backup-to PATH]
 
 DESCRIPTION
     Writes new content to TARGET only if the file's current sha256 matches
@@ -36,10 +37,7 @@ OPTIONS
     --from SOURCE         Read new content from SOURCE. Preferred over --stdin for
                           existing files: content can be verified before write and
                           cannot be zeroed by pipe failure.
-    --stdin               Read new content from stdin. If stdin produces 0 bytes and
-                          TARGET exists and is non-empty, the write is aborted (exit 1).
-                          Prefer --from with a temp file for existing files.
-                          To intentionally zero a file, use --from /dev/null.
+    --stdin               Read new content from stdin.
     --expect-sha256 HASH  SHA-256 of TARGET as caller last read it; aborts with exit 3
                           if the file has since changed. Omit to skip CAS check.
                           If TARGET does not yet exist, its effective sha256 is that of
@@ -52,6 +50,18 @@ OPTIONS
     --ttl SECS            Stale lock TTL in seconds (default: 120)
     --wait SECS           Max seconds to wait for lock acquisition (default: 30)
     --owner LABEL         Owner label in lock metadata (default: $USER)
+    --allow-empty-write   Allow 0-byte writes to non-empty TARGET (default: blocked).
+                          Without this flag, any 0-byte input from --from/--stdin aborts
+                          when TARGET exists and is non-empty (exit 1).
+    --backup-to PATH      Write a pre-write backup of TARGET content.
+                          If PATH is a directory (existing, or ending with '/'), backup
+                          file name is TARGET basename with a date-timestamp variant.
+                          If PATH is a filename, writes exactly to PATH.
+
+PROPOSED SAFETY OPTIONS (TEXT-ONLY; NOT YET IMPLEMENTED)
+    --max-shrink-pct PCT  Abort if output shrinks by more than PCT versus current TARGET.
+    --sentinel-regex RE   Require regex RE to match output before write.
+
     -H, --raw-help        Show this raw usage text and exit
     -h, --help            Show colorized usage and exit
 
@@ -78,6 +88,7 @@ EXAMPLE
 # non-colorized text to match usage_msg, while keeping all colorization intact.
 
 import argparse
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -230,6 +241,45 @@ def write_in_place(path: Path, data: bytes) -> None:
             os.fsync(f.fileno())
 
 
+def timestamp_variant_name(target_name: str, dt: datetime) -> str:
+    p = Path(target_name)
+    suffix = "".join(p.suffixes)
+    base = target_name[:-len(suffix)] if suffix else target_name
+    stamp = dt.strftime("%Y%m%dT%H%M%S")
+    return f"{base}.{stamp}{suffix}"
+
+
+def resolve_backup_path(backup_to: str, target: Path, dt: Optional[datetime] = None) -> Path:
+    backup_raw = Path(backup_to).expanduser()
+    now = dt or datetime.now()
+
+    dir_mode = backup_raw.is_dir() or backup_to.endswith(os.sep)
+    if dir_mode:
+        backup_dir = backup_raw
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        candidate = backup_dir / timestamp_variant_name(target.name, now)
+        if not candidate.exists():
+            return candidate
+        i = 1
+        while True:
+            fallback = backup_dir / f"{candidate.name}.{i}"
+            if not fallback.exists():
+                return fallback
+            i += 1
+
+    backup_parent = backup_raw.parent
+    if str(backup_parent) not in ("", "."):
+        backup_parent.mkdir(parents=True, exist_ok=True)
+    return backup_raw
+
+
+def write_backup_file(path: Path, data: bytes) -> None:
+    with path.open("wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+
+
 def release_lock(lock_path: Path) -> None:
     meta_file = lock_path / "lock.json"
     try:
@@ -243,17 +293,17 @@ def release_lock(lock_path: Path) -> None:
 
 
 def show_usage() -> None:
-    RESET     = "\033[0m"
-    BOLD      = "\033[1m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
-    ITALIC    = "\033[3m"
-    CMD       = "\033[1;34m"
-    FLAG      = "\033[1;36m"
-    FS_VAR    = "\033[32m"
-    FS_LIT    = "\033[1;32m"
-    ARG_VAR   = "\033[33m"
-    ARG_LIT   = "\033[1;33m"
-    FF_VAR    = "\033[35m"
+    ITALIC = "\033[3m"
+    CMD = "\033[1;34m"
+    FLAG = "\033[1;36m"
+    FS_VAR = "\033[32m"
+    FS_LIT = "\033[1;32m"
+    ARG_VAR = "\033[33m"
+    ARG_LIT = "\033[1;33m"
+    FF_VAR = "\033[35m"
     W = sys.stdout.write
     NL = "\n"
 
@@ -292,12 +342,13 @@ def show_usage() -> None:
 
     section("SYNOPSIS")
     W(f"    {cmd('write_if_unchanged')} {fs_var('TARGET')}"
-      f" ({flag('--from')} {fs_var('SOURCE')} | {flag('--stdin')})"
-      f" [{flag('--expect-sha256')} {arg_var('HASH')}] [{flag('--note')} {ff_var('TEXT')}]{NL}")
+        f" ({flag('--from')} {fs_var('SOURCE')} | {flag('--stdin')})"
+        f" [{flag('--expect-sha256')} {arg_var('HASH')}] [{flag('--note')} {ff_var('TEXT')}]{NL}")
     W(f"        [{flag('--lock-root')} {fs_var('DIR')}]"
-      f" [{flag('--ttl')} {arg_var('SECS')}]"
-      f" [{flag('--wait')} {arg_var('SECS')}]"
-      f" [{flag('--owner')} {ff_var('LABEL')}]{NL}")
+        f" [{flag('--ttl')} {arg_var('SECS')}]"
+        f" [{flag('--wait')} {arg_var('SECS')}]"
+        f" [{flag('--owner')} {ff_var('LABEL')}] [{flag('--allow-empty-write')}]{NL}")
+    W(f"        [{flag('--backup-to')} {fs_var('PATH')}]{NL}")
     W(NL)
 
     section("DESCRIPTION")
@@ -329,10 +380,7 @@ def show_usage() -> None:
     W(f"    {flag('--from')} {fs_var('SOURCE')}         Read new content from {fs_var('SOURCE')}. {BOLD}Preferred{RESET} over {flag('--stdin')} for{NL}")
     W(f"                          existing files: content can be verified before write and{NL}")
     W(f"                          cannot be zeroed by pipe failure.{NL}")
-    W(f"    {flag('--stdin')}               Read new content from stdin. If stdin produces 0 bytes and{NL}")
-    W(f"                          {fs_var('TARGET')} exists and is non-empty, the write is aborted (exit {arg_lit('1')}).{NL}")
-    W(f"                          Prefer {flag('--from')} with a temp file for existing files.{NL}")
-    W(f"                          To intentionally zero a file, use {flag('--from')} {fs_lit('/dev/null')}.{NL}")
+    W(f"    {flag('--stdin')}               Read new content from stdin.{NL}")
     W(f"    {flag('--expect-sha256')} {arg_var('HASH')}  SHA-256 of {fs_var('TARGET')} as caller last read it; aborts with exit {arg_lit('3')}{NL}")
     W(f"                          if the file has since changed. Omit to skip CAS check.{NL}")
     W(f"                          If {fs_var('TARGET')} does not yet exist, its effective sha256 is that of{NL}")
@@ -345,6 +393,18 @@ def show_usage() -> None:
     W(f"    {flag('--ttl')} {arg_var('SECS')}            Stale lock TTL in seconds (default: {arg_lit('120')}){NL}")
     W(f"    {flag('--wait')} {arg_var('SECS')}           Max seconds to wait for lock acquisition (default: {arg_lit('30')}){NL}")
     W(f"    {flag('--owner')} {ff_var('LABEL')}         Owner label in lock metadata (default: {arg_lit('$USER')}){NL}")
+    W(f"    {flag('--allow-empty-write')}   Allow 0-byte writes to non-empty {fs_var('TARGET')} (default: blocked).{NL}")
+    W(f"                          Without this flag, any 0-byte input from {flag('--from')}/{flag('--stdin')} aborts{NL}")
+    W(f"                          when {fs_var('TARGET')} exists and is non-empty (exit {arg_lit('1')}).{NL}")
+    W(f"    {flag('--backup-to')} {fs_var('PATH')}      Write a pre-write backup of {fs_var('TARGET')} content.{NL}")
+    W(f"                          If {fs_var('PATH')} is a directory (existing, or ending with '/'), backup{NL}")
+    W(f"                          file name is {fs_var('TARGET')} basename with a date-timestamp variant.{NL}")
+    W(f"                          If {fs_var('PATH')} is a filename, writes exactly to PATH.{NL}")
+    W(NL)
+    W(f"{BOLD}PROPOSED SAFETY OPTIONS{RESET} ({ITALIC}TEXT-ONLY; NOT YET IMPLEMENTED{RESET}){NL}")
+    W(f"    {flag('--max-shrink-pct')} {arg_var('PCT')}  Abort if output shrinks by more than PCT versus current {fs_var('TARGET')}.{NL}")
+    W(f"    {flag('--sentinel-regex')} {arg_var('RE')}   Require regex RE to match output before write.{NL}")
+    W(NL)
     W(f"    {flag('-H')}, {flag('--raw-help')}        Show this raw usage text and exit{NL}")
     W(f"    {flag('-h')}, {flag('--help')}            Show colorized usage and exit{NL}")
     W(NL)
@@ -374,6 +434,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--ttl", type=int, default=120, help="Stale lock TTL in seconds")
     p.add_argument("--wait", type=int, default=30, help="Max seconds to wait for lock")
     p.add_argument("--owner", default=os.environ.get("USER", "unknown"), help="Owner label in lock metadata")
+    p.add_argument("--allow-empty-write", action="store_true",
+                   help="Allow 0-byte writes to non-empty target files (default: blocked)")
+    p.add_argument("--backup-to", default=None,
+                   help="Backup destination path; directory or filename")
     p.add_argument("--expect-sha256", dest="expect_sha256", default=None,
                    help="SHA-256 of the file as the caller read it; write aborts if file has changed (CAS)")
     p.add_argument("--note", default="",
@@ -401,17 +465,19 @@ def main() -> int:
 
     if args.stdin:
         new_data = sys.stdin.buffer.read()
-        # Hard guard: empty stdin with non-empty existing target always aborts — no override.
-        if len(new_data) == 0 and target.exists() and target.stat().st_size > 0:
-            print(
-                f"FATAL: --stdin produced 0 bytes but {target} is non-empty "
-                f"({target.stat().st_size} bytes). Refusing to zero the file. "
-                f"Use --from with a temp file instead, or --from /dev/null to intentionally zero it.",
-                file=sys.stderr,
-            )
-            return 1
     else:
         new_data = Path(args.from_file).expanduser().read_bytes()
+
+    # Default protection: block accidental zeroing of non-empty targets for both --stdin and --from.
+    if len(new_data) == 0 and target.exists() and target.stat().st_size > 0 and not args.allow_empty_write:
+        source_hint = "--stdin" if args.stdin else f"--from {args.from_file}"
+        print(
+            f"FATAL: {source_hint} produced 0 bytes but {target} is non-empty "
+            f"({target.stat().st_size} bytes). Refusing to zero the file. "
+            f"Pass --allow-empty-write to intentionally permit this.",
+            file=sys.stderr,
+        )
+        return 1
 
     lock_path = acquire_lock(lock_root, target, ttl=args.ttl, wait_s=args.wait, owner=args.owner, note=args.note)
     if lock_path is None:
@@ -430,6 +496,11 @@ def main() -> int:
                     file=sys.stderr,
                 )
                 return 3
+
+        if args.backup_to:
+            backup_path = resolve_backup_path(args.backup_to, target)
+            write_backup_file(backup_path, read_bytes(target))
+            print(f"Wrote backup to {backup_path}")
 
         write_in_place(target, new_data)
 
