@@ -78,7 +78,6 @@ EXAMPLE
 """
 
 # usage_msg is intentionally placed at the very top for human readers and future agents.
-# It must start on the second line of the script, right below the shebang.
 # usage_msg formatting and content ALWAYS trumps show_usage(). If you change usage_msg,
 # you MUST update show_usage() to match it EXACTLY, including newlines and spacing.
 # Agents must not update usage_msg without explicit instructions to do so.
