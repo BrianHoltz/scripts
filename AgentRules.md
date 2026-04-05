@@ -85,6 +85,11 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 - Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
 - If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
 
+## Shared Skills
+
+- For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use [wibey/skills/doc-audit.md](wibey/skills/doc-audit.md) as the shared reference available on both laptops.
+- Keep this as a pointer-only section; the full guidance remains in the skill file.
+
 ## Coding Workflow
 
 Use the project's `/tdd` command for the full TDD workflow: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run coverage (100% of new flows/conditions). See also [§ Work Environment (Walmart)](#work-environment-walmart) for additional workflow details used at work.
