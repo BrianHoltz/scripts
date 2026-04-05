@@ -254,6 +254,28 @@ This issue occurs mainly in GitHub Copilot in Intellij IDEA. Terminal output det
 - **Limitations:** `\e[H\e[2J` is not perfect; drift can recur after enough commands. Running `clear` resets drift.
 - **Fallback:** redirect command output to `tmp/YYYYMMDD_HHMMSS_agent.out`, then read the file directly and mirror it with `cat` or `tail` in terminal.
 
+### IDEA Keybindings
+
+IDEA keybinding overrides are stored in `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/keymaps/macOS copy.xml`. Edit this file to add standard bindings:
+
+- **Zoom**: `⌘=` / `⌘-` (remapped from `^⌥=` / `^⌥-`)
+  - Action IDs: `ZoomInIdeAction` / `ZoomOutIdeAction`
+  - Keystroke format: `meta equals` / `meta minus` (with alternates `meta add` / `meta subtract`)
+- **Open File**: `⌘P` (remapped from `⇧⌘O`)
+  - Action ID: `GotoFile`
+  - Keystroke format: `meta p`
+
+### Disable "Allow Edits to Sensitive Files" Dialog
+
+Add this to `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/early-access-registry.txt`:
+
+```
+idea.readonly.fragments.notification.enabled
+false
+```
+
+Restart IDEA for changes to take effect.
+
 ### Shuzijun Markdown Editor Patches
 
 Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, which hardcodes `font-size: 16px` for body text in `.vditor-reset`, `.vditor-sv`, and `.vditor-ir`. That's too large for IDEA's 13px UI font. Theme follows IDE via `UIUtil.isUnderDarcula()` — no separate theme setting. If the editor renders dark while IDE is light (e.g. after OS theme auto-switch), close and re-open the tab to fix.
