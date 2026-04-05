@@ -265,6 +265,25 @@ IDEA keybinding overrides are stored in `~/Library/Application Support/JetBrains
   - Action ID: `GotoFile`
   - Keystroke format: `meta p`
 
+### Markdown Preview
+
+The built-in Markdown preview uses its own setting in `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/options/markdown.xml` under `MarkdownSettings.fontSize`. Current override on this machine is set to 15px:
+
+```xml
+<application>
+  <component name="MarkdownSettings">
+    <option name="fontSize" value="15" />
+  </component>
+</application>
+```
+
+This is the right knob for preview size. It is separate from the regular editor font in `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/options/editor-font.xml` (`DefaultFont.FONT_SIZE`, currently 12), and there is no project-level override in `Documents/.idea/`.
+Quick tweak workflow:
+
+- In preview, use Markdown Preview increase/decrease font actions for live zoom.
+- Persisted value comes from `options/markdown.xml` (`MarkdownSettings.fontSize`), not `editor-font.xml`.
+- If live view does not refresh immediately, close/reopen the Markdown tab first; restart IDEA only if that still does not pick it up.
+
 ### Disable "Allow Edits to Sensitive Files" Dialog
 
 Add this to `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/early-access-registry.txt`:
