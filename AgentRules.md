@@ -1,5 +1,7 @@
 # AgentRules.md - Global AI Agent Rules
 
+> ❗ **If an agent is about to modify or delete more than 5 files, it MUST stop and ask the user for explicit permission before proceeding.** Count includes all writes, moves, renames, and deletions across all directories. No exceptions, even for seemingly mechanical or safe changes.
+>
 > **Every file write must go through `~/bin/write_if_unchanged`.** Not the IDE Edit tool, not `Write`, not `sed`, not `echo >`. There are zero exceptions. When you find yourself reaching for Edit or Write, that impulse is your cue to use `write_if_unchanged` instead. See [§ Mandatory tool: write_if_unchanged](#mandatory-tool-write_if_unchanged).
 >
 > **Write your work to disk as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Sessions die without warning; unwritten work is lost. See [§ Save As You Go](#save-as-you-go).
