@@ -6,7 +6,7 @@
 | Feature                        | IDEA          | VS Code       | Cursor       |
 | ------------------------------ | ------------- | ------------- | ------------ |
 | Score                          | 21            | 18            | 13           |
-| IDE                            | 2025.3.3      | 1.114         | 2.6.21       |
+| IDE                            | 2025.3.3      | 1.114         | 3.0.12       |
 | VSCode engine                  | —            | —            | 1.105.1      |
 | Wibey                          | 1.0.6         | 1.0.4         | 1.0.4        |
 | └ parallel agents             | ❌            | ❌            | ❌           |
@@ -183,6 +183,17 @@ The built-in preview `markdown.preview.fontSize` defaults to something tiny (was
 "markdown.preview.fontSize": 14,
 "markdown.preview.lineHeight": 1.2,
 ```
+
+### Markdown Preview Theme (auto-switch)
+
+If your Markdown preview (for example, Markdown Preview Enhanced) does not switch between light/dark automatically when VS Code or your OS changes theme, add this to your user `settings.json`:
+
+```json
+"markdown-preview-enhanced.previewColorScheme": "systemColorScheme"
+```
+
+This makes the preview follow the active VS Code editor theme (and thus `window.autoDetectColorScheme`). If you prefer the preview to follow the OS system color scheme directly, use `"systemColorScheme"` instead of `"editorColorScheme"`.
+
 
 ### Cmd+Shift+V → Markdown Preview Enhanced
 

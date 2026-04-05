@@ -111,6 +111,10 @@ In CLI agents or other environments without editor tab access, use whatever info
 
 This is cheaper and faster than asking "which file do you mean?" and almost always resolves the reference correctly.
 
+## README Navigation
+
+When starting work in any directory, walk upward through parent directories looking for `README.md` files and read them for repo/folder context before proceeding. Stop at `$HOME`. Read the nearest one first (most specific), then parent ones if useful.
+
 ## Dates and Times
 
 **Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
