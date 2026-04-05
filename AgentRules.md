@@ -20,6 +20,7 @@ Other `~/bin/` files symlinked into `~/`:
 - `~/.zprofile` → `~/bin/zprofile` — zsh login shell config
 - `~/.zshrc` → `~/bin/zshrc` — zsh interactive shell config
 - `~/.bash_profile` → `~/bin/bash_profile` — bash login/interactive shell config
+- `~/.bashrc` → `~/bin/bashrc` — bash interactive shell config
 
 The `~/bin/` repo also contains personal tool settings and reference docs (not symlinked):
 
@@ -115,6 +116,7 @@ When the user references a file ambiguously (e.g., "this file", "that doc", "the
 In CLI agents or other environments without editor tab access, use whatever information is immediately and efficiently available — recent git activity (`git diff`, `git log -1`), shell history, or the current working directory — to infer which file the user most recently accessed.
 
 This is cheaper and faster than asking "which file do you mean?" and almost always resolves the reference correctly.
+
 
 ## README Navigation
 

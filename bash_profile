@@ -1,40 +1,35 @@
 # ~/bin/bash_profile — bash login/interactive shell config
 # Canonical location: ~/bin/bash_profile (symlinked from ~/.bash_profile)
-
 # Suppress macOS bash deprecation warning
 export BASH_SILENCE_DEPRECATION_WARNING=1
-
 # Detect Homebrew (Apple Silicon: /opt/homebrew; Intel/older: /usr/local)
 for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
     [ -x "$_brew" ] && eval "$($_brew shellenv)" && break
 done
 unset _brew
-
 # Scala (pin to 2.12.19 if available; brew shellenv exposes scala otherwise)
 for _scala_bin in /opt/homebrew/Cellar/scala@2.12/2.12.19/bin /usr/local/Cellar/scala@2.12/2.12.19/bin; do
     [ -d "$_scala_bin" ] && export PATH="$_scala_bin:$PATH" && break
 done
 unset _scala_bin
-
 # Added by Toolbox App
 export PATH="$PATH:$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
-
 source ~/.shellrc.common
-
 # Source interactive settings if present
 if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
-
 # --- History ---
 export HISTSIZE=5000
 export HISTFILE=~/.bash_history
 export HISTFILESIZE=50000
 shopt -s histappend
-if [[ "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
+if [[ "$TERMINAL_EMULATOR" == "JetBrains-JediTerm" ]] || [[ "$TERM_PROGRAM" == "JetBrains-JediTerm" ]] || [[ -n "$INTELLIJ_ENVIRONMENT_READER" ]]; then
+    # Keep JetBrains-specific PROMPT_COMMAND from ~/.bashrc (terminal-blindness workaround).
+    :
+elif [[ "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
     PROMPT_COMMAND="update_terminal_cwd; history -a; history -c; history -r"
 else
     PROMPT_COMMAND="history -a; history -c; history -r"
 fi
-
 # --- Prompt ---
 if [[ "$TERMINAL_EMULATOR" == "JetBrains-JediTerm" ]] || [[ "$TERM_PROGRAM" == "JetBrains-JediTerm" ]]; then
     export PS1="\$ "
@@ -47,7 +42,6 @@ else
     export hostname=$(echo $hostname | sed 's/\(......\).*\(..\)/\1..\2/')
     export PS1="\[\e[0;7m\]${whoami}@${hostname}\[\e[m\] \[\e[0;31m\]\D{%m-%d} \A\[\e[0m\] \[\e[0;32m\]\W\$\[\e[0m\] "
 fi
-
 # --- Aliases ---
 alias sb="source ~/.bash_profile"
 alias ff="find . -name"

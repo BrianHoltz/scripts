@@ -228,7 +228,7 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
 ## IDEA
 
 - **Superior features: search/find, git, debug, database, http, yaml preview**
-- *Terminal Blindness — still confirmed in IDEA 2025.2.5 (2026-02-25)*
+- *Terminal Blindness observed on personal laptop in IDEA; not observed on Walmart laptop as of 2026.04.04.*
 - *command-approval constipation*
 - *Does not fully support parallel agents*
 - *Cannot paste file/line reference!?*
@@ -238,6 +238,21 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
   - **Unmatched refactoring for Java/Kotlin (type-aware renames, extract method)**
   - **Built-in profiler and memory analysis**
   - *Expensive ($249/yr commercial, $169 w/ AI Assistant)*
+
+### Terminal Blindness (IDEA Copilot)
+
+This issue occurs mainly in GitHub Copilot in Intellij IDEA. Terminal output detection can fail, causing commands to appear to produce no output even though their output is visible in the terminal.
+
+- **Where observed:** reproducible on personal laptop; **never observed on Walmart laptop** so far (as of 2026.04.04)
+- **Root cause (plugin behavior):** `TerminalUtils.collectTerminalOutput()` computes `commandStartY = cursorY + historyLinesCount + cmdLines - 1` and reads `getText().drop(commandStartY)`. Over time, `cursorY` drifts toward `screenHeight`; once `commandStartY` exceeds available text lines, output capture goes blank.
+- **SOTA workaround status (applied):**
+  - `~/bin/bash_profile`: `BASH_SILENCE_DEPRECATION_WARNING=1`
+  - `~/bin/bashrc`: JetBrains block sets `set +o noclobber`
+  - `~/bin/bashrc`: JetBrains block sets `PROMPT_COMMAND='printf "\e[H\e[2J"'`
+  - `~/bin/bash_profile`: JetBrains sessions preserve `.bashrc` `PROMPT_COMMAND` (no override in history block)
+- **Do not use `\e[3J`:** JediTerm clears both scrollback and screen, which destroys output before Copilot can read it.
+- **Limitations:** `\e[H\e[2J` is not perfect; drift can recur after enough commands. Running `clear` resets drift.
+- **Fallback:** redirect command output to `tmp/YYYYMMDD_HHMMSS_agent.out`, then read the file directly and mirror it with `cat` or `tail` in terminal.
 
 ### Shuzijun Markdown Editor Patches
 

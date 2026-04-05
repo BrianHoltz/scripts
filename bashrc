@@ -1,0 +1,19 @@
+# ~/bin/bashrc — bash interactive shell config
+# Canonical location: ~/bin/bashrc (symlinked from ~/.bashrc)
+# Minimal .bashrc for Copilot terminal blindness fix
+# Full version backed up in ~/tmp/shellArchive20260306/
+# IntelliJ/Copilot terminal: minimal prompt, clear screen after each command
+if [[ -n "$TERMINAL_EMULATOR" || -n "$INTELLIJ_ENVIRONMENT_READER" ]]; then
+    PS1='$ '
+    set +o noclobber
+    # Reset cursorY to 1 after each command by clearing screen (moving content to scrollback).
+    # This prevents commandStartY from growing toward screenHeight, which causes the
+    # Copilot plugin's collectTerminalOutput() to compute drop() indices past getText() bounds.
+    # ED2 (\e[2J) moves screen to scrollback (preserving output for Copilot to read),
+    # then CUP home (\e[H) resets cursor. This provides ~30 commands of reliable output
+    # capture per session before gradual off-by-one drift from scrollback accumulation.
+    PROMPT_COMMAND='printf "\e[H\e[2J"'
+else
+    PS1='\w \$ '
+    PROMPT_COMMAND='history -a'
+fi
