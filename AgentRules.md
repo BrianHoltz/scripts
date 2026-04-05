@@ -73,6 +73,16 @@ grep -q "expected_key" /tmp/new_config.json || { echo "Transform failed"; exit 1
   --note "agent=claude, task=abc123"
 ```
 
+**Output safety checks for generated transforms (required):**
+
+Before calling `write_if_unchanged` with machine-generated output (formatter, parser, transform script), verify the temp file is plausible and non-empty:
+
+- `test -s "$TMP_OUT"` must pass (never write an empty output file unless the task explicitly intends an empty file).
+- Capture a pre-write baseline and compare: `wc -l "$TARGET"` and `wc -l "$TMP_OUT"`; investigate large drops before writing (for markdown/docs, treat >20% shrink as suspicious unless expected).
+- Run a cheap sentinel check tied to file type (for Markdown, e.g. `grep -q "^# " "$TMP_OUT"`; for JSON, parse with `jq`; for code, run a syntax check/lint).
+- If command output is truncated, missing, or terminal state looks abnormal, stop and verify `$TMP_OUT` manually before CAS write.
+- For high-risk transforms, keep a rollback temp copy first: `cp "$TARGET" /tmp/<name>.bak` so recovery is immediate if validation misses something.
+
 **On CAS mismatch (exit 3):** the file changed between your hash capture and write attempt. Re-read, rebuild content from the new state, and retry. Never reuse stale content on retry.
 
 Run `write_if_unchanged -h` for the full argument reference.
