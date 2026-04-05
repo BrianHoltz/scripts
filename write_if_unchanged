@@ -9,7 +9,7 @@ NAME
 SYNOPSIS
     write_if_unchanged TARGET (--from SOURCE | --stdin) [--expect-sha256 HASH] [--note TEXT]
         [--lock-root DIR] [--ttl SECS] [--wait SECS] [--owner LABEL] [--allow-empty-write]
-        [--backup-to PATH]
+        [--backup-to PATH] [--max-shrink-pct PCT] [--sentinel-regex RE]
 
 DESCRIPTION
     Writes new content to TARGET only if the file's current sha256 matches
@@ -57,8 +57,6 @@ OPTIONS
                           If PATH is a directory (existing, or ending with '/'), backup
                           file name is TARGET basename with a date-timestamp variant.
                           If PATH is a filename, writes exactly to PATH.
-
-PROPOSED SAFETY OPTIONS (TEXT-ONLY; NOT YET IMPLEMENTED)
     --max-shrink-pct PCT  Abort if output shrinks by more than PCT versus current TARGET.
     --sentinel-regex RE   Require regex RE to match output before write.
 
@@ -92,6 +90,7 @@ from datetime import datetime
 import hashlib
 import json
 import os
+import re
 import socket
 import sys
 import threading
@@ -348,7 +347,9 @@ def show_usage() -> None:
         f" [{flag('--ttl')} {arg_var('SECS')}]"
         f" [{flag('--wait')} {arg_var('SECS')}]"
         f" [{flag('--owner')} {ff_var('LABEL')}] [{flag('--allow-empty-write')}]{NL}")
-    W(f"        [{flag('--backup-to')} {fs_var('PATH')}]{NL}")
+    W(f"        [{flag('--backup-to')} {fs_var('PATH')}]"
+        f" [{flag('--max-shrink-pct')} {arg_var('PCT')}]"
+        f" [{flag('--sentinel-regex')} {arg_var('RE')}]{NL}")
     W(NL)
 
     section("DESCRIPTION")
@@ -400,8 +401,6 @@ def show_usage() -> None:
     W(f"                          If {fs_var('PATH')} is a directory (existing, or ending with '/'), backup{NL}")
     W(f"                          file name is {fs_var('TARGET')} basename with a date-timestamp variant.{NL}")
     W(f"                          If {fs_var('PATH')} is a filename, writes exactly to PATH.{NL}")
-    W(NL)
-    W(f"{BOLD}PROPOSED SAFETY OPTIONS{RESET} ({ITALIC}TEXT-ONLY; NOT YET IMPLEMENTED{RESET}){NL}")
     W(f"    {flag('--max-shrink-pct')} {arg_var('PCT')}  Abort if output shrinks by more than PCT versus current {fs_var('TARGET')}.{NL}")
     W(f"    {flag('--sentinel-regex')} {arg_var('RE')}   Require regex RE to match output before write.{NL}")
     W(NL)
@@ -438,6 +437,10 @@ def parse_args() -> argparse.Namespace:
                    help="Allow 0-byte writes to non-empty target files (default: blocked)")
     p.add_argument("--backup-to", default=None,
                    help="Backup destination path; directory or filename")
+    p.add_argument("--max-shrink-pct", type=float, default=None,
+                   help="Abort if output shrinks by more than this percent versus current target")
+    p.add_argument("--sentinel-regex", default=None,
+                   help="Require regex to match output before write")
     p.add_argument("--expect-sha256", dest="expect_sha256", default=None,
                    help="SHA-256 of the file as the caller read it; write aborts if file has changed (CAS)")
     p.add_argument("--note", default="",
@@ -479,6 +482,24 @@ def main() -> int:
         )
         return 1
 
+    if args.max_shrink_pct is not None and args.max_shrink_pct < 0:
+        print("usage error: --max-shrink-pct must be >= 0", file=sys.stderr)
+        return 1
+
+    if args.sentinel_regex is not None:
+        try:
+            sentinel_pattern = re.compile(args.sentinel_regex)
+        except re.error as exc:
+            print(f"usage error: invalid --sentinel-regex: {exc}", file=sys.stderr)
+            return 1
+        new_text = new_data.decode("utf-8", errors="replace")
+        if sentinel_pattern.search(new_text) is None:
+            print(
+                f"FATAL: --sentinel-regex did not match output for {target}. Refusing to write.",
+                file=sys.stderr,
+            )
+            return 1
+
     lock_path = acquire_lock(lock_root, target, ttl=args.ttl, wait_s=args.wait, owner=args.owner, note=args.note)
     if lock_path is None:
         print(f"Failed to acquire lock for {target} within {args.wait}s", file=sys.stderr)
@@ -501,6 +522,19 @@ def main() -> int:
             backup_path = resolve_backup_path(args.backup_to, target)
             write_backup_file(backup_path, read_bytes(target))
             print(f"Wrote backup to {backup_path}")
+
+        if args.max_shrink_pct is not None:
+            current_size = target.stat().st_size if target.exists() else 0
+            new_size = len(new_data)
+            if current_size > 0 and new_size < current_size:
+                shrink_pct = ((current_size - new_size) / current_size) * 100.0
+                if shrink_pct > args.max_shrink_pct:
+                    print(
+                        f"FATAL: --max-shrink-pct={args.max_shrink_pct:g} exceeded for {target}: "
+                        f"{shrink_pct:.2f}% shrink ({current_size} -> {new_size} bytes).",
+                        file=sys.stderr,
+                    )
+                    return 1
 
         write_in_place(target, new_data)
 

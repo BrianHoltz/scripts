@@ -100,6 +100,8 @@ def run(
     note: str | None = None,
     allow_empty_write: bool = False,
     backup_to: str | None = None,
+    max_shrink_pct: int | None = None,
+    sentinel_regex: str | None = None,
     lock_root: str,
     ttl: int = 120,
     wait: int = 5,
@@ -118,6 +120,10 @@ def run(
         cmd += ["--allow-empty-write"]
     if backup_to is not None:
         cmd += ["--backup-to", backup_to]
+    if max_shrink_pct is not None:
+        cmd += ["--max-shrink-pct", str(max_shrink_pct)]
+    if sentinel_regex is not None:
+        cmd += ["--sentinel-regex", sentinel_regex]
     cmd += ["--lock-root", lock_root, "--ttl", str(ttl), "--wait", str(wait), "--owner", owner]
     return subprocess.run(
         cmd,
@@ -613,6 +619,98 @@ def _test_backup_to_dir_uses_timestamped_variant(tmpdir: Path, lock_root: str, d
     return True
 
 
+def _test_max_shrink_pct_aborts_on_excessive_shrink(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    target = tmpdir / "shrinky.txt"
+    target.write_bytes(b"0123456789")  # 10 bytes
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"12")  # 2 bytes => 80% shrink
+
+    r = run(
+        str(target),
+        from_file=str(src),
+        max_shrink_pct=50,
+        lock_root=lock_root,
+    )
+    details.append(f"exit={r.returncode} stdout={r.stdout!r} stderr={r.stderr!r}")
+    if r.returncode != 1:
+        details.append(f"expected exit 1, got {r.returncode}")
+        return False
+    if target.read_bytes() != b"0123456789":
+        details.append("target should remain unchanged on shrink abort")
+        return False
+    if b"max-shrink-pct" not in r.stderr:
+        details.append("expected max-shrink-pct message in stderr")
+        return False
+    return True
+
+
+def _test_max_shrink_pct_allows_within_threshold(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    target = tmpdir / "ok_shrink.txt"
+    target.write_bytes(b"0123456789")  # 10 bytes
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"123456")  # 6 bytes => 40% shrink
+
+    r = run(
+        str(target),
+        from_file=str(src),
+        max_shrink_pct=50,
+        lock_root=lock_root,
+    )
+    details.append(f"exit={r.returncode} stdout={r.stdout!r} stderr={r.stderr!r}")
+    if r.returncode != 0:
+        return False
+    if target.read_bytes() != b"123456":
+        details.append("target content mismatch")
+        return False
+    return True
+
+
+def _test_sentinel_regex_aborts_when_missing(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    target = tmpdir / "sentinel.txt"
+    target.write_bytes(b"old")
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"new body without marker")
+
+    r = run(
+        str(target),
+        from_file=str(src),
+        sentinel_regex=r"BEGIN_CONFIG",
+        lock_root=lock_root,
+    )
+    details.append(f"exit={r.returncode} stdout={r.stdout!r} stderr={r.stderr!r}")
+    if r.returncode != 1:
+        details.append(f"expected exit 1, got {r.returncode}")
+        return False
+    if target.read_bytes() != b"old":
+        details.append("target should remain unchanged on sentinel failure")
+        return False
+    if b"sentinel-regex" not in r.stderr:
+        details.append("expected sentinel-regex message in stderr")
+        return False
+    return True
+
+
+def _test_sentinel_regex_allows_when_present(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    target = tmpdir / "sentinel_ok.txt"
+    target.write_bytes(b"old")
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"header\nBEGIN_CONFIG\nbody\n")
+
+    r = run(
+        str(target),
+        from_file=str(src),
+        sentinel_regex=r"BEGIN_CONFIG",
+        lock_root=lock_root,
+    )
+    details.append(f"exit={r.returncode} stdout={r.stdout!r} stderr={r.stderr!r}")
+    if r.returncode != 0:
+        return False
+    if b"BEGIN_CONFIG" not in target.read_bytes():
+        details.append("target content should include sentinel marker")
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Test registry
 # ---------------------------------------------------------------------------
@@ -640,6 +738,10 @@ TESTS = [
     ("--from /dev/null zeros existing file",         _test_from_devnull_zeros_existing_file),
     ("--backup-to filename stores original",         _test_backup_to_filename_writes_original),
     ("--backup-to directory uses timestamped name",  _test_backup_to_dir_uses_timestamped_variant),
+    ("--max-shrink-pct aborts on excessive shrink",  _test_max_shrink_pct_aborts_on_excessive_shrink),
+    ("--max-shrink-pct allows within threshold",     _test_max_shrink_pct_allows_within_threshold),
+    ("--sentinel-regex aborts when missing",         _test_sentinel_regex_aborts_when_missing),
+    ("--sentinel-regex allows when present",         _test_sentinel_regex_allows_when_present),
 ]
 
 
