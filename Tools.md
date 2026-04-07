@@ -329,6 +329,6 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
 
 ## History
 
-- 2026.04.07 Mon: Added Cursor panel management note (Move to Opposite Sidebar)
-- 2026.04.05 Sun: Calibrated IDEA Markdown preview size via `MarkdownSettings.fontSize`; current value in `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/options/markdown.xml` is 15
+History of tool use practices, not of this doc.
+
 - 2026.03.26 Thu: Opus gets stuck in IDEA last few days, switching to Sonnet
