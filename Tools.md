@@ -3,45 +3,45 @@
 ## IDEs
 
 
-| Feature                        | IDEA          | VS Code       | Cursor       |
-| ------------------------------ | ------------- | ------------- | ------------ |
-| Score                          | 21            | 18            | 13           |
-| IDE                            | 2025.3.3      | 1.114         | 3.0.12       |
-| VSCode engine                  | —            | —            | 1.105.1      |
-| Wibey                          | 1.0.6         | 1.0.4         | 1.0.4        |
-| └ parallel agents             | ❌            | ❌            | ❌           |
-| └ type @ busy Wibey           | ✅            | ❌❌          | ❌❌         |
-| └ context += @ file           | ✅            | 🟡&lt;100KB   | 🟡&lt;100KB  |
-| └ context += selection        | ✅ cmd-' pill | ✅ cmd-L pill | ❌❌         |
-| └ image paste                 | ❌❌          | ✅            | ✅           |
-| └ convo title edit            | ❌            | ✅            | ✅           |
-| └ convo title auto            | last prompt   | last prompt   | last prompt  |
-| └ convo search                | ❌            | ✅            | ✅           |
-| └ convo timestamps            | ✅            | ✅            | ✅           |
-| └ convo bookmark              | ❌            | ✅            | ✅           |
-| └ rich/linked paste           | ❌            | ❌            | ❌           |
-| Github Copilot                 | 1.6.1-243     | 0.39.0        | 1.388.0      |
-| └ parallel agents             | ✅            | ✅            | ✅           |
-| └ context += selection        | ✅ auto       | ✅ auto       | ?            |
-| └ convo title                 | 🟡 manual     | ✅ auto       | ✅ auto      |
-| AI diff review                 | ✅ per delta  | 🟡 per file   | 🟡 per file  |
+| Feature                        | IDEA         | VS Code      | Cursor      |
+|--------------------------------|--------------|--------------|-------------|
+| Score                          | 21.5         | 18.5         | 12.5        |
+| IDE                            | 2025.3.3     | 1.114        | 3.0.12      |
+| VSCode engine                  | —            | —            | 1.105.1     |
+| Wibey                          | 1.0.6        | 1.0.5        | 1.0.5       |
+| └ parallel agents              | ❌            | ❌            | ❌           |
+| └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌          |
+| └ context += @ file            | ✅            | 🟡<100KB  | 🟡<100KB |
+| └ context += selection         | ✅ cmd-' pill | ✅ cmd-L pill | ❌❌          |
+| └ image paste                  | ❌❌           | ✅            | ✅           |
+| └ convo title edit             | ❌            | ✅            | ✅           |
+| └ convo title auto             | last prompt  | last prompt  | last prompt |
+| └ convo search                 | ❌            | ✅            | ✅           |
+| └ convo timestamps             | ✅            | ✅            | ✅           |
+| └ convo bookmark               | ❌            | ✅            | ✅           |
+| └ rich/linked paste            | ❌            | ❌            | ❌           |
+| Github Copilot                 | 1.6.1-243    | 0.39.0       | 1.388.0     |
+| └ parallel agents              | ✅            | ✅            | ✅           |
+| └ context += selection         | ✅ auto       | ✅ auto       | ?           |
+| └ convo title                  | 🟡 manual    | ✅ auto       | ✅ auto      |
+| AI diff review                 | ✅ per delta  | 🟡 per file  | 🟡 per file |
 | AI diff in linked repo         | ✅            | ❌            | ❌           |
 | git ops in linked repo         | ✅            | ✅            | ❌           |
 | approval UX                    | ✅            | ✅            | ✅           |
-| md preview                     | ✅            | 🟡 only 1     | ✅✅ wysiwyg |
-| md preview search              | ✅            | ✅            | ❌❌         |
-| md table format                | ✅✅ auto     | 🟡 manual     | 🟡 manual    |
-| md pastes details block        | ❌            | ✔️          | ✔️         |
+| md preview                     | ✅            | 🟡 only 1    | ✅✅ wysiwyg  |
+| md preview search              | ✅            | ✅            | ❌❌          |
+| md table format                | ✅✅ auto      | 🟡 manual    | 🟡 manual   |
+| md pastes details block        | ❌            | ✔️           | ✔️          |
 | md headers paste bold to Slack | ✅            | ❌            | ❌           |
 | search/find                    | ✅            | ✅            | ✅           |
-| git                            | 🟡            | ✅✅          | 🟡           |
-| debug                          | ✅            | ?             | ?            |
+| git                            | 🟡           | ✅✅           | 🟡          |
+| debug                          | ✅            | ?            | ?           |
 | database                       | ✅            | ❌            | ❌           |
 | http                           | ✅            | ❌            | ❌           |
-| editor history UI              | ✅            | 🟡            | 🟡           |
+| editor history UI              | ✅            | 🟡           | 🟡          |
 
-&lt;details&gt;
-&lt;summary&gt;Score rubric&lt;/summary&gt;
+<details>
+<summary>Score rubric</summary>
 
 - Glyph values: ✅✅ = 2 pts, ✅ = 1 pt, 🟡 / ✔️ = 0.5 pts, ❌ / ? = 0 pts, ❌❌ = −1 pt
 - Version/text-only cells (version numbers, descriptive text) = excluded
@@ -52,35 +52,35 @@
   - Cursor: best of typedown / zaaack / Cursor native → zaaack (4 pts)
 - Final score = IDE row subtotal + best editor subtotal
 
-&lt;/details&gt;
+</details>
 
 ## Markdown Viewers/ Editors
 
 typedown and zaaack work in both VS Code and Cursor
 
 
-| Behavior                 | IDEA viewer | IDEA shuzijun       | typedown     | zaaack | Cursor native |
-| ------------------------ | ----------- | ------------------- | ------------ | ------ | ------------- |
-| version                  | 2025.3.3    | 2.0.5               | 1.1.7        | 0.1.13 | 2.6.19        |
-| &gt;1 tab at a time      | ✅          | ✅✅                | ✅✅         | ❌     | ✅✅          |
+| Behavior                 | IDEA viewer | IDEA shuzijun       | typedown    | zaaack | Cursor native |
+|--------------------------|-------------|---------------------|-------------|--------|---------------|
+| version                  | 2025.3.3    | 2.0.5               | 1.1.7       | 0.1.13 | 2.6.19        |
+| >1 tab at a time      | ✅           | ✅✅                  | ✅✅          | ❌      | ✅✅            |
 | re-read changed file     | ?           | ?                   | ✅           | ?      | ?             |
-| wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅   | ❌ truncates  |
-| non-bloated side padding | ?           | ❌❌                | ❌           | ✅     | ❌            |
-| shows images             | ?           | ?                   | ?            | ?      | ?             |
-| find in file             | ✅          | ✅                  | ❌           | ❌     | ❌            |
-| link editing             | ?           | ✔️                | ❌           | ✔️   | ❌            |
-| toolbar                  | ?           | ✔️                | ✔️         | ✔️   | ❌            |
+| wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅     | ❌ truncates   |
+| non-bloated side padding | ?           | ❌❌                  | ❌           | ✅      | ❌             |
+| shows images             | ?           | ?                   | ?           | ?      | ?             |
+| find in file             | ✅           | ✅                   | ❌           | ❌      | ❌             |
+| link editing             | ?           | ✔️                  | ❌           | ✔️     | ❌             |
+| toolbar                  | ?           | ✔️                  | ✔️          | ✔️     | ❌             |
 
 ### IDE Keybindings
 
 
-| Action         | IDEA                 | VS Code       | Cursor        |
-| -------------- | -------------------- | ------------- | ------------- |
+| Action         | IDEA             | VS Code     | Cursor      |
+|----------------|------------------|-------------|-------------|
 | zoom in / out  | `^⌥=` / `^⌥-` ⚠️ | `⌘=` / `⌘-` | `⌘=` / `⌘-` |
-| open file      | `⇧⌘O` ⚠️         | `⌘P`         | `⌘P`         |
-| search project | `⇧⌘F`              | `⇧⌘F`       | `⇧⌘F`       |
-| Wibey history  | ?                    | ?             | ?             |
-| Wibey new chat | ?                    | ?             | ?             |
+| open file      | `⇧⌘O` ⚠️         | `⌘P`        | `⌘P`        |
+| search project | `⇧⌘F`            | `⇧⌘F`       | `⇧⌘F`       |
+| Wibey history  | ?                | ?           | ?           |
+| Wibey new chat | ?                | ?           | ?           |
 
 IDEA keybinding overrides (defaults shown in table, actual bindings below):
 
@@ -154,6 +154,17 @@ Proxy is configured **per machine** in Cursor User settings. Personal laptop has
 
 Then restart Cursor. If you use Settings Sync, turning off sync on the Walmart laptop (or re-adding these after a sync) keeps the proxy from being overwritten.
 
+### Panel Management (Move to Opposite Sidebar)
+
+To move a sidebar panel (Explorer, Search, etc.) to the opposite side of the UI:
+
+1. Press `⌘⇧P` to open the command palette
+2. Run `Move View`
+3. Select the panel to move (e.g., Explorer)
+4. Choose **"Move to Opposite Sidebar"**
+
+This is useful for repositioning panels between left and right sidebars as needed.
+
 - *every model request counts against monthly budget*
 - **seamless parallel agents**
 - **Displays premium usage summary (cf. "usage summary")**
@@ -184,6 +195,17 @@ The built-in preview `markdown.preview.fontSize` defaults to something tiny (was
 "markdown.preview.lineHeight": 1.2,
 ```
 
+### Markdown WYSIWYG Editor Font → Match Preview Font
+
+VS Code's `[markdown]` language-specific `editor.fontFamily` applies to the raw source editor — setting it to a proportional font breaks pipe-delimited tables. **Do not use it.** Each WYSIWYG editor has its own font control:
+
+- **TypeDown**: has `typedown.editor.fontFamily` and `typedown.editor.fontSize` settings — set in `settings.json`:
+  ```json
+  "typedown.editor.fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif",
+  "typedown.editor.fontSize": 13
+  ```
+- **Zaaack**: no settings; requires CSS patch to `media/dist/main.css` — see § Zaaack Markdown Editor Patches below
+
 ### Markdown Preview Theme (auto-switch)
 
 If your Markdown preview (for example, Markdown Preview Enhanced) does not switch between light/dark automatically when VS Code or your OS changes theme, add this to your user `settings.json`:
@@ -207,7 +229,8 @@ Zaaack WYSIWYG markdown editor (zaaack.markdown-editor) has broken dark theme su
   - Extended `body[data-use-vscode-theme-color="1"] .vditor` block to also override `--textarea-text-color`, `--toolbar-icon-color`, and `--border-color` using VSCode CSS variables (`--vscode-editor-foreground`, `--vscode-panel-border`)
   - Added `body[data-use-vscode-theme-color="1"] .vditor-reset` color override using `var(--vscode-editor-foreground)`
   - Added `.vditor--dark .vditor-reset` overrides for: text color, table `tr`/`td`/`th` backgrounds and borders, `hr`, `blockquote`, `kbd`, `.vditor-panel::after` — all the hardcoded light-theme colors that the original `.vditor--dark` CSS variables didn't reach
-  - Added `font-size` override to `.vditor .vditor-reset` to override the default 16px: **VS Code uses 13px**, **Cursor uses 12px** for better readability
+  - Changed `font-family` on `.vditor .vditor-reset` from `var(--vscode-editor-font-family)` (monospace) to the system sans-serif stack (`-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, ...`) to match the built-in Markdown preview font
+  - Set `font-size` on `.vditor .vditor-reset` to `13px` to match `markdown.preview.fontSize` (Cursor: use `12px`)
 - Theme change listener in `out/extension.js`:
   - Added `vscode.window.onDidChangeActiveColorTheme` listener that re-sends `type: 'init'` to the webview with the new theme, so the editor re-initializes with correct dark/light mode when VSCode theme changes
   - Fixed initial theme detection to treat `HighContrast` as dark (was only checking `Dark`)
@@ -306,5 +329,6 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
 
 ## History
 
-- 2026.04.05 Sun: Calibrated IDEA Markdown preview size via `MarkdownSettings.fontSize`; current value in `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/options/markdown.xml` is 15
+History of tool use practices, not of this doc.
+
 - 2026.03.26 Thu: Opus gets stuck in IDEA last few days, switching to Sonnet

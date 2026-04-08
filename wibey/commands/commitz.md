@@ -9,6 +9,8 @@ allowed-tools: Bash(git *), Read, Grep, Glob
 - Current git diff (staged and unstaged): !`git diff HEAD`
 - Recent commit messages (for style): !`git log --oneline -10`
 
+Do not assume the conversation context is the authority for what has changed — the git output above is the source of truth.
+
 ## Your task
 
 Cluster all uncommitted changes (staged, unstaged, and untracked) into logically coherent numbered buckets. Each bucket should group files that belong to the same theme (e.g., a feature, a doc section, a refactor, a fix).
@@ -18,7 +20,7 @@ For each bucket, show:
 - **Bucket number**
 - **Short title** describing the theme
 - **Files** included
-- **Draft commit message** — multi-line, following the repo's existing commit style. The first line is a terse summary. Subsequent lines add detail only if the change is nontrivial. End with: `🌀 Magic applied with Wibey VSCode Extension 🪄`
+- **Draft commit message** — multi-line, following the repo's existing commit style. The first line is a terse summary. Subsequent lines add detail only if the change is nontrivial. Don't document trivial changes a future developer or agent would not search for. End with: `🌀 Magic applied with Wibey VSCode Extension 🪄`
 
 Guidelines for clustering:
 
