@@ -1,7 +1,3 @@
-> **Source:** ~/src/relationship-shared/.wibey/skills/doc-audit/SKILL.md
-> **Last synced:** 2026.04.04
-> **Sync model:** Manual. After updates at work, copy back to ~/bin/ and commit.
-
 # Doc Audit Skill
 
 Consolidated reference for documentation authoring, project document formatting, and audit standards for the agent-toolkit framework.
@@ -95,8 +91,8 @@ All task lists follow a consistent format:
 
 ### Format Rules
 
-- **No space between glyph and date**: `✅03.14` not `✅ 03.14`
-- **Dates in MM.DD format** (never DD.MM): `03.14` not `14.03` or `Mar 14`
+- **No space between glyph and date**: `✅03.14` not `✅ 03.14` so they don't line-break in tables
+- **Dates in MM.DD format** (never DD.MM): `03.14` not `14.03` or `Mar 14` so they alphabetize
 - **Glyph + date appear in Status column**, with detailed explanation in Notes column
 
 ### Task Table Columns
@@ -272,7 +268,9 @@ If updating a doc created on an earlier date, move it into the current date fold
 
 Standardized formatting so agents and humans produce visually consistent docs.
 
-### Footnote Glyphs
+### Footnote Glyphs in Tables
+
+Footnotes hyperlinked from text use daggers as described above. In tables, the footnotes are so nearby/small that it's often better to link to particular footnotes using visual markers rather than hyperlinked daggers. In that case, use these:
 
 **Informational** (neutral, no action needed):
 
@@ -288,20 +286,20 @@ Standardized formatting so agents and humans produce visually consistent docs.
 3. 📣 (megaphone)
 4. 🔔 (bell)
 
-Use them for table cell annotations only. A cell should contain at most one footnote glyph. The glyph *is* the cell content when there's no data; otherwise append it to the value (e.g. `sync commit†`).
+The glyph *is* the cell content when the cell otherwise has no data; otherwise append it to the value.
 
-Within a given table or list, each glyph maps to exactly one note. Glyphs may be freely reused across different tables/docs.
+Within a given table or list, each glyph type maps to exactly one footnote. Glyphs may be freely reused across different tables/docs.
 
 ### Table Cell Vocabulary
 
 Standard special values:
 
-- **— (emdash)** — not applicable; the concept doesn't apply to this row
+- **— (emdash)** — not applicable; the concept doesn't apply to this cell.
 - **TBD** — value exists or will arrive naturally; just needs to be filled in at the appropriate time
 - **TODO** — work is needed to produce the value. Blocks nothing, blocked by nothing.
 - **?** — unknown whether the value can, should, or does exist
 - **⚠️** — alarming situation; should be linked to a footnote explaining the concern
-- **blank cell** — only for visual grouping (e.g. sub-rows). Otherwise use emdash, ?, or TBD.
+- **blank cell** — only for visual spacing/grouping (e.g. subheader rows). Otherwise use emdash, ?, or TBD.
 - **^^^** — same link/value as the row above
 
 ### Escaping
@@ -360,6 +358,7 @@ Claims match current reality (requires domain knowledge and cross-referencing):
 - ✅ Code examples parse and reflect current codebase
 - ✅ Architecture diagrams reflect deployed services
 - ✅ URLs are reachable and current
+- ✅ Every Walmart acronym expansion is either (a) footnoted with an evidence link (file path, doc URL, code reference) or (b) hyperlinked directly to its canonical page. Unexpanded acronyms are acceptable; confidently wrong expansions are not. If no source exists, use the acronym without expansion.
 
 Semantic audit dates older than 90 days are candidates for review.
 
