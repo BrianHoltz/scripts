@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import requests
+from playwright.sync_api import sync_playwright
+
+
+DEFAULT_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+DEFAULT_PORT = 9223
+DEFAULT_PROFILE_DIR = str(Path.home() / "Library/Application Support/agent_browse/chrome-profile")
+DEFAULT_OUTPUT = "/tmp/agent_browse_capture.json"
+
+DEFAULT_EXCLUDES = (
+    "/platform/users/current",
+    "/service/user/profile/",
+    "/service/ident/",
+    "/service/home/utils/chef/",
+    "/service/messaging/",
+    "/service/fs-chat/",
+    "/service/cmn/user-preferences/",
+    "/service/cmn/assignments/",
+    "/service/standards/place/",
+    "googleadservices.com",
+    "google.com/ccm/collect",
+    "consent.trustarc.com",
+)
+
+DEFAULT_INCLUDES = (
+    "/tree/person/",
+    "/platform/tree/",
+    "/service/tree/",
+    "/sources",
+    "/source",
+    "/persons/",
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Launch an isolated Chrome profile, connect over CDP, and capture page plus selected network responses."
+    )
+    parser.add_argument("url", help="Target URL to open inside the isolated agent browser.")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Remote debugging port.")
+    parser.add_argument("--chrome-path", default=DEFAULT_CHROME, help="Path to Chrome executable.")
+    parser.add_argument("--profile-dir", default=DEFAULT_PROFILE_DIR, help="Dedicated user-data-dir for the agent browser profile.")
+    parser.add_argument("--output", default=DEFAULT_OUTPUT, help="JSON file to write the capture result.")
+    parser.add_argument("--login-timeout", type=int, default=300, help="Seconds to wait for manual login/rendering before capturing anyway.")
+    parser.add_argument("--post-load-wait-ms", type=int, default=4000, help="Additional wait after page is considered ready.")
+    parser.add_argument("--include-url-substring", action="append", default=[], help="Only capture network responses whose URL contains this substring. Repeatable.")
+    parser.add_argument("--exclude-url-substring", action="append", default=[], help="Exclude network responses whose URL contains this substring. Repeatable.")
+    parser.add_argument("--redact", action="append", default=[], help="Literal string to redact from the capture. Repeatable.")
+    return parser.parse_args()
+
+
+def endpoint_url(port: int) -> str:
+    return f"http://127.0.0.1:{port}"
+
+
+def ensure_browser_endpoint(args: argparse.Namespace) -> str:
+    base = endpoint_url(args.port)
+    try:
+        response = requests.get(f"{base}/json/version", timeout=1)
+        response.raise_for_status()
+        return base
+    except Exception:
+        pass
+
+    profile_dir = Path(args.profile_dir)
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    chrome_cmd = [
+        args.chrome_path,
+        f"--remote-debugging-port={args.port}",
+        f"--user-data-dir={profile_dir}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-default-apps",
+        "about:blank",
+    ]
+    subprocess.Popen(
+        chrome_cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    deadline = time.time() + 20
+    last_error = None
+    while time.time() < deadline:
+        try:
+            response = requests.get(f"{base}/json/version", timeout=1)
+            response.raise_for_status()
+            return base
+        except Exception as exc:
+            last_error = exc
+            time.sleep(0.5)
+    raise RuntimeError(f"CDP endpoint did not become ready at {base}: {last_error}")
+
+
+def looks_logged_out(page) -> bool:
+    url = page.url.lower()
+    if "signin" in url or "login" in url:
+        return True
+    try:
+        text = page.locator("body").inner_text(timeout=2000).lower()
+    except Exception:
+        return False
+    markers = (
+        "sign in",
+        "sign-in",
+        "create a free account",
+        "continue with",
+    )
+    return any(marker in text for marker in markers)
+
+
+def should_capture_response(url: str, resource_type: str, include_parts, exclude_parts) -> bool:
+    lower_url = url.lower()
+    if resource_type not in {"xhr", "fetch", "document"}:
+        return False
+    if any(part.lower() in lower_url for part in exclude_parts):
+        return False
+    if resource_type == "document":
+        return True
+    if not include_parts:
+        return True
+    return any(part.lower() in lower_url for part in include_parts)
+
+
+def sanitize_text(text: str, extra_redactions) -> str:
+    result = text
+    result = re.sub(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '<redacted_email>', result)
+    result = re.sub(r'"(access_token|token|sessionId|helperPin)"\s*:\s*"[^"]+"', r'"\1":"<redacted>"', result)
+    result = re.sub(r'"(mobilePhoneNumber|phone|contactName|displayName|givenName|familyName)"\s*:\s*"[^"]+"', r'"\1":"<redacted>"', result)
+    for item in extra_redactions:
+        result = result.replace(item, '<redacted>')
+    return result
+
+
+def extract_visible_text(page) -> str:
+    try:
+        main = page.locator("main")
+        if main.count() > 0:
+            return main.inner_text(timeout=5000)
+    except Exception:
+        pass
+    try:
+        return page.locator("body").inner_text(timeout=5000)
+    except Exception:
+        return ""
+
+
+def collect_capture(page, network_events, args: argparse.Namespace) -> dict:
+    title = ""
+    try:
+        title = page.title()
+    except Exception:
+        pass
+    visible_text = extract_visible_text(page)
+    return {
+        "captured_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        "requested_url": args.url,
+        "final_url": page.url,
+        "title": sanitize_text(title, args.redact),
+        "logged_out_guess": looks_logged_out(page),
+        "visible_text_excerpt": sanitize_text(visible_text[:6000], args.redact),
+        "network_events": network_events[:25],
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cdp_base = ensure_browser_endpoint(args)
+    include_parts = tuple(DEFAULT_INCLUDES) + tuple(args.include_url_substring)
+    exclude_parts = tuple(DEFAULT_EXCLUDES) + tuple(args.exclude_url_substring)
+    network_events = []
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.connect_over_cdp(cdp_base)
+        if browser.contexts:
+            context = browser.contexts[0]
+        else:
+            raise RuntimeError("CDP browser had no available context")
+
+        page = context.pages[0] if context.pages else context.new_page()
+
+        def handle_response(response):
+            if not should_capture_response(response.url, response.request.resource_type, include_parts, exclude_parts):
+                return
+            content_type = response.headers.get("content-type", "")
+            entry = {
+                "url": sanitize_text(response.url, args.redact),
+                "status": response.status,
+                "resource_type": response.request.resource_type,
+                "content_type": content_type,
+            }
+            if "json" in content_type:
+                try:
+                    body = sanitize_text(response.text(), args.redact)
+                    entry["body_excerpt"] = body[:2000]
+                except Exception as exc:
+                    entry["body_error"] = str(exc)
+            network_events.append(entry)
+
+        page.on("response", handle_response)
+
+        print(f"Connecting via CDP at {cdp_base}")
+        print(f"Using isolated profile: {args.profile_dir}")
+        print(f"Opening: {args.url}")
+        sys.stdout.flush()
+
+        page.goto(args.url, wait_until="domcontentloaded")
+        deadline = time.time() + args.login_timeout
+        while time.time() < deadline:
+            if not looks_logged_out(page):
+                break
+            print("Waiting for manual login or rendered page content in isolated agent browser...")
+            sys.stdout.flush()
+            page.wait_for_timeout(5000)
+
+        page.wait_for_timeout(args.post_load_wait_ms)
+        capture = collect_capture(page, network_events, args)
+        output_path.write_text(json.dumps(capture, indent=2), encoding="utf-8")
+        browser.close()
+
+    print(f"Capture written to {output_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
