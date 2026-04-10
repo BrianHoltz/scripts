@@ -116,6 +116,7 @@ Use the project's `/tdd` command for the full TDD workflow: pull main, create fe
 - Feel free to volunteer alternative ideas, and critique user suggestions.
 - If you're not sure about user intent, ask clarifying questions before proceeding.
 - Avoid tables and code blocks/text boxes in conversation output — the conversation window is kept narrow, and wide elements cause horizontal scrolling. Use bullet lists or plain prose instead. Tables and code blocks are fine in files, just not in chat replies.
+- **Getting the user's attention:** If you're blocked (need input, hit an unexpected error, must confirm a destructive action) and suspect the user has switched to another window expecting you to be making progress, use the `ailerts` skill (if available) to notify them. Don't use it for routine status — only when you're stopped and the user likely doesn't know.
 
 ## Inferring User Intent from Open Editors
 
