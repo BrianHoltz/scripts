@@ -104,8 +104,9 @@ EXAMPLES
     fhold: exit 2 — review_hold exists: agent=claude1 task="update install steps" age=4m
     # Agent 2 shows the user the Menu (see below) and waits for a choice
     # User resolves Agent 1 diffs and then picks "Diff resolved, switch to unreviewed mode"
-    # Agent 2 cancels Agent 1's hold by registering a concurrent_write_permit:
-    $ fhold permit register README.md --agent claude2 --cancel_any_review_hold
+    # Agent 2 cancels Agent 1's hold, then registers a permit:
+    $ fhold review release README.md
+    $ fhold permit register README.md --agent claude2
     /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.concurrent_write_permit.claude2
     # Agent 2 proceeds to make unreviewed concurrent edits using e.g. write_if_unchanged
 
