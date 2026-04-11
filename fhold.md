@@ -17,7 +17,12 @@ DESCRIPTION
     If a given file is being updated by only one AI agent, 
     then the user wants to review the diff in their IDE.
     But if the file is being updated by multiple AI agents,
-    then the user wants the agents to do parallel writes without clobbering each other.
+    then the user wants the agents to do parallel writes
+    without clobbering each other.
+
+    write_if_unchanged is a sibling utility that lets agents do parallel writes.
+    It enables agents to do parallel writes, at the price of
+    bypassing the system by which IDEs offer review of agent changes.
 
     fhold lets agents coordinate which mode to use. Agents
     register their intention about the file, detect when their intentions
@@ -35,14 +40,15 @@ DESCRIPTION
     Multiple agents may hold permits simultaneously. No agent should make
     IDE-reviewed writes while any permit exists for the file.
 
-
-
     Holds are implemented as sidecar tag files under --tag-root
     (default: /tmp/fhold.tags/). Each file is keyed by sha256 of the
     resolved target path (same scheme as write_if_unchanged locks).
     Ephemeral; cleared on reboot.
 
     The author's practice is to apply fhold only to git-tracked markdown files.
+
+
+
 
 SUBCOMMANDS
     review register FILE  Tag FILE with has_unreviewed_writes. Atomic
@@ -53,7 +59,7 @@ SUBCOMMANDS
                           Typically called after the user accepts or rejects
                           the IDE diff.
     review check FILE     Print review hold status: owner agent, task, age,
-                          whether post-burst hash is set, and whether stale.
+                          whether post-write hash is set, and whether stale.
     permit register FILE  Tag FILE with concurrent_write_permit for this agent.
                           Multiple permit holds may coexist. Any permit hold
                           present = unreviewed mode.
@@ -128,7 +134,7 @@ Applies only to git-tracked markdown files.
 
 **Tag:** `<path-hash>.has_unreviewed_writes`
 
-**When created:** Immediately before a burst write, via `fhold review register <file>`. Created atomically (O_EXCL). On success: exit 0, prints the tag path. On contention (review hold already exists): exit 2, prints the owning agent's session-id and task to stderr.
+**When created:** At the start of all planned writes, via `fhold review register <file>`. Created atomically (O_EXCL). The hold remains active until all writes are complete. On success: exit 0, prints the tag path. On contention (review hold already exists): exit 2, prints the owning agent's session-id and task to stderr.
 
 **Contents:**
 
@@ -137,13 +143,13 @@ agent: <session-id>
 file: <repo-relative-path>
 task: <one-line description>
 acquired: <ISO timestamp>
-pre-burst-sha256: <hash of file before any writes>
-post-burst-sha256: <hash of file after burst completes>  ← written after burst
+pre-write-sha256: <hash of file before any writes>
+post-write-sha256: <hash of file after all writes complete>  ← written after release
 ```
 
 **Released by:** User resolves contention (accept or reject IDE diff) and tells agent; explicit `fhold review release`; TTL 30 min.
 
-**Auto-stale detection:** If `post-burst-sha256` is set and current file hash differs → user rejected/modified the diff → hold is stale, auto-release on next check.
+**Auto-stale detection:** If `post-write-sha256` is set and current file hash differs → user rejected/modified the diff → hold is stale, auto-release on next check. The `post-write-sha256` is captured after `fhold review release` to mark what the user reviewed.
 
 ### Permit Hold (concurrent_write_permit)
 
