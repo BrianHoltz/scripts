@@ -92,16 +92,18 @@ EXIT CODES
     3  no hold found (release of nonexistent hold)
 
 EXAMPLES
-    # Register a review hold before writing
+    # REVIEW MODE: Agent makes leisurely edits, user reviews as IDE diffs
     fhold review register README.md --agent ses_abc --task "update install steps"
-    write_if_unchanged README.md --from /tmp/new_readme.md --expect-sha256 "$HASH"
+    # Agent edits directly (Edit/Write tools, vim, IDE, etc.)
+    # Changes appear as diffs in IDE for user review
     # ... user reviews diff in IDE, then tells agent to release ...
     fhold review release README.md --agent ses_abc
 
-    # Switch to unreviewed mode (after contention resolution)
+    # UNREVIEWED MODE: Agents write safely in parallel via write_if_unchanged
     fhold permit register README.md --agent ses_abc
     fhold permit register README.md --agent ses_def
-    # ... both agents write freely via write_if_unchanged ...
+    write_if_unchanged README.md --from /tmp/new_readme.md --expect-sha256 "$HASH"
+    # ... both agents write via write_if_unchanged (no review, CAS-safe) ...
     fhold permit release README.md --agent ses_abc
     fhold permit release README.md --agent ses_def
     # all permit holds gone → review mode resumes
