@@ -128,7 +128,7 @@ EXAMPLES
         --expect-sha256 "$HASH" --note "agent=ses_xyz"
 
     #   → Agent 1 checks status, sees permit mode, registers its own permit,
-    #     and switches to write_if_unchanged for all further writes:
+    #     and switches to write_if_unchanged while any permit exists for the file:
     $ fhold status README.md
     mode: unreviewed (1 permit hold: ses_xyz)
     $ fhold permit register README.md --agent ses_abc
@@ -138,7 +138,8 @@ EXAMPLES
     $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \
         --expect-sha256 "$HASH" --note "agent=ses_abc"
 
-    # When all agents are done, they release their permits; review mode resumes:
+    # When all agents are done, permits will expire in 30mins,
+    # or agents can explicitly release their permits. review mode resumes:
     $ fhold permit release README.md --agent ses_xyz
     $ fhold status README.md
     mode: reviewed (no holds)
