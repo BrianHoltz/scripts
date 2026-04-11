@@ -36,6 +36,47 @@ SCRIPT = Path(__file__).parent / "write_if_unchanged"
 PYTHON = sys.executable
 
 
+def _stupid_hash_key(path: Path) -> str:
+    """Fallback human-readable key generation (matches write_if_unchanged fallback).
+
+    Format: parent_chars_basename_chars_hash
+    """
+    resolved = path.resolve()
+    parent_str = str(resolved.parent)
+    basename_str = resolved.name
+
+    # Replace "/" with "_" in parent path
+    parent_normalized = parent_str.replace("/", "_")
+
+    # Truncate to reasonable lengths
+    parent_part = parent_normalized[:60]
+    basename_part = basename_str[:120]
+
+    # Hash the full canonical path
+    full_path_str = str(resolved)
+    path_hash = hashlib.sha256(full_path_str.encode("utf-8")).hexdigest()[:8]
+
+    return f"{parent_part}_{basename_part}_{path_hash}"
+
+
+def _test_canonical_key(path: Path) -> str:
+    """Test version of canonical_key (tries fakepath, falls back to stupid hash)."""
+    try:
+        fakepath_bin = Path.home() / "bin" / "fakepath"
+        if fakepath_bin.exists():
+            result = subprocess.run(
+                [str(fakepath_bin), str(path)],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+    except Exception:
+        pass
+    return _stupid_hash_key(path)
+
+
 # ---------------------------------------------------------------------------
 # Output helpers
 # ---------------------------------------------------------------------------
@@ -134,7 +175,7 @@ def run(
 
 def plant_stale_lock(lock_root: Path, target: Path, age_s: float = 300, note: str = "") -> Path:
     """Create a lock dir with an expired heartbeat, simulating a crashed writer."""
-    key = hashlib.sha256(str(target.resolve()).encode()).hexdigest()[:24]
+    key = _test_canonical_key(target)
     lock_path = lock_root / f"{key}.lock"
     lock_path.mkdir(parents=True, exist_ok=True)
     meta = {
@@ -152,7 +193,7 @@ def plant_stale_lock(lock_root: Path, target: Path, age_s: float = 300, note: st
 
 def plant_live_lock(lock_root: Path, target: Path, owner: str = "blocker") -> Path:
     """Create a lock dir with a fresh heartbeat, simulating an active writer."""
-    key = hashlib.sha256(str(target.resolve()).encode()).hexdigest()[:24]
+    key = _test_canonical_key(target)
     lock_path = lock_root / f"{key}.lock"
     lock_path.mkdir(parents=True, exist_ok=True)
     meta = {
