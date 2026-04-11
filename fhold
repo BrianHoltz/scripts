@@ -99,49 +99,29 @@ EXAMPLES
     # Agent 1 makes solo edits, which appear as diffs in IDE. User reviews...
     # ...User stops working on the file, review hold expires after 30mins. Or....
 
-    # PERMIT MODE: User asks Agent 2 to also edit the file. Agent 2 attempts solo:
+    # PERMIT MODE: User asks Agent 2 to also edit the file. Agent 2 requests a review_hold:
     $ fhold review register README.md --agent claude2 --task "add examples"
-    fhold: exit 2 — review hold exists: agent=claude1 task="update install steps" age=4m
+    fhold: exit 2 — review_hold exists: agent=claude1 task="update install steps" age=4m
     # Agent 2 shows the user the Menu (see below) and waits for a choice
     # User resolves Agent 1 diffs and then picks "Diff resolved, switch to unreviewed mode"
     # Agent 2 cancels Agent 1's hold by registering a concurrent_write_permit:
-    $ fhold permit register README.md --agent claude2
+    $ fhold permit register README.md --agent claude2 --cancel_any_review_hold
     /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.concurrent_write_permit.claude2
-    $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
-    $ python3 gen.py > /tmp/new.md
-    $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \\
-        --expect-sha256 "$HASH" --note "agent=claude2"
+    # Agent 2 proceeds to make unreviewed concurrent edits using e.g. write_if_unchanged
 
-    #   → Agent 1 checks status, sees permit mode, registers its own permit,
-    #     and switches to write_if_unchanged while any permit exists for the file:
+    # As usual, Agent 1 checks status before its next reviewed write and gets a surprise:
     $ fhold status README.md
     mode: unreviewed (1 permit hold: claude2)
+    # Agent 1 sees the file is now in permit mode, and so requests a permit:
     $ fhold permit register README.md --agent claude1
     /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.claude1
-    $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
-    $ python3 other_gen.py > /tmp/new.md
-    $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \\
-        --expect-sha256 "$HASH" --note "agent=claude1"
+    # Agent 1 proceeds to make unreviewed concurrent edits using e.g. write_if_unchanged
 
-    # When all agents are done, permits will expire in 30mins,
-    # or agents can explicitly release their permits. review mode resumes:
-    $ fhold permit release README.md --agent claude2
+    # Permits expire 30mins after creation, or agents can explicitly release their permits:
+    $ fhold permit release README.md --agent claude1
+    # When no valid permits exist, the file defaults to review mode:
     $ fhold status README.md
     mode: reviewed (no holds)
-
-
-    # Agent makes inode-preserving targeted edits (Edit/Write tools, vim)
-    # avoiding inode-changing edits (sed -i, give more examples here)
-    # Changes appear as diffs in IDE for user review
-    # ... User finishes work, review hold TTLs after 30mins. Or....
-
-    # PERMIT MODE: user asks another agent to update the same file,
-    # because the user wants parallel edits, and is willing to forego reviews.
-    # Agent tries to grab the file's review hold, sees that another agent already has it.
-    # Agent then asks the user to resolve any unreviewed changes,
-    # and authorize a concurrent_write_permit, thus putting the file into permit mode.
-    # First agent starts its next write and sees permit mode has taken effect.
-    # Both agents now must use write_if_unchanged until all permits expire or are revoked.
 """
 
 # usage_msg is intentionally placed at the very top for human readers and future agents.
