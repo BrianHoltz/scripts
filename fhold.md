@@ -92,71 +92,20 @@ EXIT CODES
     3  no hold found (release of nonexistent hold)
 
 EXAMPLES
-    ## REVIEW MODE: Single agent, IDE review workflow
-    
-        # Agent registers its intention to make reviewed inode-preserving edits:
-        fhold review register README.md --agent ses_abc --task "update install steps"
-        # Output: /tmp/fhold.tags/_private_tmp_fhold_test_README.md_a6033a8b.has_unreviewed_writes
-        
-        # Agent makes inode-preserving edits using e.g. IDE Edit/Write tools
-        # Changes appear in IDE as diffs. User reviews and accepts/rejects.
-        fhold review check README.md            # see hold age, agent, task
-        # Output: Review hold by ses_abc (5m old). Task: update install steps
-        
-        # User accepts diff in IDE, or 30min TTL expires:
-        fhold review release README.md          # agent or user can release
-        # Captures post-write-sha256 so hold auto-stales if user rejected later
-    
-    ## PERMIT MODE: Multiple agents, unreviewed parallel writes
-    
-    Agent 1 starts work and registers review hold:
-    
-        $ fhold review register CONFIG.md --agent ses_123 --task "fix typos"
-        /tmp/fhold.tags/_private_tmp_fhold_test_CONFIG.md_4c4b2c1e.has_unreviewed_writes
-        # Edit file...
-    
-    Agent 2 arrives and detects contention:
-    
-        $ fhold review register CONFIG.md --agent ses_456 --task "add examples"
-        fhold: review hold exists for ses_123 (task: "fix typos", 3m old)
-        # Exit 2. Agent asks user: "Resolve Agent 1's pending changes, then authorize
-        # concurrent writes?" User says yes and accepts Agent 1's diff.
-        
-        # User or agent releases the review hold:
-        $ fhold review release CONFIG.md
-        
-        # Agent 2 registers a permit hold (unreviewed writes authorized):
-        $ fhold permit register CONFIG.md --agent ses_456
-        /tmp/fhold.tags/_private_tmp_fhold_test_CONFIG.md_4c4b2c1e.concurrent_write_permit.ses_456
-        
-        # Agent 1 detects permit mode on next write:
-        $ fhold status CONFIG.md
-        # Mode: unreviewed (1 permit hold)
-        # Permit holders: ses_456 (last active 2s ago)
-        
-        # Agent 1 also registers permit and switches to write_if_unchanged:
-        $ fhold permit register CONFIG.md --agent ses_123
-        $ HASH=$(shasum -a 256 CONFIG.md | awk '{print $1}')
-        $ python3 transform.py > /tmp/new_config.md
-        $ ~/bin/write_if_unchanged CONFIG.md --from /tmp/new_config.md \
-            --expect-sha256 "$HASH" --note "agent=ses_123"
-        
-        # Agent 2 does the same:
-        $ HASH=$(shasum -a 256 CONFIG.md | awk '{print $1}')
-        $ python3 other_transform.py > /tmp/new_config.md
-        $ ~/bin/write_if_unchanged CONFIG.md --from /tmp/new_config.md \
-            --expect-sha256 "$HASH" --note "agent=ses_456"
-        
-        # Both agents keep updating independently until done:
-        $ fhold permit check CONFIG.md
-        # ses_123: last active 1m ago
-        # ses_456: last active 30s ago
-        
-        # When all permits expire or are released, review mode resumes:
-        $ fhold permit release CONFIG.md --agent ses_123
-        $ fhold permit release CONFIG.md --agent ses_456
-        $ fhold status CONFIG.md
-        # Mode: reviewed (no holds)
+    # REVIEW MODE: Agent makes leisurely edits, user reviews as IDE diffs
+    fhold review register README.md --agent ses_abc --task "update install steps"
+    # Agent makes inode-preserving targeted edits (Edit/Write tools, vim)
+    # avoiding inode-changing edits (sed -i, give more examples here)
+    # Changes appear as diffs in IDE for user review
+    # ... User finishes work, review hold TTLs after 30mins. Or....
+
+    # PERMIT MODE: user asks another agent to update the same file,
+    # because the user wants parallel edits, and is willing to forego reviews.
+    # Agent tries to grab the file's review hold, sees that another agent already has it.
+    # Agent then asks the user to resolve any unreviewed changes, 
+    # and authorize a concurrent_write_permit, thus putting the file into permit mode.
+    # First agent starts its next write and sees permit mode has taken effect.
+    # Both agents now must use write_if_unchanged until all permits expire or are revoked.
 ```
 
 ## Context
