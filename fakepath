@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Brian Holtz
+# SPDX-License-Identifier: MIT
+
+usage_msg = """\
+NAME
+    fakepath - generate human-readable filesystem keys from absolute paths
+
+SYNOPSIS
+    fakepath PATH [--parent-chars N] [--basename-chars M] [--hash-chars H]
+
+DESCRIPTION
+    Generates a collision-free, human-readable key from an absolute file path
+    for use in lock/hold/tag systems and marker filenames.
+
+    The key encodes the parent directory path (truncated), the basename
+    (truncated), and a short hash of the full canonical path for collision
+    resistance. Result fits in filesystem filename limits (< 255 chars).
+
+    Deterministic: same input always produces same output.
+
+ARGUMENTS
+    PATH                  Absolute file path (or relative; will be resolved
+                          to canonical form).
+
+OPTIONS
+    --parent-chars N      Maximum characters from parent directory path
+                          (default: 60).
+    --basename-chars M    Maximum characters from filename (default: 120).
+    --hash-chars H        Length of hash suffix in hex (default: 8).
+
+    -H, --raw-help        Show this raw usage text and exit
+    -h, --help            Show colorized usage and exit
+
+OUTPUT
+    A string of the form: <parent>_<basename>_<hash>
+
+    Parent: first N chars of parent directory path, with / replaced by _
+    Basename: first M chars of filename
+    Hash: first H hex digits of sha256(canonical_path)
+
+EXIT CODES
+    0  success
+    1  usage error (bad arguments)
+    2  path resolution failed (nonexistent or unresolvable path)
+
+EXAMPLES
+    fakepath /Users/alice/src/project/README.md
+    # Output: Users_alice_src_project_README.md_abc123de
+
+    fakepath ./relative/path/file.txt --parent-chars 40 --basename-chars 100
+    # Resolves ./relative/path to canonical, applies custom truncation
+
+    fakepath /very/long/directory/structure/file.txt --hash-chars 12
+    # Uses longer hash suffix (12 hex chars instead of 8)
+"""
+
+# usage_msg is intentionally placed at the very top for human readers and future agents.
+# usage_msg formatting and content ALWAYS trumps show_usage(). If you change usage_msg,
+# you MUST update show_usage() to match it EXACTLY, including newlines and spacing.
+
+import sys
+from pathlib import Path
+
+
+def fakepath(path: str, parent_chars: int = 60, basename_chars: int = 120, hash_chars: int = 8) -> str:
+    """
+    Generate a human-readable, collision-free filesystem key from a path.
+
+    Args:
+        path: Absolute or relative file path
+        parent_chars: Max chars from parent directory (default: 60)
+        basename_chars: Max chars from filename (default: 120)
+        hash_chars: Length of hash suffix (default: 8)
+
+    Returns:
+        String of form: <parent>_<basename>_<hash>
+
+    Raises:
+        ValueError: if path cannot be resolved
+    """
+    # TODO: implement
+    raise NotImplementedError("fakepath() stub")
+
+
+def show_usage() -> None:
+    # TODO: implement colorized usage output
+    sys.stdout.write(usage_msg)
+
+
+def parse_args():
+    import argparse
+    p = argparse.ArgumentParser(add_help=False, exit_on_error=False)
+    p.add_argument("path", help="Path to convert to key")
+    p.add_argument("--parent-chars", type=int, default=60,
+                   help="Max chars from parent directory (default: 60)")
+    p.add_argument("--basename-chars", type=int, default=120,
+                   help="Max chars from filename (default: 120)")
+    p.add_argument("--hash-chars", type=int, default=8,
+                   help="Hash suffix length (default: 8)")
+    return p.parse_args()
+
+
+def main() -> int:
+    # Pre-scan for help flags only in the first argument position
+    if len(sys.argv) > 1 and sys.argv[1] in ("-H", "--raw-help"):
+        sys.stdout.write(usage_msg)
+        return 0
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        show_usage()
+        return 0
+
+    try:
+        args = parse_args()
+    except (argparse.ArgumentError, SystemExit):
+        print("usage: fakepath PATH [--parent-chars N] [--basename-chars M] [--hash-chars H]",
+              file=sys.stderr)
+        print("Run 'fakepath -h' for help.", file=sys.stderr)
+        return 1
+
+    try:
+        result = fakepath(args.path, args.parent_chars, args.basename_chars, args.hash_chars)
+        print(result)
+        return 0
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
