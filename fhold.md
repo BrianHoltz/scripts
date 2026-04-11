@@ -117,7 +117,8 @@ EXAMPLES
     fhold: exit 2 — review hold exists: agent=ses_abc task="update install steps" age=4m
     # Agent 2 shows the user the Menu (see § Menu) and waits for a choice.
     # User picks "Diff resolved, switch to unreviewed mode":
-    #   → IDE diff accepted; Agent 1's review hold is released.
+    #   → User choice authorizes Agent 2 to cancel Agent 1's hold:
+    $ fhold review release README.md
     #   → Agent 2 registers a permit hold and writes via write_if_unchanged.
     #   → Agent 1's NEXT fhold status/register call sees permit mode and must
     #     also switch to write_if_unchanged for all further writes to this file.
