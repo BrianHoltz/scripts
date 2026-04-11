@@ -87,6 +87,7 @@ EXAMPLE
 import argparse
 from datetime import datetime
 import hashlib
+import subprocess
 import json
 import os
 import re
