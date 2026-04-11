@@ -79,6 +79,7 @@ INTEGRATION
 # usage_msg formatting and content ALWAYS trumps show_usage(). If you change usage_msg,
 # you MUST update show_usage() to match it EXACTLY, including newlines and spacing.
 
+import argparse
 import sys
 from pathlib import Path
 
