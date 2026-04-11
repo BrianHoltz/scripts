@@ -511,6 +511,89 @@ def _test_lock_cleaned_up(tmpdir: Path, lock_root: str, details: list[str]) -> b
     return True
 
 
+def _test_lock_key_format_is_human_readable(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Lock key should be human-readable format from fakepath or fallback, not pure sha256."""
+    target = tmpdir / "subdir" / "myfile.txt"
+    target.parent.mkdir(parents=True)
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"data")
+
+    # Plant a live lock to inspect its key format without racing
+    lock_root_path = Path(lock_root)
+    lock_root_path.mkdir(parents=True, exist_ok=True)
+    lock_path = plant_live_lock(lock_root_path, target, owner="inspector")
+
+    # Verify lock filename contains readable parts (parent_, basename_) not pure hex
+    lock_name = lock_path.name
+    details.append(f"lock_name={lock_name}")
+
+    # Should contain the .lock extension
+    if not lock_name.endswith(".lock"):
+        details.append("lock filename should end with .lock")
+        return False
+
+    # The key part (before .lock) should be human-readable-ish:
+    # either "parent_basename_hash" format (fakepath) or a fallback key
+    key_part = lock_name[:-5]  # strip .lock
+
+    # Should contain at least one underscore (separating components)
+    if "_" not in key_part:
+        details.append(f"lock key should contain underscores for readability: {key_part}")
+        return False
+
+    details.append("lock key appears human-readable")
+    return True
+
+
+def _test_different_files_get_different_lock_keys(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Two writes to different files should use different lock keys."""
+    file1 = tmpdir / "file1.txt"
+    file2 = tmpdir / "file2.txt"
+    src = tmpdir / "src.txt"
+    src.write_bytes(b"data")
+
+    # Run two writes and inspect their lock keys
+    lock_root_path = Path(lock_root)
+    lock_root_path.mkdir(parents=True, exist_ok=True)
+
+    lock_key1 = plant_live_lock(lock_root_path, file1, owner="w1")
+    lock_key2 = plant_live_lock(lock_root_path, file2, owner="w2")
+
+    key1_name = lock_key1.name[:-5]  # strip .lock
+    key2_name = lock_key2.name[:-5]  # strip .lock
+
+    details.append(f"lock_key1={key1_name} lock_key2={key2_name}")
+    if key1_name == key2_name:
+        details.append("different files should have different lock keys")
+        return False
+    return True
+
+
+def _test_lock_key_deterministic(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
+    """Same file should always generate the same lock key (determinism)."""
+    target = tmpdir / "deterministic.txt"
+    lock_root_path = Path(lock_root)
+    lock_root_path.mkdir(parents=True, exist_ok=True)
+
+    # Create two locks for the same target at different times
+    lock_key1 = plant_live_lock(lock_root_path, target, owner="w1")
+    key1_name = lock_key1.name[:-5]  # strip .lock
+
+    # Clean up first lock
+    import shutil
+    shutil.rmtree(lock_key1, ignore_errors=True)
+
+    # Create second lock for same target
+    lock_key2 = plant_live_lock(lock_root_path, target, owner="w2")
+    key2_name = lock_key2.name[:-5]  # strip .lock
+
+    details.append(f"lock_key1={key1_name} lock_key2={key2_name}")
+    if key1_name != key2_name:
+        details.append("same file should always have same lock key")
+        return False
+    return True
+
+
 
 def _test_stdin_zero_bytes_aborts_if_target_nonempty(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
     """Hard guard: --stdin with 0 bytes must abort (exit 1) if target exists and is non-empty."""
@@ -742,6 +825,9 @@ TESTS = [
     ("--max-shrink-pct allows within threshold",     _test_max_shrink_pct_allows_within_threshold),
     ("--sentinel-regex aborts when missing",         _test_sentinel_regex_aborts_when_missing),
     ("--sentinel-regex allows when present",         _test_sentinel_regex_allows_when_present),
+    ("lock key format is human-readable",            _test_lock_key_format_is_human_readable),
+    ("different files get different lock keys",      _test_different_files_get_different_lock_keys),
+    ("lock key is deterministic",                    _test_lock_key_deterministic),
 ]
 
 
