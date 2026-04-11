@@ -117,8 +117,100 @@ def fakepath(path: str, parent_chars: int = 60, basename_chars: int = 120, hash_
 
 
 def show_usage() -> None:
-    # TODO: implement colorized usage output
-    sys.stdout.write(usage_msg)
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    ITALIC = "\033[3m"
+    CMD = "\033[1;38;5;33m"        # DodgerBlue #1E90FF
+    FLAG = "\033[38;5;51m"         # DeepSkyBlue #00BFFF
+    FS_VAR = "\033[38;5;78m"       # MediumSeaGreen #3CB371
+    FS_LIT = "\033[1;38;5;46m"     # Lime #00FF00
+    ARG_VAR = "\033[38;5;214m"     # Orange #FFA500
+    ARG_LIT = "\033[38;5;208m"     # DarkOrange #FF8C00
+    W = sys.stdout.write
+    NL = "\n"
+
+    def section(title: str) -> None:
+        W(f"{BOLD}{UNDERLINE}{title}{RESET}{NL}")
+
+    def cmd(s: str) -> str:
+        return f"{CMD}{s}{RESET}"
+
+    def flag(s: str) -> str:
+        return f"{FLAG}{s}{RESET}"
+
+    def fs_var(s: str) -> str:
+        return f"{FS_VAR}{UNDERLINE}{ITALIC}{s}{RESET}"
+
+    def fs_lit(s: str) -> str:
+        return f"{FS_LIT}{UNDERLINE}{s}{RESET}"
+
+    def arg_var(s: str) -> str:
+        return f"{ARG_VAR}{ITALIC}{s}{RESET}"
+
+    def arg_lit(s: str) -> str:
+        return f"{ARG_LIT}{s}{RESET}"
+
+    section("NAME")
+    W(f"    {cmd('fakepath')} - generate human-readable filesystem keys from paths{NL}")
+    W(NL)
+
+    section("SYNOPSIS")
+    W(f"    {cmd('fakepath')} {fs_var('PATH')} [{flag('--parent-chars')} {arg_var('N')}]"
+      f" [{flag('--basename-chars')} {arg_var('M')}] [{flag('--hash-chars')} {arg_var('H')}]{NL}")
+    W(NL)
+
+    section("DESCRIPTION")
+    W(f"    Generates a collision-free, human-readable key from an absolute file path{NL}")
+    W(f"    for use in lock/hold/tag systems and marker filenames.{NL}")
+    W(NL)
+    W(f"    The key encodes the parent directory path (truncated to {arg_lit('N')} chars),{NL}")
+    W(f"    the basename (truncated to {arg_lit('M')} chars), and a short hash of the{NL}")
+    W(f"    full canonical path for collision resistance.{NL}")
+    W(NL)
+    W(f"    Deterministic: same input always produces same output.{NL}")
+    W(NL)
+
+    section("ARGUMENTS")
+    W(f"    {fs_var('PATH')}                  Absolute file path (or relative; will be resolved{NL}")
+    W(f"                          to canonical form).{NL}")
+    W(NL)
+
+    section("OPTIONS")
+    W(f"    {flag('--parent-chars')} {arg_var('N')}      Maximum characters from parent directory path{NL}")
+    W(f"                          (default: {arg_lit('60')}).{NL}")
+    W(f"    {flag('--basename-chars')} {arg_var('M')}    Maximum characters from filename{NL}")
+    W(f"                          (default: {arg_lit('120')}).{NL}")
+    W(f"    {flag('--hash-chars')} {arg_var('H')}        Length of hash suffix in hex{NL}")
+    W(f"                          (default: {arg_lit('8')}).{NL}")
+    W(NL)
+    W(f"    {flag('-H')}, {flag('--raw-help')}        Show this raw usage text and exit{NL}")
+    W(f"    {flag('-h')}, {flag('--help')}            Show colorized usage and exit{NL}")
+    W(NL)
+
+    section("OUTPUT")
+    W(f"    A string of the form: {arg_var('<parent>')}_{arg_var('<basename>')}_{arg_var('<hash>')}{NL}")
+    W(NL)
+    W(f"    Parent: first {arg_lit('N')} chars of parent directory path, with {arg_lit('/')} replaced by {arg_lit('_')}{NL}")
+    W(f"    Basename: first {arg_lit('M')} chars of filename{NL}")
+    W(f"    Hash: first {{arg_lit('H')}} hex digits of sha256(canonical_path){NL}")
+    W(NL)
+
+    section("EXIT CODES")
+    W(f"    {arg_lit('0')}  success{NL}")
+    W(f"    {arg_lit('1')}  usage error (bad arguments){NL}")
+    W(f"    {arg_lit('2')}  path resolution failed (nonexistent or unresolvable path){NL}")
+    W(NL)
+
+    section("EXAMPLES")
+    W(f"    {cmd('fakepath')} {fs_lit('/Users/alice/src/project/README.md')}{NL}")
+    W(f"    # Output: Users_alice_src_project_README.md_abc123de{NL}")
+    W(NL)
+    W(f"    {cmd('fakepath')} {fs_lit('./relative/path/file.txt')} {flag('--parent-chars')} {arg_lit('40')}{NL}")
+    W(f"    # Resolves relative path, applies custom truncation{NL}")
+    W(NL)
+    W(f"    {cmd('fakepath')} {fs_lit('/very/long/path/file.txt')} {flag('--hash-chars')} {arg_lit('12')}{NL}")
+    W(f"    # Uses longer hash suffix (12 hex chars instead of 8){NL}")
 
 
 def parse_args():

@@ -11,7 +11,7 @@ SYNOPSIS
     fhold {review|permit} release FILE [--agent ID]
     fhold {review|permit} check FILE
     fhold status FILE
-    fhold gc [--marker-root DIR]
+    fhold gc [--tag-root DIR]
 
 DESCRIPTION
     If a given file is being updated by only one AI agent, 
@@ -37,11 +37,12 @@ DESCRIPTION
 
 
 
-    Holds are implemented as sidecar marker files under --marker-root
-    (default: /tmp/fhold.markers/<sha256-of-repo-root>/). Filenames encode
-    the repo-relative path (slashes → %2F). Ephemeral; cleared on reboot.
+    Holds are implemented as sidecar tag files under --tag-root
+    (default: /tmp/fhold.tags/). Each file is keyed by sha256 of the
+    resolved target path (same scheme as write_if_unchanged locks).
+    Ephemeral; cleared on reboot.
 
-    Applies only to git-tracked markdown files.
+    The author's practice is to apply fhold only to git-tracked markdown files.
 
 SUBCOMMANDS
     review register FILE  Tag FILE with has_unreviewed_writes. Atomic
@@ -71,8 +72,7 @@ OPTIONS
                           or $USER.
     --task TEXT            One-line description stored in the review hold
                           (review register only).
-    --marker-root DIR     Marker directory (default: /tmp/fhold.markers/<sha256-
-                          of-repo-root>/).
+    --tag-root DIR        Tag directory (default: /tmp/fhold.tags/).
     --ttl SECS            Stale hold TTL in seconds (default: 1800).
 
     -H, --raw-help        Show this raw usage text and exit
@@ -118,7 +118,7 @@ Agent 2 needs to write to a file. It calls `fhold review register` and discovers
 
 ## Hold Tags
 
-Holds are implemented as sidecar marker files under `/tmp/fhold.markers/<sha256-of-repo-root>/`. Filenames encode the repo-relative path (slashes → `%2F`). Not in any repo; ephemeral; cleared on reboot.
+Holds are implemented as sidecar tag files under `/tmp/fhold.tags/`. Each file is keyed by `sha256(resolved_path)[:24]`, the same scheme as write_if_unchanged locks. Not in any repo; ephemeral; cleared on reboot.
 
 Applies only to git-tracked markdown files.
 
@@ -126,9 +126,9 @@ Applies only to git-tracked markdown files.
 
 **Meaning:** The agent's changes are on disk but awaiting review. If the user rejects any, the IDE reverts all changes made after those writes. The IDE may or may not detect the conflict on its own, and typically handles it poorly.
 
-**Tag:** `<mangled-path>.has_unreviewed_writes`
+**Tag:** `<path-hash>.has_unreviewed_writes`
 
-**When created:** Immediately before a burst write, via `fhold review register <file>`. Created atomically (O_EXCL). On success: exit 0, prints the marker path. On contention (review hold already exists): exit 2, prints the owning agent's session-id and task to stderr.
+**When created:** Immediately before a burst write, via `fhold review register <file>`. Created atomically (O_EXCL). On success: exit 0, prints the tag path. On contention (review hold already exists): exit 2, prints the owning agent's session-id and task to stderr.
 
 **Contents:**
 
@@ -149,11 +149,11 @@ post-burst-sha256: <hash of file after burst completes>  ← written after burst
 
 **Meaning:** The user authorized unreviewed parallel writes when the agent registered this permit. Multiple agents may hold permits simultaneously. No agent should make IDE-reviewed writes while any permit exists for the file.
 
-**Tag:** `<mangled-path>.concurrent_write_permit.<session-id>`
+**Tag:** `<path-hash>.concurrent_write_permit.<session-id>`
 
 **When created:** When an agent begins working on a file in unreviewed mode (i.e. after contention is resolved with a "switch to unreviewed mode" choice). Agents in review mode register review holds, not permit holds.
 
-**Contents:** Minimal — agent-id and file path. The marker's **mtime is the heartbeat**; refreshed on each write to the target file.
+**Contents:** Minimal — agent-id and file path. The tag file's **mtime is the heartbeat**; refreshed on each write to the target file.
 
 **Released by:** Explicit `fhold permit release`; TTL 30 min of mtime inactivity.
 
@@ -176,7 +176,7 @@ post-burst-sha256: <hash of file after burst completes>  ← written after burst
 
 **Git `index.lock` / `packed-refs.lock`** — validates O_EXCL atomic creation. Pure exclusive mutex with no metadata stored; recovery from crashes requires human intervention. Confirms file-based tags over POSIX are the right approach.
 
-**POSIX fcntl/flock advisory locks** — three documented failure modes explain why we use file-based markers instead: (a) any fd close from any thread releases all locks on that inode; (b) unreliable or silent-no-op over NFS; (c) advisory-only means non-cooperating processes are not blocked. None of these affect our file-based approach.
+**POSIX fcntl/flock advisory locks** — three documented failure modes explain why we use file-based tags instead: (a) any fd close from any thread releases all locks on that inode; (b) unreliable or silent-no-op over NFS; (c) advisory-only means non-cooperating processes are not blocked. None of these affect our file-based approach.
 
 **Non-exclusive permit holds** — no prior art found. The counting-semaphore pattern exists in-process but has no widely-used filesystem incarnation for coordinating independent writers. The inversion here — multiple simultaneous permit holds collectively signaling a shared mode — is uncommon in filesystem coordination.
 
@@ -184,4 +184,4 @@ post-burst-sha256: <hash of file after burst completes>  ← written after burst
 
 **"Pending review" as a write-coordination primitive** — novel at the machine level. GitHub PR review status and Wikipedia Pending Changes are semantic analogues but are human editorial workflows operating at coarser granularity.
 
-**Remote writer limitation** — markers in `/tmp` are invisible to agents on other hosts, the same failure mode that made POSIX flock unreliable on NFS. Deliberately out of scope: this protocol targets single-machine human-in-the-loop workflows only.
+**Remote writer limitation** — tags in `/tmp` are invisible to agents on other hosts, the same failure mode that made POSIX flock unreliable on NFS. Deliberately out of scope: this protocol targets single-machine human-in-the-loop workflows only.
