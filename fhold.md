@@ -96,19 +96,9 @@ EXAMPLES
     
         # Agent registers its intention to make reviewed inode-preserving edits:
         fhold review register README.md --agent ses_abc --task "update install steps"
-        # Output: /tmp/fhold.tags/a1b2c3d4e5f6a9b8c7d6e5f4.has_unreviewed_writes
+        # Output: /tmp/fhold.tags/_private_tmp_fhold_test_README.md_a6033a8b.has_unreviewed_writes
         
-        # SAFE edits (inode-preserving):
-        vim README.md                           # vim truncate+rewrite (default)
-        # or use Claude Code IDE Edit/Write tools (truncate+rewrite)
-        
-        # UNSAFE edits (inode-changing) — AVOID:
-        sed -i '' 's/old/new/' README.md        # atomic write (temp→swap)
-        awk '...' README.md > /tmp/tmp.txt      # temp file + mv pattern
-        mv /tmp/tmp.txt README.md
-        python3 -c "..." > /tmp/tmp.txt
-        mv /tmp/tmp.txt README.md
-        
+        # Agent makes inode-preserving edits using e.g. IDE Edit/Write tools
         # Changes appear in IDE as diffs. User reviews and accepts/rejects.
         fhold review check README.md            # see hold age, agent, task
         # Output: Review hold by ses_abc (5m old). Task: update install steps
@@ -122,7 +112,7 @@ EXAMPLES
     Agent 1 starts work and registers review hold:
     
         $ fhold review register CONFIG.md --agent ses_123 --task "fix typos"
-        /tmp/fhold.tags/b2c3d4e5f6a9b8c7d6e5f4a3b2c1d0.has_unreviewed_writes
+        /tmp/fhold.tags/_private_tmp_fhold_test_CONFIG.md_4c4b2c1e.has_unreviewed_writes
         # Edit file...
     
     Agent 2 arrives and detects contention:
@@ -137,7 +127,7 @@ EXAMPLES
         
         # Agent 2 registers a permit hold (unreviewed writes authorized):
         $ fhold permit register CONFIG.md --agent ses_456
-        /tmp/fhold.tags/b2c3d4e5f6a9b8c7d6e5f4a3b2c1d0.concurrent_write_permit.ses_456
+        /tmp/fhold.tags/_private_tmp_fhold_test_CONFIG.md_4c4b2c1e.concurrent_write_permit.ses_456
         
         # Agent 1 detects permit mode on next write:
         $ fhold status CONFIG.md
