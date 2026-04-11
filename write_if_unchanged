@@ -127,19 +127,7 @@ def fingerprint(path: Path) -> dict:
 
 
 def fakepath(path: Path) -> str:
-    """Generate lock key: try fakepath utility, fallback to sha256 hash.
-
-    Example of adding fakepath to your script:
-      import subprocess
-      def fakepath(path: Path) -> str:
-          try:
-              result = subprocess.run(["fakepath", str(path)], capture_output=True, text=True, timeout=5)
-              if result.returncode == 0:
-                  return result.stdout.strip()
-          except Exception:
-              pass
-          return hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:24]
-    """
+    """Generate lock key: try fakepath utility, fallback to sha256 hash."""
     try:
         result = subprocess.run(["fakepath", str(path)], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:

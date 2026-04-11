@@ -53,6 +53,26 @@ EXAMPLES
 
     fakepath /very/long/directory/structure/file.txt --hash-chars 12
     # Uses longer hash suffix (12 hex chars instead of 8)
+
+INTEGRATION
+    To use fakepath in another Python script for generating lock keys:
+
+      import subprocess
+      from pathlib import Path
+      import hashlib
+
+      def get_lock_key(path: Path) -> str:
+          try:
+              result = subprocess.run(["fakepath", str(path)],
+                  capture_output=True, text=True, timeout=5)
+              if result.returncode == 0:
+                  return result.stdout.strip()
+          except Exception:
+              pass
+          return hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:24]
+
+    This pattern tries fakepath first (human-readable format), falls back to
+    a simple hash if fakepath is unavailable or the path doesn't exist.
 """
 
 # usage_msg is intentionally placed at the very top for human readers and future agents.
@@ -211,6 +231,26 @@ def show_usage() -> None:
     W(NL)
     W(f"    {cmd('fakepath')} {fs_lit('/very/long/path/file.txt')} {flag('--hash-chars')} {arg_lit('12')}{NL}")
     W(f"    # Uses longer hash suffix (12 hex chars instead of 8){NL}")
+    W(NL)
+
+    section("INTEGRATION")
+    W(f"    To use fakepath in another Python script for generating lock keys:{NL}")
+    W(NL)
+    W(f"      import subprocess, hashlib{NL}")
+    W(f"      from pathlib import Path{NL}")
+    W(NL)
+    W(f"      def get_lock_key(path: Path) -> str:{NL}")
+    W(f"          try:{NL}")
+    W(f"              result = subprocess.run([\"fakepath\", str(path)],{NL}")
+    W(f"                  capture_output=True, text=True, timeout=5){NL}")
+    W(f"              if result.returncode == 0:{NL}")
+    W(f"                  return result.stdout.strip(){NL}")
+    W(f"          except Exception:{NL}")
+    W(f"              pass{NL}")
+    W(f"          return hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:24]{NL}")
+    W(NL)
+    W(f"    This pattern tries fakepath first (human-readable format), falls back to{NL}")
+    W(f"    a simple hash if fakepath is unavailable or the path does not exist.{NL}")
 
 
 def parse_args():
