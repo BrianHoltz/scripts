@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 usage_msg = """\
+
 NAME
     fhold - manage under-review flags and concurrent-write permits
 
@@ -111,8 +112,8 @@ EXAMPLES
     $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \\
         --expect-sha256 "$HASH" --note "agent=claude2"
 
-    #   -> Agent 1 checks status, sees permit mode, registers its own permit,
-    #      and switches to write_if_unchanged while any permit exists for the file:
+    #   → Agent 1 checks status, sees permit mode, registers its own permit,
+    #     and switches to write_if_unchanged while any permit exists for the file:
     $ fhold status README.md
     mode: unreviewed (1 permit hold: claude2)
     $ fhold permit register README.md --agent claude1
@@ -127,6 +128,20 @@ EXAMPLES
     $ fhold permit release README.md --agent claude2
     $ fhold status README.md
     mode: reviewed (no holds)
+
+
+    # Agent makes inode-preserving targeted edits (Edit/Write tools, vim)
+    # avoiding inode-changing edits (sed -i, give more examples here)
+    # Changes appear as diffs in IDE for user review
+    # ... User finishes work, review hold TTLs after 30mins. Or....
+
+    # PERMIT MODE: user asks another agent to update the same file,
+    # because the user wants parallel edits, and is willing to forego reviews.
+    # Agent tries to grab the file's review hold, sees that another agent already has it.
+    # Agent then asks the user to resolve any unreviewed changes,
+    # and authorize a concurrent_write_permit, thus putting the file into permit mode.
+    # First agent starts its next write and sees permit mode has taken effect.
+    # Both agents now must use write_if_unchanged until all permits expire or are revoked.
 """
 
 # usage_msg is intentionally placed at the very top for human readers and future agents.
