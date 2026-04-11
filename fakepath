@@ -193,7 +193,7 @@ def show_usage() -> None:
     W(NL)
     W(f"    Parent: first {arg_lit('N')} chars of parent directory path, with {arg_lit('/')} replaced by {arg_lit('_')}{NL}")
     W(f"    Basename: first {arg_lit('M')} chars of filename{NL}")
-    W(f"    Hash: first {{arg_lit('H')}} hex digits of sha256(canonical_path){NL}")
+    W(f"    Hash: first {arg_lit('H')} hex digits of sha256(canonical_path){NL}")
     W(NL)
 
     section("EXIT CODES")
