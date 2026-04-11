@@ -93,38 +93,38 @@ EXIT CODES
 
 EXAMPLES
     # REVIEW MODE: Agent 1 gets clearance to make solo diff-reviewed edits
-    $ fhold review register README.md --agent ses_abc --task "update install steps"
+    $ fhold review register README.md --agent claude1 --task "update install steps"
     /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.review_hold
     # Agent 1 makes solo edits, which appear as diffs in IDE. User reviews...
     # ...User stops working on the file, review hold expires after 30mins. Or....
 
     # PERMIT MODE: User asks Agent 2 to also edit the file. Agent 2 attempts solo:
-    $ fhold review register README.md --agent ses_xyz --task "add examples"
-    fhold: exit 2 — review hold exists: agent=ses_abc task="update install steps" age=4m
+    $ fhold review register README.md --agent claude2 --task "add examples"
+    fhold: exit 2 — review hold exists: agent=claude1 task="update install steps" age=4m
     # Agent 2 shows the user the Menu (see below) and waits for a choice
     # User resolves Agent 1 diffs and then picks "Diff resolved, switch to unreviewed mode"
     # Agent 2 cancels Agent 1's hold by registering a concurrent_write_permit:
-    $ fhold permit register README.md --agent ses_xyz
-    /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.concurrent_write_permit.ses_xyz
+    $ fhold permit register README.md --agent claude2
+    /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.concurrent_write_permit.claude2
     $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
     $ python3 gen.py > /tmp/new.md
     $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \
-        --expect-sha256 "$HASH" --note "agent=ses_xyz"
+        --expect-sha256 "$HASH" --note "agent=claude2"
 
     #   → Agent 1 checks status, sees permit mode, registers its own permit,
     #     and switches to write_if_unchanged while any permit exists for the file:
     $ fhold status README.md
-    mode: unreviewed (1 permit hold: ses_xyz)
-    $ fhold permit register README.md --agent ses_abc
-    /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.ses_abc
+    mode: unreviewed (1 permit hold: claude2)
+    $ fhold permit register README.md --agent claude1
+    /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.claude1
     $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
     $ python3 other_gen.py > /tmp/new.md
     $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \
-        --expect-sha256 "$HASH" --note "agent=ses_abc"
+        --expect-sha256 "$HASH" --note "agent=claude1"
 
     # When all agents are done, permits will expire in 30mins,
     # or agents can explicitly release their permits. review mode resumes:
-    $ fhold permit release README.md --agent ses_xyz
+    $ fhold permit release README.md --agent claude2
     $ fhold status README.md
     mode: reviewed (no holds)
 
