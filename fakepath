@@ -77,10 +77,43 @@ def fakepath(path: str, parent_chars: int = 60, basename_chars: int = 120, hash_
         String of form: <parent>_<basename>_<hash>
 
     Raises:
-        ValueError: if path cannot be resolved
+        ValueError: if path cannot be resolved or parameters are invalid
     """
-    # TODO: implement
-    raise NotImplementedError("fakepath() stub")
+    import hashlib
+
+    # Validate parameters
+    if not path:
+        raise ValueError("path cannot be empty")
+    if parent_chars < 0:
+        raise ValueError("parent_chars must be >= 0")
+    if basename_chars <= 0:
+        raise ValueError("basename_chars must be > 0")
+    if hash_chars <= 0:
+        raise ValueError("hash_chars must be > 0")
+
+    # Resolve to canonical absolute path
+    try:
+        resolved = Path(path).resolve(strict=True)
+    except (OSError, RuntimeError, FileNotFoundError) as e:
+        raise ValueError(f"Cannot resolve path '{path}': {e}")
+
+    # Extract parent directory and basename
+    parent_str = str(resolved.parent)
+    basename_str = resolved.name
+
+    # Replace "/" with "_" in parent, truncate to parent_chars
+    parent_normalized = parent_str.replace("/", "_")
+    parent_part = parent_normalized[:parent_chars]
+
+    # Truncate basename to basename_chars
+    basename_part = basename_str[:basename_chars]
+
+    # Compute hash of full canonical path
+    full_path_str = str(resolved)
+    path_hash = hashlib.sha256(full_path_str.encode("utf-8")).hexdigest()[:hash_chars]
+
+    # Combine: parent_basename_hash
+    return f"{parent_part}_{basename_part}_{path_hash}"
 
 
 def show_usage() -> None:
