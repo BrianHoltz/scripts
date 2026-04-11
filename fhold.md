@@ -92,20 +92,49 @@ EXIT CODES
     3  no hold found (release of nonexistent hold)
 
 EXAMPLES
-    # REVIEW MODE: Agent makes leisurely edits, user reviews as IDE diffs
-    fhold review register README.md --agent ses_abc --task "update install steps"
-    # Agent makes inode-preserving targeted edits (Edit/Write tools, vim)
-    # avoiding inode-changing edits (sed -i, give more examples here)
-    # Changes appear as diffs in IDE for user review
-    # ... User finishes work, review hold TTLs after 30mins. Or....
+    # ── REVIEW MODE ────────────────────────────────────────────────────────
+    # Agent 1: register before writing, then make inode-preserving edits.
 
-    # PERMIT MODE: user asks another agent to update the same file,
-    # because the user wants parallel edits, and is willing to forego reviews.
-    # Agent tries to grab the file's review hold, sees that another agent already has it.
-    # Agent then asks the user to resolve any unreviewed changes, 
-    # and authorize a concurrent_write_permit, thus putting the file into permit mode.
-    # First agent starts its next write and sees permit mode has taken effect.
-    # Both agents now must use write_if_unchanged until all permits expire or are revoked.
+    $ fhold review register README.md --agent ses_abc --task "update install steps"
+    /tmp/fhold.tags/_private_myrepo_README.md_36885306.has_unreviewed_writes
+
+    # ✓ SAFE (inode-preserving, IDE sees the diff):
+    #   vim README.md
+    #   Claude Code Edit / Write tools
+    # ✗ UNSAFE (inode-changing, IDE loses track of file):
+    #   sed -i '' 's/old/new/' README.md   # temp→rename under the hood
+    #   awk '{…}' README.md > /tmp/t && mv /tmp/t README.md
+    #   python3 gen.py > /tmp/t && mv /tmp/t README.md
+
+    # Changes appear as diff in IDE. User reviews. When done:
+    $ fhold review release README.md --agent ses_abc
+    # (Or wait 30 min for TTL to expire.)
+
+    # ── PERMIT MODE ────────────────────────────────────────────────────────
+    # Triggered by contention. Agent 2 tries to register while Agent 1 holds.
+
+    $ fhold review register README.md --agent ses_xyz --task "add examples"
+    fhold: exit 2 — review hold exists: agent=ses_abc task="update install steps" age=4m
+    # Agent 2 shows the user the Menu (see § Menu) and waits for a choice.
+    # User picks "Diff resolved, switch to unreviewed mode":
+    #   → IDE diff accepted; Agent 1's review hold is released.
+    #   → Agent 2 registers a permit hold and writes via write_if_unchanged.
+    #   → Agent 1's NEXT fhold status/register call sees permit mode and must
+    #     also switch to write_if_unchanged for all further writes to this file.
+
+    $ fhold permit register README.md --agent ses_xyz
+    /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.ses_xyz
+
+    # Both agents now write safely in parallel:
+    $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
+    $ python3 gen.py > /tmp/new.md
+    $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \
+        --expect-sha256 "$HASH" --note "agent=ses_xyz"
+
+    # When all agents are done, they release their permits; review mode resumes:
+    $ fhold permit release README.md --agent ses_xyz
+    $ fhold status README.md
+    mode: reviewed (no holds)
 ```
 
 ## Context
