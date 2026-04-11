@@ -30,7 +30,7 @@ DESCRIPTION
 
     Agents can register two kinds of holds:
 
-    review (has_unreviewed_writes) — exclusive. The agent's changes are on
+    review (review_hold) — exclusive. The agent's changes are on
     disk but awaiting review. If the user rejects any, the IDE reverts all
     changes made after those writes. The IDE may or may not detect the
     conflict on its own, and typically handles it poorly.
@@ -51,11 +51,11 @@ DESCRIPTION
 
 
 SUBCOMMANDS
-    review register FILE  Tag FILE with has_unreviewed_writes. Atomic
+    review register FILE  Tag FILE with review_hold. Atomic
                           (O_CREAT|O_EXCL). Fails if a review hold already
                           exists (contention). Records agent, task, timestamp,
                           and pre-write sha256.
-    review release FILE   Remove the has_unreviewed_writes tag from FILE.
+    review release FILE   Remove the review_hold tag from FILE.
                           Typically called after the user accepts or rejects
                           the IDE diff.
     review check FILE     Print review hold status: owner agent, task, age,
@@ -92,36 +92,20 @@ EXIT CODES
     3  no hold found (release of nonexistent hold)
 
 EXAMPLES
-    # ── REVIEW MODE ────────────────────────────────────────────────────────
-    # Agent 1: register before writing, then make inode-preserving edits.
-
+    # REVIEW MODE: Agent 1 gets clearance to make solo diff-reviewed edits
     $ fhold review register README.md --agent ses_abc --task "update install steps"
-    /tmp/fhold.tags/_private_myrepo_README.md_36885306.has_unreviewed_writes
+    /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.review_hold
+    # Agent 1 makes solo edits, which appear as diffs in IDE. User reviews...
+    # ...User stops working on the file, review hold expires after 30mins. Or....
 
-    # ✓ SAFE (inode-preserving, IDE sees the diff):
-    #   vim README.md
-    #   Claude Code Edit / Write tools
-    # ✗ UNSAFE (inode-changing, IDE loses track of file):
-    #   sed -i '' 's/old/new/' README.md   # temp→rename under the hood
-    #   awk '{…}' README.md > /tmp/t && mv /tmp/t README.md
-    #   python3 gen.py > /tmp/t && mv /tmp/t README.md
-
-    # Changes appear as diff in IDE. User reviews. When done:
-    $ fhold review release README.md --agent ses_abc
-    # (Or wait 30 min for TTL to expire.)
-
-    # ── PERMIT MODE ────────────────────────────────────────────────────────
-    # Triggered by contention. Agent 2 tries to register while Agent 1 holds.
-
+    # PERMIT MODE: User asks Agent 2 to also edit the file. Agent 2 attempts solo:
     $ fhold review register README.md --agent ses_xyz --task "add examples"
     fhold: exit 2 — review hold exists: agent=ses_abc task="update install steps" age=4m
-    # Agent 2 shows the user the Menu (see § Menu) and waits for a choice.
-    # User picks "Diff resolved, switch to unreviewed mode":
-    #   → User choice authorizes Agent 2 to cancel Agent 1's hold:
-    $ fhold review release README.md
-    #   → Agent 2 registers a permit hold and writes via write_if_unchanged:
+    # Agent 2 shows the user the Menu (see below) and waits for a choice
+    # User resolves Agent 1 diffs and then picks "Diff resolved, switch to unreviewed mode"
+    # Agent 2 cancels Agent 1's hold by registering a concurrent_write_permit:
     $ fhold permit register README.md --agent ses_xyz
-    /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.ses_xyz
+    /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.concurrent_write_permit.ses_xyz
     $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
     $ python3 gen.py > /tmp/new.md
     $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \
@@ -143,6 +127,20 @@ EXAMPLES
     $ fhold permit release README.md --agent ses_xyz
     $ fhold status README.md
     mode: reviewed (no holds)
+
+
+    # Agent makes inode-preserving targeted edits (Edit/Write tools, vim)
+    # avoiding inode-changing edits (sed -i, give more examples here)
+    # Changes appear as diffs in IDE for user review
+    # ... User finishes work, review hold TTLs after 30mins. Or....
+
+    # PERMIT MODE: user asks another agent to update the same file,
+    # because the user wants parallel edits, and is willing to forego reviews.
+    # Agent tries to grab the file's review hold, sees that another agent already has it.
+    # Agent then asks the user to resolve any unreviewed changes, 
+    # and authorize a concurrent_write_permit, thus putting the file into permit mode.
+    # First agent starts its next write and sees permit mode has taken effect.
+    # Both agents now must use write_if_unchanged until all permits expire or are revoked.
 ```
 
 ## Context
@@ -163,11 +161,11 @@ Holds are implemented as sidecar tag files under `/tmp/fhold.tags/`. Each file i
 
 Applies only to git-tracked markdown files.
 
-### Review Hold (has_unreviewed_writes)
+### Review Hold (review_hold)
 
 **Meaning:** The agent's changes are on disk but awaiting review. If the user rejects any, the IDE reverts all changes made after those writes. The IDE may or may not detect the conflict on its own, and typically handles it poorly.
 
-**Tag:** `<path-hash>.has_unreviewed_writes`
+**Tag:** `<path-hash>.review_hold`
 
 **When created:** At the start of all planned writes, via `fhold review register <file>`. Created atomically (O_EXCL). The hold remains active until all writes are complete. On success: exit 0, prints the tag path. On contention (review hold already exists): exit 2, prints the owning agent's session-id and task to stderr.
 
