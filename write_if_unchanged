@@ -126,54 +126,27 @@ def fingerprint(path: Path) -> dict:
     }
 
 
-def canonical_key(path: Path) -> str:
-    """Generate a human-readable lock key using fakepath or fallback hash.
+def fakepath(path: Path) -> str:
+    """Generate lock key: try fakepath utility, fallback to sha256 hash.
 
-    Tries to use fakepath utility for human-readable format.
-    Falls back to a simple parent_basename_hash format if fakepath is unavailable.
+    Example of adding fakepath to your script:
+      import subprocess
+      def fakepath(path: Path) -> str:
+          try:
+              result = subprocess.run(["fakepath", str(path)], capture_output=True, text=True, timeout=5)
+              if result.returncode == 0:
+                  return result.stdout.strip()
+          except Exception:
+              pass
+          return hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:24]
     """
     try:
-        # Try to use fakepath utility for human-readable keys
-        import subprocess
-        fakepath_bin = Path.home() / "bin" / "fakepath"
-        if fakepath_bin.exists():
-            result = subprocess.run(
-                [str(fakepath_bin), str(path)],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
+        result = subprocess.run(["fakepath", str(path)], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            return result.stdout.strip()
     except Exception:
-        pass  # Fall through to fallback
-
-    # Fallback: simple parent_basename_hash format without calling fakepath
-    return _stupid_hash_key(path)
-
-
-def _stupid_hash_key(path: Path) -> str:
-    """Fallback human-readable key generation when fakepath is unavailable.
-
-    Format: parent_chars_basename_chars_hash
-    Like fakepath but with fixed truncation (no parameters) and no external calls.
-    """
-    resolved = path.resolve()
-    parent_str = str(resolved.parent)
-    basename_str = resolved.name
-
-    # Replace "/" with "_" in parent path
-    parent_normalized = parent_str.replace("/", "_")
-
-    # Truncate to reasonable lengths
-    parent_part = parent_normalized[:60]  # Default from fakepath
-    basename_part = basename_str[:120]     # Default from fakepath
-
-    # Hash the full canonical path
-    full_path_str = str(resolved)
-    path_hash = hashlib.sha256(full_path_str.encode("utf-8")).hexdigest()[:8]
-
-    return f"{parent_part}_{basename_part}_{path_hash}"
+        pass
+    return hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:24]
 
 
 def load_meta(meta_file: Path) -> Optional[dict]:
@@ -205,7 +178,7 @@ def write_meta(meta_file: Path, meta: dict) -> None:
 
 def acquire_lock(lock_dir: Path, target: Path, ttl: int, wait_s: int, owner: str, note: str = "") -> Optional[Path]:
     lock_dir.mkdir(parents=True, exist_ok=True)
-    lock_path = lock_dir / f"{canonical_key(target)}.lock"
+    lock_path = lock_dir / f"{fakepath(target)}.lock"
     meta_file = lock_path / "lock.json"
 
     deadline = time.time() + wait_s

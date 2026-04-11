@@ -36,45 +36,15 @@ SCRIPT = Path(__file__).parent / "write_if_unchanged"
 PYTHON = sys.executable
 
 
-def _stupid_hash_key(path: Path) -> str:
-    """Fallback human-readable key generation (matches write_if_unchanged fallback).
-
-    Format: parent_chars_basename_chars_hash
-    """
-    resolved = path.resolve()
-    parent_str = str(resolved.parent)
-    basename_str = resolved.name
-
-    # Replace "/" with "_" in parent path
-    parent_normalized = parent_str.replace("/", "_")
-
-    # Truncate to reasonable lengths
-    parent_part = parent_normalized[:60]
-    basename_part = basename_str[:120]
-
-    # Hash the full canonical path
-    full_path_str = str(resolved)
-    path_hash = hashlib.sha256(full_path_str.encode("utf-8")).hexdigest()[:8]
-
-    return f"{parent_part}_{basename_part}_{path_hash}"
-
-
-def _test_canonical_key(path: Path) -> str:
-    """Test version of canonical_key (tries fakepath, falls back to stupid hash)."""
+def _test_fakepath(path: Path) -> str:
+    """Test version of fakepath (tries fakepath utility, falls back to sha256 hash)."""
     try:
-        fakepath_bin = Path.home() / "bin" / "fakepath"
-        if fakepath_bin.exists():
-            result = subprocess.run(
-                [str(fakepath_bin), str(path)],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
+        result = subprocess.run(["fakepath", str(path)], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            return result.stdout.strip()
     except Exception:
         pass
-    return _stupid_hash_key(path)
+    return hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:24]
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +145,7 @@ def run(
 
 def plant_stale_lock(lock_root: Path, target: Path, age_s: float = 300, note: str = "") -> Path:
     """Create a lock dir with an expired heartbeat, simulating a crashed writer."""
-    key = _test_canonical_key(target)
+    key = _test_fakepath(target)
     lock_path = lock_root / f"{key}.lock"
     lock_path.mkdir(parents=True, exist_ok=True)
     meta = {
@@ -193,7 +163,7 @@ def plant_stale_lock(lock_root: Path, target: Path, age_s: float = 300, note: st
 
 def plant_live_lock(lock_root: Path, target: Path, owner: str = "blocker") -> Path:
     """Create a lock dir with a fresh heartbeat, simulating an active writer."""
-    key = _test_canonical_key(target)
+    key = _test_fakepath(target)
     lock_path = lock_root / f"{key}.lock"
     lock_path.mkdir(parents=True, exist_ok=True)
     meta = {
@@ -556,6 +526,7 @@ def _test_lock_key_format_is_human_readable(tmpdir: Path, lock_root: str, detail
     """Lock key should be human-readable format from fakepath or fallback, not pure sha256."""
     target = tmpdir / "subdir" / "myfile.txt"
     target.parent.mkdir(parents=True)
+    target.write_bytes(b"content")  # fakepath requires file to exist
     src = tmpdir / "src.txt"
     src.write_bytes(b"data")
 
@@ -590,6 +561,8 @@ def _test_different_files_get_different_lock_keys(tmpdir: Path, lock_root: str, 
     """Two writes to different files should use different lock keys."""
     file1 = tmpdir / "file1.txt"
     file2 = tmpdir / "file2.txt"
+    file1.write_bytes(b"content1")  # fakepath requires files to exist
+    file2.write_bytes(b"content2")
     src = tmpdir / "src.txt"
     src.write_bytes(b"data")
 
@@ -613,6 +586,7 @@ def _test_different_files_get_different_lock_keys(tmpdir: Path, lock_root: str, 
 def _test_lock_key_deterministic(tmpdir: Path, lock_root: str, details: list[str]) -> bool:
     """Same file should always generate the same lock key (determinism)."""
     target = tmpdir / "deterministic.txt"
+    target.write_bytes(b"content")  # fakepath requires file to exist
     lock_root_path = Path(lock_root)
     lock_root_path.mkdir(parents=True, exist_ok=True)
 
