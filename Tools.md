@@ -185,6 +185,7 @@ This is useful for repositioning panels between left and right sidebars as neede
   - **Native Copilot integration with Edit mode**
   - **Remote development (SSH, containers, WSL)**
   - *Chat panel context limited vs dedicated AI IDEs*
+- *Accept All in diff review simply accepts what's on disk and ends the review — safe even if the user made local edits during review.*
 
 ### Markdown Preview Font Size
 
@@ -256,6 +257,7 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
 - *Does not fully support parallel agents*
 - *Cannot paste file/line reference!?*
 - *Pending Changes panel sometimes fails to show agent-written files (new untracked files, or edits via MCP/Write tool). Check* `git status` *to catch anything the panel missed.*
+- *⚠️ Accept All hazard: if the user makes local edits (including undos) while reviewing an agent diff, Accept All collapses those edits into the accept gesture and reverts them. Use per-chunk accept/reject instead.*
 - Extra Info from Claude Opus 4.5:
   - **AI Assistant with JetBrains' own models + cloud options**
   - **Unmatched refactoring for Java/Kotlin (type-aware renames, extract method)**

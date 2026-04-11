@@ -26,7 +26,7 @@ Applies only to git-tracked markdown files.
 
 **Path:** `<mangled-path>.has_unreviewed_writes`
 
-**When created:** Immediately before a burst write, via `write_if_unchanged --flag acquire <file>`. Created atomically (O_EXCL); fails if another flag already exists → contention detected.
+**When created:** Immediately before a burst write, via `write_if_unchanged --flag acquire <file>`. Created atomically (O_EXCL). On success: exit 0, prints the flag path. On contention (flag already exists): exit 1, prints the owning agent's session-id and task to stderr.
 
 **Contents:**
 
@@ -39,7 +39,7 @@ pre-burst-sha256: <hash of file before any writes>
 post-burst-sha256: <hash of file after burst completes>  ← written after burst
 ```
 
-**Released by:** User resolves contention (accept or reject IDE diff) and tells agent; explicit release; TTL (30–60 min).
+**Released by:** User resolves contention (accept or reject IDE diff) and tells agent; explicit release; TTL 30 min.
 
 **Auto-stale detection:** If `post-burst-sha256` is set and current file hash differs → user rejected/modified the diff → flag is stale, auto-release on next check.
 
@@ -62,6 +62,12 @@ post-burst-sha256: <hash of file after burst completes>  ← written after burst
 
 ---
 
+## Known Hazards
+
+**IDEA Accept All hazard:** If the user makes any local edits to the file while reviewing an agent diff — including undos — clicking "Accept All" in IDEA will revert all such edits or undos and just accept the original proposed changset. While a `has_unreviewed_writes` flag is active, accept or reject individual diff chunks only; never use Accept All if local edits have been made.
+
+---
+
 ## Prior Art
 
 **Emacs `.#filename` symlink** — closest analogue to `has_unreviewed_writes`. Emacs creates a symlink (not a regular file) whose target encodes `USER@HOST.PID:BOOT`. Lives adjacent to the target file, not in /tmp. Exclusive only; no pending-review semantic; no multi-writer concept. Validates the "flag lives near the file" pattern, though we deliberately chose /tmp to avoid repo pollution.
@@ -70,7 +76,7 @@ post-burst-sha256: <hash of file after burst completes>  ← written after burst
 
 **POSIX fcntl/flock advisory locks** — three documented failure modes explain why we use file-based markers instead: (a) any fd close from any thread releases all locks on that inode; (b) unreliable or silent-no-op over NFS; (c) advisory-only means non-cooperating processes are not blocked. None of these affect our file-based approach.
 
-**Non-exclusive write permits** — no prior art found. The counting-semaphore pattern exists in-process but has no widely-used filesystem incarnation for coordinating independent writers. The inversion here — multiple simultaneous write permits collectively signaling a shared mode — is novel.
+**Non-exclusive write permits** — no prior art found. The counting-semaphore pattern exists in-process but has no widely-used filesystem incarnation for coordinating independent writers. The inversion here — multiple simultaneous write permits collectively signaling a shared mode — is uncommon in filesystem coordination.
 
 **AI agent frameworks (AutoGen, CrewAI, LangGraph)** — all coordinate at the message or state-graph layer, not the filesystem. None treat concurrent file writes as a first-class concern or have a pending-review primitive.
 
