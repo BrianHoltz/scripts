@@ -119,18 +119,24 @@ EXAMPLES
     # User picks "Diff resolved, switch to unreviewed mode":
     #   → User choice authorizes Agent 2 to cancel Agent 1's hold:
     $ fhold review release README.md
-    #   → Agent 2 registers a permit hold and writes via write_if_unchanged.
-    #   → Agent 1's NEXT fhold status/register call sees permit mode and must
-    #     also switch to write_if_unchanged for all further writes to this file.
-
+    #   → Agent 2 registers a permit hold and writes via write_if_unchanged:
     $ fhold permit register README.md --agent ses_xyz
     /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.ses_xyz
-
-    # Both agents now write safely in parallel:
     $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
     $ python3 gen.py > /tmp/new.md
     $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \
         --expect-sha256 "$HASH" --note "agent=ses_xyz"
+
+    #   → Agent 1 checks status, sees permit mode, registers its own permit,
+    #     and switches to write_if_unchanged for all further writes:
+    $ fhold status README.md
+    mode: unreviewed (1 permit hold: ses_xyz)
+    $ fhold permit register README.md --agent ses_abc
+    /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.ses_abc
+    $ HASH=$(shasum -a 256 README.md | awk '{print $1}')
+    $ python3 other_gen.py > /tmp/new.md
+    $ ~/bin/write_if_unchanged README.md --from /tmp/new.md \
+        --expect-sha256 "$HASH" --note "agent=ses_abc"
 
     # When all agents are done, they release their permits; review mode resumes:
     $ fhold permit release README.md --agent ses_xyz
