@@ -4,7 +4,7 @@
 >
 > **Be terse: from chapters to words, omit or condense until meaning changes.**
 >
-> **Every file write must follow the Write Protocol (§ below). Zero exceptions except agent-owned ephemeral temp files.**
+> **Every file write must follow the Write Protocol (§ below).**
 >
 > **Write your work to disk as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Sessions die without warning; unwritten work is lost. See [§ Save As You Go](#save-as-you-go).
 
@@ -51,15 +51,18 @@ This also applies to project state: update Active Work sections and Work Log ent
 
 Two tools, three rules:
 
-**Rule 1 — Git-tracked markdown files:** use `fhold` to coordinate, then write.
+Files requiring the fhold protocol (expand this list as the protocol matures):
+- Git-tracked markdown files (`*.md`)
+
+**Rule 1 — Files in the list above:** use `fhold` to coordinate, then write.
 - Before every write: `fhold status FILE`
-- **Reviewed mode** (default — no permit holds): `fhold review register FILE --agent $AGENT` (exit 0 → proceed; exit 2 → show user the MENU from `fhold -H` and wait for their choice). Write with an **inode-preserving method** (IDE Edit/Write tools, vim). The IDE shows your changes as a diff for user review. `fhold review release FILE` when done (or wait for 30-min TTL).
-- **Permit mode** (any permit holds exist): `fhold permit register FILE --agent $AGENT` if not already registered. Write with **`write_if_unchanged`**. `fhold permit release FILE --agent $AGENT` when done.
-- **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used an inode-preserving method when you should have used `write_if_unchanged`. That write is racing with other agents.
+- **Reviewed mode** (default — no permit holds): `fhold review register FILE --agent $AGENT` (exit 0 → proceed; exit 2 → show user the MENU from `fhold -H` and wait for their choice). Write with an **inode-preserving method** (IDE Edit/Write tools, vim). The IDE shows your changes as a diff for user review. `fhold review release FILE` when you know you're done, or just let 30min TTL lapse.
+- **Permit mode** (any permit holds exist): `fhold permit register FILE --agent $AGENT` if not already registered. Write with **`write_if_unchanged`**. `fhold permit release FILE --agent $AGENT` when you know you're done, or just let the 30min TTL lapse.
+- **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used Edit/Write tools when you should have used `write_if_unchanged`. That write is racing with other agents.
 
-**Rule 2 — All other files:** `write_if_unchanged` directly. No fhold needed.
+**Rule 2 — All other files:** use inode-preserving Edit/Write tools. IDE diff shows your changes; observer buffers stay live. No fhold needed because these other files are not expected to get concurrent edits.
 
-**Rule 3 — Agent-owned ephemeral temp files only:** write directly (the sole exception to Rules 1–2).
+**Rule 3 — Agent-owned ephemeral temp files only:** create or write directly (the sole exception to Rules 1–2).
 
 ### Inode preservation
 
@@ -70,14 +73,13 @@ Never replace a file by creating a new one. `sed -i ''` on macOS, `mv tmpfile or
 ```sh
 HASH=$(shasum -a 256 FILE | awk '{print $1}')
 python3 my_transform.py > /tmp/new_out
-# Safety checks before writing:
-test -s /tmp/new_out                          # non-empty
-wc -l FILE; wc -l /tmp/new_out               # investigate >20% shrink
-grep -q "^# " /tmp/new_out                   # sentinel (adjust per file type)
 ~/bin/write_if_unchanged FILE \
   --from /tmp/new_out \
   --expect-sha256 "$HASH" \
+  --max-shrink-pct 20 \
+  --sentinel-regex "^# " \
   --note "agent=claude, task=abc123"
+# If output looks truncated or wrong, inspect /tmp/new_out before retrying.
 ```
 
 On exit 3 (CAS mismatch): file changed since you read it. Re-read, rebuild from new state, retry. Never reuse stale content.
