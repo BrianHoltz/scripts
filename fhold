@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Brian Holtz
+# SPDX-License-Identifier: MIT
+
+usage_msg = """\
+
+NAME
+    fhold - manage under-review flags and concurrent-write permits
+
+SYNOPSIS
+    fhold {review|permit} register FILE [--agent ID] [--task TEXT]
+    fhold {review|permit} release FILE [--agent ID]
+    fhold {review|permit} check FILE
+    fhold status FILE
+    fhold gc [--tag-root DIR]
+
+DESCRIPTION
+    If a given file is being updated by only one AI agent,
+    then the user wants to review the diff in their IDE.
+    But if the file is being updated by multiple AI agents,
+    then the user wants the agents to do parallel writes
+    without clobbering each other.
+
+    write_if_unchanged is a sibling utility that lets agents do parallel writes.
+    It enables agents to do parallel writes, at the price of
+    bypassing the system by which IDEs offer review of agent changes.
+
+    fhold lets agents coordinate which mode to use. Agents
+    register their intention about the file, detect when their intentions
+    collide, and let the user choose.
+
+    Agents can register two kinds of holds:
+
+    review (review_hold) — exclusive. The agent's changes are on
+    disk but awaiting review. If the user rejects any, the IDE reverts all
+    changes made after those writes. The IDE may or may not detect the
+    conflict on its own, and typically handles it poorly.
+
+    permit (concurrent_write_permit) — non-exclusive. The user authorized
+    unreviewed parallel writes when the agent registered this permit.
+    Multiple agents may hold permits simultaneously. No agent should make
+    IDE-reviewed writes while any permit exists for the file.
+
+    Holds are implemented as sidecar tag files under --tag-root
+    (default: /tmp/fhold.tags/). Each file is keyed by sha256 of the
+    resolved target path (same scheme as write_if_unchanged locks).
+    Ephemeral; cleared on reboot.
+
+    The author's practice is to apply fhold only to git-tracked markdown files.
+
+
+
+
+SUBCOMMANDS
+    review register FILE  Tag FILE with review_hold. Atomic
+                          (O_CREAT|O_EXCL). Fails if a review hold already
+                          exists (contention). Records agent, task, timestamp,
+                          and pre-write sha256.
+    review release FILE   Remove the review_hold tag from FILE.
+                          Typically called after the user accepts or rejects
+                          the IDE diff.
+    review check FILE     Print review hold status: owner agent, task, age,
+                          whether post-write hash is set, and whether stale.
+    permit register FILE  Tag FILE with concurrent_write_permit for this agent.
+                          Multiple permit holds may coexist. Any permit hold
+                          present = unreviewed mode.
+    permit release FILE   Remove this agent's concurrent_write_permit tag.
+                          When all permit holds are gone, review mode resumes
+                          automatically.
+    permit check FILE     List all active permit holds for FILE with agent IDs
+                          and last-activity times.
+    status FILE           Summary: review hold state, active permit holds,
+                          current mode (reviewed / unreviewed), and file sha256.
+    gc                    Garbage-collect stale review holds (TTL expired, no
+                          heartbeat) and stale permit holds (mtime > TTL).
+
+OPTIONS
+    --agent ID            Agent/session identifier. Default: $WIBEY_SESSION_ID
+                          or $USER.
+    --task TEXT            One-line description stored in the review hold
+                          (review register only).
+    --tag-root DIR        Tag directory (default: /tmp/fhold.tags/).
+    --ttl SECS            Stale hold TTL in seconds (default: 1800).
+
+    -H, --raw-help        Show this raw usage text and exit
+    -h, --help            Show colorized usage and exit
+
+EXIT CODES
+    0  success
+    1  usage error (bad arguments)
+    2  contention — review hold already held by another agent
+                   (review register only)
+    3  no hold found (release of nonexistent hold)
+
+MENU
+    An agent should show this menu to the user when it encounters 
+    a review hold registered by another agent.
+
+    [FILE] has a review hold from another agent. Resolve or ignore the
+    other agent's under-review changes, then indicate your decision:
+
+    Diff resolved, stay in review mode — This agent will claim the
+        review hold and write its changes for review. (Future agents who
+        find a review hold when attempting a write will similarly offer to
+        claim the hold.)
+
+    Diff resolved, switch to unreviewed mode — This agent will start doing
+        its writes without user review. Other agents that attempt writes
+        will recognize that they too should start writing without user review.
+        All parallel writes will be safe if the agents use e.g. write_if_unchanged.
+        Enjoy your safe multi-agent workflow!
+
+    Diff ignored, switch to unreviewed mode — Current on-disk state will be
+        treated as accepted. Agents will proceed as in the previous option.
+        WARNING: The pending diff can still be safely accepted at any time,
+        but in some IDEs rejecting any part of it will overwrite 
+        any changes that were saved after that pending diff was authored.
+        Those IDEs may or may not warn you that saved changes will be discarded.
+        So your smart play is to resolve the other agent's changes first.
+
+EXAMPLES
+    # REVIEW MODE: Agent 1 gets clearance to make solo diff-reviewed edits
+    $ fhold review register README.md --agent claude1 --task "update install steps"
+    /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.review_hold
+    # Agent 1 makes solo edits, which appear as diffs in IDE. User reviews...
+    # ...User stops working on the file, review hold expires after 30mins. Or....
+
+    # PERMIT MODE: User asks Agent 2 to also edit the file. Agent 2 requests a review_hold:
+    $ fhold review register README.md --agent claude2 --task "add examples"
+    fhold: exit 2 — review_hold exists: agent=claude1 task="update install steps" age=4m
+    # Agent 2 shows the user the Menu (see MENU) and waits for a choice
+    # User resolves Agent 1 diffs and then picks "Diff resolved, switch to unreviewed mode"
+    # Agent 2 cancels Agent 1's hold, then registers a permit:
+    $ fhold review release README.md
+    $ fhold permit register README.md --agent claude2
+    /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.concurrent_write_permit.claude2
+    # Agent 2 proceeds to make unreviewed concurrent edits using e.g. write_if_unchanged
+
+    # As usual, Agent 1 checks status before its next reviewed write and gets a surprise:
+    $ fhold status README.md
+    mode: unreviewed (1 permit hold: claude2)
+    # Agent 1 sees the file is now in permit mode, and so requests a permit:
+    $ fhold permit register README.md --agent claude1
+    /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.claude1
+    # Agent 1 proceeds to make unreviewed concurrent edits using e.g. write_if_unchanged
+
+    # Permits expire 30mins after creation, or agents can explicitly release their permits:
+    $ fhold permit release README.md --agent claude1
+    # When no valid permits exist, the file defaults to review mode:
+    $ fhold status README.md
+    mode: reviewed (no holds)
+"""
+
+# usage_msg is intentionally placed at the very top for human readers and future agents.
+# usage_msg formatting and content ALWAYS trumps show_usage(). If you change usage_msg,
+# you MUST update show_usage() to match it EXACTLY, including newlines and spacing.
+# Agents must not update usage_msg without explicit instructions to do so.
+# When they aren't in sync, agents must update show_usage()'s underlying
+# non-colorized text to match usage_msg, while keeping all colorization intact.
+
+import sys
+
+
+def show_usage() -> None:
+    # TODO: add colorization matching write_if_unchanged's style
+    sys.stdout.write(usage_msg)
+
+
+def main() -> int:
+    # Pre-scan for help flags only in the first argument position to avoid
+    # false positives when -h/-H appear as option values.
+    if len(sys.argv) > 1 and sys.argv[1] in ("-H", "--raw-help"):
+        sys.stdout.write(usage_msg)
+        return 0
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        show_usage()
+        return 0
+    print("fhold: not yet implemented", file=sys.stderr)
+    print("Run 'fhold -h' for help.", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

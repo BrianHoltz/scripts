@@ -5,6 +5,7 @@ bin.iml
 .DS_Store
 /aidocs/
 /tmp/
+__pycache__/
 # installed software
 groupgrep/
 markdownutil/

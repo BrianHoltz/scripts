@@ -3,7 +3,7 @@
 ## Overview
 
 A concurrent write coordination experiment. Multiple agents write to a shared
-document simultaneously. Each uses `write_if_unchanged` to prevent clobbering.
+document simultaneously. Each uses `safewrite` to prevent clobbering.
 
 ## Parameters
 
