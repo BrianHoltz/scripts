@@ -1,13 +1,12 @@
 # AgentRules.md - Global AI Agent Rules
 
-> ❗ **If an agent is about to modify or delete more than 5 files, it MUST stop and ask the user for explicit permission before proceeding.** Count includes all writes, moves, renames, and deletions across all directories. No exceptions, even for seemingly mechanical or safe changes.
->
-> **Be terse: from chapters to words, omit or condense until meaning changes.**
->
-> **Every file write must follow the Write Protocol. See [§ Write Rules](#write-rules).**
->
+The rules in this file apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
-These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
+## The Three Commandments
+
+- Every file write must follow the [Write Rules](#write-rules).
+- Be terse: from chapters to words, omit or condense until meaning changes.
+- Ask the user for explicit permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. No exceptions.
 
 ## ~/bin/ structure
 
@@ -87,24 +86,6 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 - **Two-tier commit policy**: mechanical changes (artifacts, formatting) → commit directly; substantive changes (logic, data, content) → `git add` and summarize for user review. User can override with "just commit it".
 - TODO Agents should know when (not) to (ask to) commit/push/mirror
 
-### PR Diff Source of Truth
-
-When reviewing a PR or describing what a branch/PR changes relative to its base:
-
-- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
-- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
-- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
-- If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
-
-## Shared Skills
-
-- For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use [wibey/skills/doc-audit.md](wibey/skills/doc-audit.md) as the shared reference available on both laptops.
-- Keep this as a pointer-only section; the full guidance remains in the skill file.
-
-## Coding Workflow
-
-Use the relationship-shared project's `/tdd` command for the full TDD workflow: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run coverage (100% of new flows/conditions). See also [§ Work Environment (Walmart)](#work-environment-walmart) for additional workflow details used at work.
-
 ## Communication Style
 
 - Don't be sycophantic. Be the opposite of sycophantic. You are a valuable team member and we need your best unfiltered judgements.
@@ -127,7 +108,6 @@ When the user references a file ambiguously (e.g., "this file", "that doc", "the
 In CLI agents or other environments without editor tab access, use whatever information is immediately and efficiently available — recent git activity (`git diff`, `git log -1`), shell history, or the current working directory — to infer which file the user most recently accessed.
 
 This is cheaper and faster than asking "which file do you mean?" and almost always resolves the reference correctly.
-
 
 ## README Navigation
 
@@ -156,7 +136,9 @@ This is cheap (a few tokens for the command and output) and prevents embarrassin
 - Do not use horizontal lines unless absolutely necessary
 - Do not number list items unless absolutely necessary e.g. to refer to step numbers (and even then, better to have bolded step names)
 
-### Evidence
+- For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use [wibey/skills/doc-audit.md](wibey/skills/doc-audit.md) as the shared reference available on both Walmart and personal laptops.
+
+### Evidence TODO doc-audit should handle this
 
 In documents the user designates as requiring cited evidence for empirical claims, collect evidence in a dedicated `## Evidence` section placed near the bottom of the document, above any log or TODO sections. Link claims inline with the Unicode dagger character U+2020 (†), with no space before it: `claim text[†](#e-descriptive-slug)`. The `†` renders as a clickable link immediately after the supported text. Example: "Latency dropped 40% after the cache change[†](#e-latency-drop)."
 
@@ -179,12 +161,32 @@ When a URL is available, prefer a Markdown link with descriptive anchor text ove
 
 The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via any md2confluence pipeline).
 
+## Rules For Personal Laptop
 
-## Family Reference Documents
+### Family Reference Documents
 
 When the user asks a question about family members, genealogy, life events, relationships, DNA, or any person in the Holtz/Lusin family tree, **first consult `~/Documents/Google Drive/FamilyDocuments/FamilyEncyclopedia.md`** before asking the user or searching the GED. The encyclopedia is the authoritative, human-readable reference designed specifically so agents can answer family questions without bothering the user. Only fall back to the GED (`Holtz Lusin.ged`) for low-level GEDCOM detail not covered there.
 
-## Custom Commands
+## Rules For Walmart Laptop
+
+When the user mentions a file by name without a path, also check under `~/src/relationship-shared/`.
+
+### Coding Workflow TODO clean this up
+
+Use the relationship-shared project's `/tdd` command for the full TDD workflow: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run coverage (100% of new flows/conditions).
+
+In repos using the agent-toolkit pattern (with a `shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for test execution mechanics. Run postman/newman if available.
+
+### PR Diff Source of Truth
+
+When reviewing a PR or describing what a branch/PR changes relative to its base:
+
+- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
+- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
+- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
+- If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
+
+### Custom Commands
 
 > **Wibey only (Walmart).** Skip this section if Wibey is not available.
 
@@ -197,17 +199,7 @@ User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, sy
 
 Project-level commands are version-controlled in the project repo under `.wibey/commands/`. See [§ Work Environment (Walmart)](#work-environment-walmart) for project-level commands used at work.
 
-## Work Environment (Walmart)
-
-> **Skip this section if `~/src/relationship-shared/` does not exist.**
-
-When the user mentions a file by name without a path, also check under `~/src/relationship-shared/`.
-
-### Coding Workflow (Work)
-
-In repos using the agent-toolkit pattern (with a `shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for test execution mechanics. Run postman/newman if available.
-
-### Project-Level Commands (Work)
+### Project-Level Commands
 
 In teams using the agent-toolkit shared repo pattern, commands live at `<workspace>/shared/.wibey/commands/` and are consistent across all repos via the `shared/` symlink:
 
