@@ -92,6 +92,32 @@ EXIT CODES
                    (review register only)
     3  no hold found (release of nonexistent hold)
 
+MENU
+    An agent should show this menu to the user when it encounters 
+    a review hold registered by another agent.
+
+    [FILE] has a review hold from another agent. Resolve or ignore the
+    other agent's under-review changes, then indicate your decision:
+
+    Diff resolved, stay in review mode — This agent will claim the
+        review hold and write its changes for review. (Future agents who
+        find a review hold when attempting a write will similarly offer to
+        claim the hold.)
+
+    Diff resolved, switch to unreviewed mode — This agent will start doing
+        its writes without user review. Other agents that attempt writes
+        will recognize that they too should start writing without user review.
+        All parallel writes will be safe if the agents use e.g. write_if_unchanged.
+        Enjoy your safe multi-agent workflow!
+
+    Diff ignored, switch to unreviewed mode — Current on-disk state will be
+        treated as accepted. Agents will proceed as in the previous option.
+        WARNING: The pending diff can still be safely accepted at any time,
+        but in some IDEs rejecting any part of it will overwrite 
+        any changes that were saved after that pending diff was authored.
+        Those IDEs may or may not warn you that saved changes will be discarded.
+        So your smart play is to resolve the other agent's changes first.
+
 EXAMPLES
     # REVIEW MODE: Agent 1 gets clearance to make solo diff-reviewed edits
     $ fhold review register README.md --agent claude1 --task "update install steps"
@@ -102,7 +128,7 @@ EXAMPLES
     # PERMIT MODE: User asks Agent 2 to also edit the file. Agent 2 requests a review_hold:
     $ fhold review register README.md --agent claude2 --task "add examples"
     fhold: exit 2 — review_hold exists: agent=claude1 task="update install steps" age=4m
-    # Agent 2 shows the user the Menu (see below) and waits for a choice
+    # Agent 2 shows the user the Menu (see MENU) and waits for a choice
     # User resolves Agent 1 diffs and then picks "Diff resolved, switch to unreviewed mode"
     # Agent 2 cancels Agent 1's hold, then registers a permit:
     $ fhold review release README.md
