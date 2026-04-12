@@ -4,9 +4,8 @@
 >
 > **Be terse: from chapters to words, omit or condense until meaning changes.**
 >
-> **Every file write must follow the Write Protocol (§ below).**
+> **Every file write must follow the Write Protocol. See [§ Write Rules](#write-rules).**
 >
-> **Write your work to disk as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Sessions die without warning; unwritten work is lost. See [§ Save As You Go](#save-as-you-go).
 
 These rules apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
@@ -34,22 +33,13 @@ To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` r
 
 When the user mentions a file by name without a path, check under `~/bin/`.
 
-## Save As You Go
+## Write Rules
 
-After completing each logical unit of work, write it to disk immediately:
+**Write as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Don't accumulate. Sessions die without warning; unwritten work is lost. Applies to project state too: update Active Work and Work Log entries incrementally, not at the end.
 
-- One function implemented → write it
-- One config value updated → write it
-- One table row verified → write it
-- About to attempt something risky (complex refactor, long transformation) → write what you have first
+**Re-read immediately before each write.** The file may have changed since you last read it — user edits, another agent, your own previous write. In permit mode, `write_if_unchanged` exit 3 enforces this mechanically. In reviewed mode, it's your responsibility: re-read right before each Edit/Write call.
 
-Don't accumulate changes across multiple files or many edits and write them all at the end. If your session is interrupted — by an error, a timeout, or a crash — everything already written is preserved. Everything not yet written is lost.
-
-This also applies to project state: update Active Work sections and Work Log entries incrementally, not at the end of a task.
-
-## Write Protocol
-
-Two tools, three rules:
+Three rules for how to write:
 
 Files requiring the fhold protocol (expand this list as the protocol matures):
 - Git-tracked markdown files (`*.md`)
@@ -58,15 +48,17 @@ Files requiring the fhold protocol (expand this list as the protocol matures):
 - Before every write: `fhold status FILE`
 - **Reviewed mode** (default — no permit holds): `fhold review register FILE --agent $AGENT` (exit 0 → proceed; exit 2 → show user the MENU from `fhold -H` and wait for their choice). Write with an **inode-preserving method** (IDE Edit/Write tools, vim). The IDE shows your changes as a diff for user review. `fhold review release FILE` when you know you're done, or just let 30min TTL lapse.
 - **Permit mode** (any permit holds exist): `fhold permit register FILE --agent $AGENT` if not already registered. Write with **`write_if_unchanged`**. `fhold permit release FILE --agent $AGENT` when you know you're done, or just let the 30min TTL lapse.
-- **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used Edit/Write tools when you should have used `write_if_unchanged`. That write is racing with other agents.
+- **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used Edit/Write tools when you should have used `write_if_unchanged`. That write will race with other agents working on the file.
 
 **Rule 2 — All other files:** use inode-preserving Edit/Write tools. IDE diff shows your changes; observer buffers stay live. No fhold needed because these other files are not expected to get concurrent edits.
 
-**Rule 3 — Agent-owned ephemeral temp files only:** create or write directly (the sole exception to Rules 1–2).
+**Rule 3 — Write directly** (exceptions to Rules 1–2):
+- Agent-owned ephemeral temp files
+- Newly-created files of any type — nothing exists yet to race against
 
 ### Inode preservation
 
-Never replace a file by creating a new one. `sed -i ''` on macOS, `mv tmpfile original`, and `echo > file` all change the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Safe methods: `write_if_unchanged` (truncate+rewrite), IDE Edit/Write tools, vim. In Python: `open(path, 'w').write(content)`.
+Never update a file by creating a new one in its place. `sed -i ''` on macOS, `mv tmpfile original`, and `echo > file` all change the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Safe methods: `write_if_unchanged` (truncate+rewrite), IDE Edit/Write tools, vim. In Python: `open(path, 'w').write(content)`.
 
 ### write_if_unchanged CAS pattern
 
@@ -92,7 +84,8 @@ Run `write_if_unchanged -h` for full options. Run `fhold -h` for the fhold MENU 
 - Duplicate/conflicting files: ASK which to keep before deleting either
 - No VCS changes unless you're certain the user wants them
 - Commit granularity: independent changes → separate commits; interdependent → one commit
-- **Two-tier commit policy**: mechanical changes (artifacts, formatting) → commit directly; substantive changes (logic, data, content) → `git add` and summarize for user review. User can override with "just commit it"
+- **Two-tier commit policy**: mechanical changes (artifacts, formatting) → commit directly; substantive changes (logic, data, content) → `git add` and summarize for user review. User can override with "just commit it".
+- TODO Agents should know when (not) to (ask to) commit/push/mirror
 
 ### PR Diff Source of Truth
 
