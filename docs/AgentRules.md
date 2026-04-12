@@ -84,7 +84,121 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 - No VCS changes unless you're certain the user wants them
 - Commit granularity: independent changes → separate commits; interdependent → one commit
 - **Two-tier commit policy**: mechanical changes (artifacts, formatting) → commit directly; substantive changes (logic, data, content) → `git add` and summarize for user review. User can override with "just commit it".
-- TODO Agents should know when (not) to (ask to) commit/push/mirror
+
+### Optional commit/push consent tokens
+
+When an agent finishes substantive work and determines that a VCS check-in may be appropriate, it should end its turn with a **commit proposal outline** followed by a standard consent line. The offer is entirely ignorable — silence is not approval.
+
+**Commit proposal outline — strict procedure**
+
+Execute these steps in order. Do not skip or reorder.
+
+- **Step 1 — get the file list from git, not from memory:**
+  ```
+  git status --short
+  git log --oneline @{u}..HEAD
+  ```
+  Treat this output as the canonical source. Every file that `git status --short` prints with a non-`?` status character is a pending change and MUST appear in the outline. The log shows already-committed but unpushed work. If there are unpushed commits, render a separate unpushed line; otherwise omit it entirely.
+
+- **Step 2 — handle all status types:**
+  - Staged-only (`M `, `A `), unstaged-only (` M`), or both (`MM`): list the file once.
+  - Staged rename (`R `): show as `oldname → newname`.
+  - Delete (staged `D ` or unstaged ` D`): prefix the basename with `[del]`.
+  - Untracked (`??`): include only if the agent created the file intentionally this turn.
+
+- **Step 3 — cluster only; do not re-inventory files.** One numbered item per independent concern. Multi-file commits get sub-bullets.
+
+- **Step 4 — deterministically reformat the Step 1 inventory.** Menu construction is a format transform of git output plus clustering labels, not a freehand rewrite. If a helper script exists to pre-format the inventory, use it.
+
+```
+Changes net yet commited Select with e.g. 1,3-7 or omit for all.
+1. auth token validation refactor
+  - auth.ts: move validateToken to own fn
+  - auth.test.ts: add tests for validateToken
+2. api.ts: log errors on 5xx
+3. config reshuffle using git mv
+  - config.ts -> config.base.ts: rename + add env var
+  - config_local.ts -> config.dev.ts: rename
+4. remove legacy shim files
+  - [del] legacy_shim.ts: remove deprecated shim
+  - [del] legacy_shim.test.ts: remove associated tests
+5. onboarding.md: new setup guide (untracked)
+6. CHANGELOG.md: note 2.4.1 release
+
+Commits not yet pushed: 2 unpushed commits, including 4 git mv renames.
+C: commit. P: also push+mirror. Or ignore & keep prompting.
+```
+
+- Use **basenames only** — no directory paths.
+- One file appears on one line only in the menu.
+- For multi-file commits, the numbered top line is a short group summary (no filename/path prefix).
+- The ≤30-char label per item is a **display summary only**, not the actual commit message. When executing, write a full conventional commit message.
+- If present, the `Commits not yet pushed:` line goes immediately before the CTA.
+- The CTA is plain text, unnumbered, flush-left, and always last. Never indent it, even if the lines above are sub-bullets.
+
+**Unpushed-only mode**
+
+If there are **no uncommitted changes** but there **are unpushed commits**, omit the entire pending-commits section and omit the `C:` action entirely. Render only:
+
+```
+Commits not yet pushed: 4.
+P: push+mirror. Or ignore & keep prompting.
+```
+
+- This mode exists because there is nothing left to commit.
+- On the personal laptop, where no mirror step exists, render `P: push. Or ignore & keep prompting.`
+
+Notes on each item above:
+- **1** — multi-file commit: impl + its tests travel together as one logical change.
+- **2** — single-file commit: unrelated to auth refactor, committed separately.
+- **3** — staged renames via `git mv` show as `R ` in `git status`; content changes may be bundled.
+- **4** — multi-file delete: both show `D ` in `git status`; grouped because inseparable.
+- **5** — untracked file (`??`) the agent created intentionally this turn; included because agent-owned.
+- **6** — staged new file (`A ` in `git status`).
+- **Commits not yet pushed** — `git log @{u}..HEAD` revealed local commits not yet on remote; show this line only when count > 0.
+
+**Selective commit syntax**
+
+The user may respond with a token followed by a comma-separated list of commit numbers and/or ranges to act on a subset:
+
+- `C2` — commit only item 2
+- `C1,3` — commit items 1 and 3
+- `C1,3-5` — commit item 1 and items 3 through 5
+- `P2-4` — commit + push items 2 through 4
+
+Without a number list, `C` and `P` apply to all proposed commits.
+
+**Prefix syntax:** use a period to separate the token from the rest of the next prompt:
+- `C. fix the tests` — commit all, then fix the tests
+- `C1,3. and rename the function` — commit items 1 and 3, then rename the function
+- `P. also update the doc` — commit + push all, then update the doc
+
+The period is required when the token is a prefix; a bare `C` or `P` as the entire message needs no period.
+
+**Standard heading and CTA** (exact text, always used verbatim):
+
+Heading: `Pending commits. Select with e.g. 1,3-7 or omit for all.`
+
+CTA: `C: commit. P: commit+push+mirror. Or ignore & keep prompting.`
+
+**Token semantics**
+
+- `C` — stage and commit the selected commits, locally only
+- `P` — stage, commit, push, and mirror the selected commits (see below for what "mirror" means per environment)
+- Accepted as a **standalone next message** or as a **prefix** on the next prompt
+- Token is valid for one user turn only; it expires unused after that turn
+- Never treat a stale token as approval later in the conversation
+
+**What "mirror" means per environment**
+
+- **Walmart laptop (Wibey available):** after pushing, run the Confluence mirror command or skill for any markdown files that belong to a Confluence-synced space. The exact command lives in the Wibey skill or project-level command for the repo. If no mirror command is available or applicable, push only and note the omission.
+- **Personal laptop:** no Confluence mirror exists. `P` means commit + push only. Drop "(+mirror)" from the standard consent line when on the personal laptop.
+
+**Rules**
+
+- Never commit or push without an explicit `C` or `P` consent token, except where the two-tier commit policy above already permits direct commit for mechanical changes
+- Do not offer the outline if the changes are too vague to describe concretely; stage them and summarize instead
+- Make the offer once; do not repeat or nag
 
 ## Communication Style
 
