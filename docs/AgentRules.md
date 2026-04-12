@@ -11,7 +11,7 @@ These rules apply to all projects and all AI models. Any project-specific or mod
 
 ## ~/bin/ structure
 
-The canonical source of this file is `~/bin/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
+The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
 
 - `~/.claude/CLAUDE.md` — read by Claude Code CLI (and Wibey at Walmart)
 - `~/.cursor/cursorrules` — read by Cursor
