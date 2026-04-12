@@ -4,7 +4,7 @@
 >
 > **Be terse: from chapters to words, omit or condense until meaning changes.**
 >
-> **Every file write must go through `~/bin/write_if_unchanged`.** Not the IDE Edit tool, not `Write`, not `sed`, not `echo >`. There are zero exceptions. When you find yourself reaching for Edit or Write, that impulse is your cue to use `write_if_unchanged` instead. See [§ Mandatory tool: write_if_unchanged](#mandatory-tool-write_if_unchanged).
+> **Every file write must follow the Write Protocol (§ below). Zero exceptions except agent-owned ephemeral temp files.**
 >
 > **Write your work to disk as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Sessions die without warning; unwritten work is lost. See [§ Save As You Go](#save-as-you-go).
 
@@ -47,49 +47,50 @@ Don't accumulate changes across multiple files or many edits and write them all 
 
 This also applies to project state: update Active Work sections and Work Log entries incrementally, not at the end of a task.
 
-## File Operations
+## Write Protocol
 
-- ❗ **Preserve inodes — never use `sed -i ''` or any command that replaces a file by creating a new one.** `sed -i ''` on macOS writes a new file and swaps it in, changing the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. `write_if_unchanged` already preserves inodes (truncate + rewrite). For other contexts: use `open(path, 'w').write()` in Python; never use `sed -i ''`, `mv tmpfile original`, or any write-then-rename pattern.
-- Never use `rm` directly. Always use `trash` command or `mv` to `~/.Trash/`
-- When duplicate/conflicting files exist, always ASK which version to keep before deleting either
-- Do not make any VCS changes unless you're absolutely sure the user wants that.
-- Commit granularity: independent changes should be committed independently; interdependent changes should be committed together.
-- **Two-tier commit policy**: For purely mechanical changes (regenerate build artifacts, cleanup, formatting), commit directly. For substantive changes (logic, data corrections, content edits), `git add` only and summarize what's staged so the user can review before committing. The user can override with "just commit it" or "let me review first".
+Two tools, three rules:
 
-### Mandatory tool: `write_if_unchanged`
+**Rule 1 — Git-tracked markdown files:** use `fhold` to coordinate, then write.
+- Before every write: `fhold status FILE`
+- **Reviewed mode** (default — no permit holds): `fhold review register FILE --agent $AGENT` (exit 0 → proceed; exit 2 → show user the MENU from `fhold -H` and wait for their choice). Write with an **inode-preserving method** (IDE Edit/Write tools, vim). The IDE shows your changes as a diff for user review. `fhold review release FILE` when done (or wait for 30-min TTL).
+- **Permit mode** (any permit holds exist): `fhold permit register FILE --agent $AGENT` if not already registered. Write with **`write_if_unchanged`**. `fhold permit release FILE --agent $AGENT` when done.
+- **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used an inode-preserving method when you should have used `write_if_unchanged`. That write is racing with other agents.
 
-`~/bin/write_if_unchanged` implements advisory locking + compare-and-swap for safe concurrent file writes. The sole exemption is **agent-owned ephemeral temp files**. If `write_if_unchanged` genuinely cannot be invoked, stop and ask the user.
+**Rule 2 — All other files:** `write_if_unchanged` directly. No fhold needed.
 
-**IDE Accept buttons are a rule violation indicator.** If an Accept/Reject diff button appears in your IDE after you write a file, it means the agent used the `Edit` or `Write` tool instead of this one. That is a violation: the write is unprotected and potentially racing with other agents.
+**Rule 3 — Agent-owned ephemeral temp files only:** write directly (the sole exception to Rules 1–2).
 
-**Preferred pattern — write new content to a temp file, then apply:**
+### Inode preservation
+
+Never replace a file by creating a new one. `sed -i ''` on macOS, `mv tmpfile original`, and `echo > file` all change the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Safe methods: `write_if_unchanged` (truncate+rewrite), IDE Edit/Write tools, vim. In Python: `open(path, 'w').write(content)`.
+
+### write_if_unchanged CAS pattern
+
 ```sh
-# 1. Capture hash BEFORE preparing new content
-HASH=$(shasum -a 256 config.json | awk '{print $1}')
-# 2. Write new content to a temp file (NOT a pipe — temp files can be inspected and cannot be zeroed by pipe failure)
-python3 my_transform.py > /tmp/new_config.json
-# 3. Optionally verify the temp file before committing
-grep -q "expected_key" /tmp/new_config.json || { echo "Transform failed"; exit 1; }
-# 4. Apply with CAS
-~/bin/write_if_unchanged config.json \
-  --from /tmp/new_config.json \
+HASH=$(shasum -a 256 FILE | awk '{print $1}')
+python3 my_transform.py > /tmp/new_out
+# Safety checks before writing:
+test -s /tmp/new_out                          # non-empty
+wc -l FILE; wc -l /tmp/new_out               # investigate >20% shrink
+grep -q "^# " /tmp/new_out                   # sentinel (adjust per file type)
+~/bin/write_if_unchanged FILE \
+  --from /tmp/new_out \
   --expect-sha256 "$HASH" \
   --note "agent=claude, task=abc123"
 ```
 
-**Output safety checks for generated transforms (required):**
+On exit 3 (CAS mismatch): file changed since you read it. Re-read, rebuild from new state, retry. Never reuse stale content.
 
-Before calling `write_if_unchanged` with machine-generated output (formatter, parser, transform script), verify the temp file is plausible and non-empty:
+Run `write_if_unchanged -h` for full options. Run `fhold -h` for the fhold MENU and full protocol.
 
-- `test -s "$TMP_OUT"` must pass (never write an empty output file unless the task explicitly intends an empty file).
-- Capture a pre-write baseline and compare: `wc -l "$TARGET"` and `wc -l "$TMP_OUT"`; investigate large drops before writing (for markdown/docs, treat >20% shrink as suspicious unless expected).
-- Run a cheap sentinel check tied to file type (for Markdown, e.g. `grep -q "^# " "$TMP_OUT"`; for JSON, parse with `jq`; for code, run a syntax check/lint).
-- If command output is truncated, missing, or terminal state looks abnormal, stop and verify `$TMP_OUT` manually before CAS write.
-- For high-risk transforms, keep a rollback temp copy first: `cp "$TARGET" /tmp/<name>.bak` so recovery is immediate if validation misses something.
+### Other file operation rules
 
-**On CAS mismatch (exit 3):** the file changed between your hash capture and write attempt. Re-read, rebuild content from the new state, and retry. Never reuse stale content on retry.
-
-Run `write_if_unchanged -h` for the full argument reference.
+- Never `rm` directly — use `trash` or `mv ~/.Trash/`
+- Duplicate/conflicting files: ASK which to keep before deleting either
+- No VCS changes unless you're certain the user wants them
+- Commit granularity: independent changes → separate commits; interdependent → one commit
+- **Two-tier commit policy**: mechanical changes (artifacts, formatting) → commit directly; substantive changes (logic, data, content) → `git add` and summarize for user review. User can override with "just commit it"
 
 ### PR Diff Source of Truth
 
@@ -107,7 +108,7 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ## Coding Workflow
 
-Use the project's `/tdd` command for the full TDD workflow: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run coverage (100% of new flows/conditions). See also [§ Work Environment (Walmart)](#work-environment-walmart) for additional workflow details used at work.
+Use the relationship-shared project's `/tdd` command for the full TDD workflow: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run coverage (100% of new flows/conditions). See also [§ Work Environment (Walmart)](#work-environment-walmart) for additional workflow details used at work.
 
 ## Communication Style
 
