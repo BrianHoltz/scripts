@@ -2,10 +2,10 @@
 # SPDX-FileCopyrightText: 2026 Brian Holtz
 # SPDX-License-Identifier: MIT
 
-"""Tests for write_if_unchanged.
+"""Tests for safewrite.
 
 Usage:
-    write_if_unchanged_test.py [-v] [-l] [-t N] [--keep-artifacts]
+    safewrite_test.py [-v] [-l] [-t N] [--keep-artifacts]
 
 Options:
   -h, --help          Show this message and exit

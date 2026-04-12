@@ -10,7 +10,7 @@ Agent 2 needs to write to a file. It calls `fhold review register` and discovers
 
 - **Diff resolved, stay in review mode** — This agent will register its own review hold and write its changes for review. Future agents finding a review hold will be offered the same options.
 - **Diff resolved, switch to unreviewed mode** — This agent will register a permit hold and write without user review. All subsequent agent changes use permit holds until all permits have expired or been released, at which point review mode resumes automatically.
-- **Diff ignored, switch to unreviewed mode** — Current on-disk state is treated as accepted; the review hold is released. All subsequent agent changes use permit holds and write safely in parallel (via write_if_unchanged) until all permits have expired or been released, at which point review mode resumes automatically. ⚠️ The pending diff can be safely accepted at any time, but rejecting any part of it will immediately overwrite any disk changes (including this agent's) that happened after that pending diff was authored.
+- **Diff ignored, switch to unreviewed mode** — Current on-disk state is treated as accepted; the review hold is released. All subsequent agent changes use permit holds and write safely in parallel (via safewrite) until all permits have expired or been released, at which point review mode resumes automatically. ⚠️ The pending diff can be safely accepted at any time, but rejecting any part of it will immediately overwrite any disk changes (including this agent's) that happened after that pending diff was authored.
 
 ## Hold Tags
 
@@ -47,7 +47,7 @@ post-write-sha256: <hash of file after all writes complete>  ← written after r
 
 **Tag:** `<path-hash>.concurrent_write_permit.<session-id>`
 
-**When created:** When an agent begins working on a file in unreviewed mode (i.e. after contention is resolved with a "switch to unreviewed mode" choice). Agents in review mode register review holds, not permit holds.
+**When created:** When an agent begins working on a file in unreviewed mode (i.e. after contention is resolved with a "switch to unreviewed mode" choice). Agents in review mode register review holds, not permit holds. Writes use safewrite for CAS-coordinated parallel access.
 
 **Contents:** Minimal — agent-id and file path. The tag file's **mtime is the heartbeat**; refreshed on each write to the target file.
 

@@ -37,7 +37,7 @@ When the user mentions a file by name without a path, check under `~/bin/`.
 
 **Write as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Don't accumulate. Sessions die without warning; unwritten work is lost. Applies to project state too: update Active Work and Work Log entries incrementally, not at the end.
 
-**Re-read immediately before each write.** The file may have changed since you last read it — user edits, another agent, your own previous write. In permit mode, `write_if_unchanged` exit 3 enforces this mechanically. In reviewed mode, it's your responsibility: re-read right before each Edit/Write call.
+**Re-read immediately before each write.** The file may have changed since you last read it — user edits, another agent, your own previous write. In permit mode, `safewrite` exit 3 enforces this mechanically. In reviewed mode, it's your responsibility: re-read right before each Edit/Write call.
 
 Three rules for how to write:
 
@@ -47,8 +47,8 @@ Files requiring the fhold protocol (expand this list as the protocol matures):
 **Rule 1 — Files in the list above:** use `fhold` to coordinate, then write.
 - Before every write: `fhold status FILE`
 - **Reviewed mode** (default — no permit holds): `fhold review register FILE --agent $AGENT` (exit 0 → proceed; exit 2 → show user the MENU from `fhold -H` and wait for their choice). Write with an **inode-preserving method** (IDE Edit/Write tools, vim). The IDE shows your changes as a diff for user review. `fhold review release FILE` when you know you're done, or just let 30min TTL lapse.
-- **Permit mode** (any permit holds exist): `fhold permit register FILE --agent $AGENT` if not already registered. Write with **`write_if_unchanged`**. `fhold permit release FILE --agent $AGENT` when you know you're done, or just let the 30min TTL lapse.
-- **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used Edit/Write tools when you should have used `write_if_unchanged`. That write will race with other agents working on the file.
+- **Permit mode** (any permit holds exist): `fhold permit register FILE --agent $AGENT` if not already registered. Write with **`safewrite`**. `fhold permit release FILE --agent $AGENT` when you know you're done, or just let the 30min TTL lapse.
+- **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used Edit/Write tools when you should have used `safewrite`. That write will race with other agents working on the file.
 
 **Rule 2 — All other files:** use inode-preserving Edit/Write tools. IDE diff shows your changes; observer buffers stay live. No fhold needed because these other files are not expected to get concurrent edits.
 
@@ -58,14 +58,14 @@ Files requiring the fhold protocol (expand this list as the protocol matures):
 
 ### Inode preservation
 
-Never update a file by creating a new one in its place. `sed -i ''` on macOS, `mv tmpfile original`, and `echo > file` all change the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Safe methods: `write_if_unchanged` (truncate+rewrite), IDE Edit/Write tools, vim. In Python: `open(path, 'w').write(content)`.
+Never update a file by creating a new one in its place. `sed -i ''` on macOS, `mv tmpfile original`, and `echo > file` all change the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Safe methods: `safewrite` (truncate+rewrite), IDE Edit/Write tools, vim. In Python: `open(path, 'w').write(content)`.
 
-### write_if_unchanged CAS pattern
+### safewrite CAS pattern
 
 ```sh
 HASH=$(shasum -a 256 FILE | awk '{print $1}')
 python3 my_transform.py > /tmp/new_out
-~/bin/write_if_unchanged FILE \
+~/bin/safewrite FILE \
   --from /tmp/new_out \
   --expect-sha256 "$HASH" \
   --max-shrink-pct 20 \
@@ -76,7 +76,7 @@ python3 my_transform.py > /tmp/new_out
 
 On exit 3 (CAS mismatch): file changed since you read it. Re-read, rebuild from new state, retry. Never reuse stale content.
 
-Run `write_if_unchanged -h` for full options. Run `fhold -h` for the fhold MENU and full protocol.
+Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full protocol.
 
 ### Other file operation rules
 
