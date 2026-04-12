@@ -19,11 +19,11 @@ The canonical source of this file is `~/bin/AgentRules.md`, version-controlled i
 
 Other `~/bin/` files symlinked into `~/`:
 
-- `~/.shellrc.common` → `~/bin/shellrc.common` — shared PATH/env for zsh + bash
-- `~/.zprofile` → `~/bin/zprofile` — zsh login shell config
-- `~/.zshrc` → `~/bin/zshrc` — zsh interactive shell config
-- `~/.bash_profile` → `~/bin/bash_profile` — bash login/interactive shell config
-- `~/.bashrc` → `~/bin/bashrc` — bash interactive shell config
+- `~/.shellrc.common` → `~/bin/shellrc/shellrc.common` — shared PATH/env for zsh + bash
+- `~/.zprofile` → `~/bin/shellrc/zprofile` — zsh login shell config
+- `~/.zshrc` → `~/bin/shellrc/zshrc` — zsh interactive shell config
+- `~/.bash_profile` → `~/bin/shellrc/bash_profile` — bash login/interactive shell config
+- `~/.bashrc` → `~/bin/shellrc/bashrc` — bash interactive shell config
 
 The `~/bin/` repo also contains personal tool settings and reference docs (not symlinked):
 
