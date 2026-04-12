@@ -1,13 +1,18 @@
 ---
-description: Park the current conversation with a visible title for Mac workspace/Mission Control switching
+description: Display a conversation banner
 allowed-tools: Bash
 ---
 
-Review the conversation history and choose a terse, descriptive title (5-10 words max) that captures the main topic. Do not ask the user — decide yourself.
+Interpolate values into the template block below and render it as Markdown exactly as shown.
 
-Then run:
-```bash
-date "+%Y-%m-%d %H:%M %Z"
-```
+Rules:
+- Output exactly the interpolated template block, with the same number of lines and ordering.
+- Do not add commentary, bullets, code fences, or extra whitespace.
+- For the conversation summary line, use the IDE conversation title when available; otherwise generate a very close one-line summary from the current request.
 
-Then respond with ONLY the title as an `# **H1 bold**` markdown heading. No other text.
+Template:
+---
+# yyyy.mm.dd.Dow.hhmm repo:branchname
+# one-line summary of entire conversation (prefer IDE title text)
+# one-line description of last 3 turns
+---
