@@ -1,43 +1,56 @@
 ---
-description: Cluster uncommitted git diffs into themed buckets, draft a commit message for each, and commit the ones the user approves.
+description: Build deterministic pending-commit UI from commitz_ui, then cluster changes into commit buckets and commit selected buckets.
 allowed-tools: Bash(git *), Read, Grep, Glob
 ---
 
 ## Context
 
-- Current git status: !`git status`
+- Deterministic commit UI source: !`commitz_ui`
+- Current git status (debug): !`git status`
 - Current git diff (staged and unstaged): !`git diff HEAD`
-- Recent commit messages (for style): !`git log --oneline -10`
+- Recent commit messages (style reference): !`git log --oneline -10`
 
-Do not assume the conversation context is the authority for what has changed — the git output above is the source of truth.
+Do not treat conversation context as source-of-truth for changed files. The inventory from `commitz_ui` is authoritative.
 
 ## Your task
 
-Cluster all uncommitted changes (staged, unstaged, and untracked) into logically coherent numbered buckets. Each bucket should group files that belong to the same theme (e.g., a feature, a doc section, a refactor, a fix).
+First, show the `commitz_ui` output exactly as the top section of your response (heading, numbered lines, unpushed line if present, CTA). Do not rewrite file inventory freehand.
+
+Then, if there are uncommitted changes, cluster files into logically coherent commit buckets.
 
 For each bucket, show:
 
 - **Bucket number**
 - **Short title** describing the theme
-- **Files** included
-- **Draft commit message** — multi-line, following the repo's existing commit style. The first line is a terse summary. Subsequent lines add detail only if the change is nontrivial. Don't document trivial changes a future developer or agent would not search for. End with: `🌀 Magic applied with Wibey VSCode Extension 🪄`
+- **Files** included (must be a subset of `commitz_ui` inventory)
+- **Draft commit message** — multi-line, following repo style. The first line is terse. Add detail only when nontrivial. End with: `🌀 Magic applied with Wibey VSCode Extension 🪄`
 
-Guidelines for clustering:
+Clustering rules:
 
-- Prefer fewer, coherent buckets over many tiny ones
-- A single file should appear in exactly one bucket
-- If a change spans doc + code for the same feature, keep them together
-- Untracked files that logically belong with modified files go in the same bucket
-- If all changes are tightly related, a single bucket is fine — say so
-- Extract Jira ticket ID from branch name if present (e.g., CATGTRLSHP-123) and prefix the commit summary. If no ticket, use conventional prefixes (docs:, fix:, refactor:, chore:, feat:, test:)
+- Prefer fewer coherent buckets over many tiny ones
+- Every file from `commitz_ui` appears in exactly one bucket
+- Never introduce files absent from `commitz_ui`
+- If a change spans doc + code for one feature, keep together
+- If all changes are tightly related, one bucket is acceptable
+- Extract Jira ticket from branch name when present; otherwise use conventional prefixes (`docs:`, `fix:`, `refactor:`, `chore:`, `feat:`, `test:`)
 
-**STOP HERE. Present the buckets and wait for the user to respond. Do NOT commit anything until the user explicitly picks buckets.** The user may:
+If `commitz_ui` reports **unpushed-only mode** (no pending commits, only `P:`), do not produce buckets; just report that push-only action is available and wait for user confirmation.
 
-- Pick buckets by number (e.g., "1, 3, 5") to commit in sequence
-- Say "all" to commit all in sequence
-- Request edits to messages or bucket groupings before committing
-- Say "skip N" to skip a bucket
+**STOP HERE after presenting UI + buckets.** Do not commit until user explicitly selects buckets/tokens.
 
-When committing, stage only the files for that bucket and commit. After all requested commits, show `git log --oneline` for the new commits and `git status` to confirm the working tree state.
+User responses may include:
 
-Do NOT push unless the user explicitly asks.
+- Bucket numbers (e.g., `1,3,5`)
+- `all`
+- `C`, `C1,3-5`, `P`, or `P2-4`
+- Edits to bucket grouping/messages
+- `skip N`
+
+When committing:
+
+- Stage only files in the selected bucket(s)
+- Commit selected buckets in sequence
+- Keep commit messages based on approved drafts
+- Show `git log --oneline` for new commits and `git status` afterward
+
+Do not push unless user explicitly asks for `P` or otherwise requests push.
