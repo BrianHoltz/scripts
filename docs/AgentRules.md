@@ -1,5 +1,7 @@
 # AgentRules.md - Global AI Agent Rules
 
+> **Role:** Personal global rules for Brian Holtz — all projects, all machines, all AI models. Project-specific rules supplement these without overriding; for Walmart Catalog Relationships team repos, see `AGENTS.md` at the repo root (canonical source: `relationship-shared/AGENTS.md`).
+
 The rules in this file apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
 ## The Three Commandments
