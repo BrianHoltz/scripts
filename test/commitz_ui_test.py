@@ -141,9 +141,9 @@ def test_unpushed_only_mode() -> tuple[bool, str]:
         out = r.stdout
         ok = (
             r.returncode == 0
-            and re.search(r"^1 commit already in next push\.$", out, re.M)
+            and re.search(r"^1 commit already in next push( since \d{4}\.\d{2}\.\d{2}\.\w+\.\d{4})?\.$", out, re.M)
             and "file to commit" not in out.lower()
-            and re.search(r"^P: push(\+mirror)?\.", out, re.M)
+            and re.search(r"^P: push\.", out, re.M)
             and "C: commit." not in out
         )
         return ok, f"rc={r.returncode}\n{out}"

@@ -12,8 +12,6 @@ SYNOPSIS
 OPTIONS
     -h, --help            Show colorized usage and exit
     -H, --raw-help        Show this raw usage text (for diff/testing) and exit
-    --mirror              Use mirror wording in P action
-    --no-mirror           Use push-only wording in P action
 
 DESCRIPTION
     Renders a deterministic commit/push UI based on git status and upstream delta.
@@ -25,9 +23,10 @@ DESCRIPTION
 # usage_msg, update show_usage() to match it exactly.
 
 import sys
-import os
 import subprocess
 from pathlib import Path
+from typing import Optional
+from datetime import datetime
 
 
 def show_usage() -> None:
@@ -106,22 +105,67 @@ def get_unpushed_count() -> int:
         return 0
 
 
-def use_mirror(argv: list[str]) -> bool:
-    if "--mirror" in argv:
-        return True
-    if "--no-mirror" in argv:
-        return False
-    return os.getenv("COMMITZ_UI_MIRROR", "").strip() == "1"
+def get_oldest_unpushed_timestamp() -> Optional[str]:
+    """Return formatted 'yyyy.mm.dd.Dow.hhmm' for oldest unpushed commit, or None if none."""
+    cp = run_git(["log", "@{u}..HEAD", "--format=%ai"])
+    if cp.returncode != 0 or not cp.stdout.strip():
+        return None
+    lines = cp.stdout.strip().splitlines()
+    if not lines:
+        return None
+    oldest_iso = lines[-1]  # last line is oldest (reverse chronological)
+    # Format: "2026-04-12 15:47:23 -0700"
+    try:
+
+        dt = datetime.fromisoformat(oldest_iso.split()[0])
+        dow_short = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][dt.weekday()]
+        return dt.strftime(f"%Y.%m.%d.{dow_short}.%H%M")
+    except (ValueError, IndexError):
+        return None
 
 
-def render(lines: list[str], untracked_count: int, unpushed_count: int, mirror: bool) -> str:
-    p_push = "push+mirror" if mirror else "push"
-    p_commit_push = "commit+push+mirror" if mirror else "commit+push"
+def get_commits_to_merge_count() -> int:
+    """Return count of commits on upstream not locally (HEAD..@{u})."""
+    cp = run_git(["rev-list", "--count", "HEAD..@{u}"])
+    if cp.returncode != 0:
+        return 0
+    txt = cp.stdout.strip()
+    try:
+        return int(txt)
+    except ValueError:
+        return 0
+
+
+def get_merge_conflict_files() -> list[str]:
+    """Return list of files with merge conflicts (during active merge)."""
+    cp = run_git(["diff", "--name-only", "--diff-filter=U"])
+    if cp.returncode != 0:
+        return []
+    return cp.stdout.strip().splitlines()
+
+
+def render(lines: list[str], untracked_count: int, unpushed_count: int) -> str:
+    p_push = "push"
+    p_commit_push = "commit+push"
+    
+    # Detect merge state and upstream delta
+    to_merge_count = get_commits_to_merge_count()
+    conflict_files = get_merge_conflict_files()
 
     out: list[str] = []
-    if not lines and unpushed_count > 0:
-        noun = "commit" if unpushed_count == 1 else "commits"
-        out.append(f"{unpushed_count} {noun} already in next push.")
+    if not lines and (unpushed_count > 0 or to_merge_count > 0 or conflict_files):
+        out: list[str] = []
+        if conflict_files:
+            conflicts_noun = "file" if len(conflict_files) == 1 else "files"
+            out.append(f"{len(conflict_files)} {conflicts_noun} with merge conflicts (resolve before commit).")
+        if to_merge_count > 0:
+            merge_noun = "commit" if to_merge_count == 1 else "commits"
+            out.append(f"{to_merge_count} {merge_noun} to merge from upstream.")
+        if unpushed_count > 0:
+            noun = "commit" if unpushed_count == 1 else "commits"
+            oldest_ts = get_oldest_unpushed_timestamp()
+            ts_text = f" since {oldest_ts}" if oldest_ts else ""
+            out.append(f"{unpushed_count} {noun} already in next push{ts_text}.")
         out.append(f"P: {p_push}. Or ignore & keep prompting.")
         return "\n".join(out) + "\n"
 
@@ -135,14 +179,22 @@ def render(lines: list[str], untracked_count: int, unpushed_count: int, mirror: 
         for i, item in enumerate(lines, start=1):
             out.append(f"{i}. {item}")
 
-        if untracked_count > 0 or unpushed_count > 0:
+        if untracked_count > 0 or unpushed_count > 0 or to_merge_count > 0 or conflict_files:
             out.append("")
         if untracked_count > 0:
             ut_noun = "file" if untracked_count == 1 else "files"
             out.append(f"{untracked_count} untracked {ut_noun} (not staged).")
+        if conflict_files:
+            conflicts_noun = "file" if len(conflict_files) == 1 else "files"
+            out.append(f"{len(conflict_files)} {conflicts_noun} with merge conflicts (resolve before commit).")
+        if to_merge_count > 0:
+            merge_noun = "commit" if to_merge_count == 1 else "commits"
+            out.append(f"{to_merge_count} {merge_noun} to merge from upstream.")
         if unpushed_count > 0:
             unpushed_noun = "commit" if unpushed_count == 1 else "commits"
-            out.append(f"{unpushed_count} {unpushed_noun} already in next push.")
+            oldest_ts = get_oldest_unpushed_timestamp()
+            ts_text = f" since {oldest_ts}" if oldest_ts else ""
+            out.append(f"{unpushed_count} {unpushed_noun} already in next push{ts_text}.")
 
         out.append(f"C: commit. P: {p_commit_push}. Or ignore & keep prompting.")
         return "\n".join(out) + "\n"
@@ -159,12 +211,8 @@ def main(argv: list[str]) -> int:
         show_usage()
         return 0
 
-    if "--mirror" in argv and "--no-mirror" in argv:
-        print("commitz_ui: choose either --mirror or --no-mirror", file=sys.stderr)
-        return 1
-
     if len(argv) > 1:
-        unknown = [a for a in argv[1:] if a not in ("--mirror", "--no-mirror")]
+        unknown = list(argv[1:])
         if unknown:
             print(f"commitz_ui: unknown argument: {unknown[0]}", file=sys.stderr)
             return 1
@@ -177,7 +225,7 @@ def main(argv: list[str]) -> int:
     status_lines = status_cp.stdout.splitlines()
     entries, untracked_count = parse_status_lines(status_lines)
     unpushed_count = get_unpushed_count()
-    print(render(entries, untracked_count, unpushed_count, use_mirror(argv)), end="")
+    print(render(entries, untracked_count, unpushed_count), end="")
     return 0
 
 
