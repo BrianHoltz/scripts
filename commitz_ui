@@ -46,13 +46,31 @@ def basename(path_text: str) -> str:
     return Path(path_text).name
 
 
-def parse_status_lines(lines: list[str]) -> list[str]:
+def change_brief(path_text: str) -> str:
+    cp = run_git(["diff", "--numstat", "HEAD", "--", path_text])
+    if cp.returncode != 0:
+        return "modified"
+    line = cp.stdout.strip().splitlines()
+    if not line:
+        return "modified"
+    parts = line[0].split("\t")
+    if len(parts) < 2:
+        return "modified"
+    adds = parts[0]
+    dels = parts[1]
+    if adds.isdigit() and dels.isdigit():
+        return f"+{adds}/-{dels}"
+    return "modified"
+
+
+def parse_status_lines(lines: list[str]) -> tuple[list[str], int]:
     entries: list[str] = []
+    untracked_count: int = 0
     for line in lines:
         if not line:
             continue
         if line.startswith("?? "):
-            entries.append(f"{basename(line[3:])}: untracked")
+            untracked_count += 1
             continue
         if len(line) < 4:
             continue
@@ -73,8 +91,8 @@ def parse_status_lines(lines: list[str]) -> list[str]:
             entries.append(f"{basename(path_part)}: added")
             continue
 
-        entries.append(f"{basename(path_part)}: modified")
-    return entries
+        entries.append(f"{basename(path_part)} {change_brief(path_part)}")
+    return entries, untracked_count
 
 
 def get_unpushed_count() -> int:
@@ -96,24 +114,35 @@ def use_mirror(argv: list[str]) -> bool:
     return os.getenv("COMMITZ_UI_MIRROR", "").strip() == "1"
 
 
-def render(lines: list[str], unpushed_count: int, mirror: bool) -> str:
+def render(lines: list[str], untracked_count: int, unpushed_count: int, mirror: bool) -> str:
     p_push = "push+mirror" if mirror else "push"
     p_commit_push = "commit+push+mirror" if mirror else "commit+push"
 
     out: list[str] = []
     if not lines and unpushed_count > 0:
-        out.append(f"Commits not yet pushed: {unpushed_count}.")
+        noun = "commit" if unpushed_count == 1 else "commits"
+        out.append(f"{unpushed_count} {noun} already in next push.")
         out.append(f"P: {p_push}. Or ignore & keep prompting.")
         return "\n".join(out) + "\n"
 
     if lines:
-        out.append("Pending commits. Select with e.g. 1,3-7 or omit for all.")
+        pending_count = len(lines)
+        file_noun = "file" if pending_count == 1 else "files"
+        if pending_count == 1:
+            out.append(f"{pending_count} {file_noun} to commit.")
+        else:
+            out.append(f"{pending_count} {file_noun} to commit. Select buckets with e.g. 1,3-7 or omit for all.")
         for i, item in enumerate(lines, start=1):
             out.append(f"{i}. {item}")
 
-        if unpushed_count > 0:
+        if untracked_count > 0 or unpushed_count > 0:
             out.append("")
-            out.append(f"Commits not yet pushed: {unpushed_count}.")
+        if untracked_count > 0:
+            ut_noun = "file" if untracked_count == 1 else "files"
+            out.append(f"{untracked_count} untracked {ut_noun} (not staged).")
+        if unpushed_count > 0:
+            unpushed_noun = "commit" if unpushed_count == 1 else "commits"
+            out.append(f"{unpushed_count} {unpushed_noun} already in next push.")
 
         out.append(f"C: commit. P: {p_commit_push}. Or ignore & keep prompting.")
         return "\n".join(out) + "\n"
@@ -146,9 +175,9 @@ def main(argv: list[str]) -> int:
         return 1
 
     status_lines = status_cp.stdout.splitlines()
-    entries = parse_status_lines(status_lines)
+    entries, untracked_count = parse_status_lines(status_lines)
     unpushed_count = get_unpushed_count()
-    print(render(entries, unpushed_count, use_mirror(argv)), end="")
+    print(render(entries, untracked_count, unpushed_count, use_mirror(argv)), end="")
     return 0
 
 

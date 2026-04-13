@@ -106,10 +106,11 @@ def test_dirty_repo_renders_pending_menu() -> tuple[bool, str]:
         out = r.stdout
         ok = (
             r.returncode == 0
-            and "Pending commits." in out
-            and re.search(r"^\d+\. alpha\.txt", out, re.M)
+            and "2 files to commit." in out
+            and "Select buckets with e.g." in out
+            and re.search(r"^\d+\. alpha\.txt \+\d+/-\d+", out, re.M)
             and re.search(r"^\d+\. \[del\] beta\.txt", out, re.M)
-            and re.search(r"^\d+\. new_notes\.md", out, re.M)
+            and re.search(r"^1 untracked file \(not staged\)\.", out, re.M)
             and re.search(r"^C: commit\.", out, re.M)
             and "P: commit+push" in out
         )
@@ -140,8 +141,8 @@ def test_unpushed_only_mode() -> tuple[bool, str]:
         out = r.stdout
         ok = (
             r.returncode == 0
-            and "Commits not yet pushed:" in out
-            and "Pending commits." not in out
+            and re.search(r"^1 commit already in next push\.$", out, re.M)
+            and "file to commit" not in out.lower()
             and re.search(r"^P: push(\+mirror)?\.", out, re.M)
             and "C: commit." not in out
         )
@@ -170,6 +171,27 @@ def test_cta_is_flush_left() -> tuple[bool, str]:
         subprocess.run(["rm", "-rf", str(repo)], check=False)
 
 
+def test_single_pending_commit_omits_select_hint() -> tuple[bool, str]:
+    repo = init_repo()
+    try:
+        f = repo / "single.txt"
+        write(f, "v1\n")
+        git(repo, "add", "single.txt")
+        git(repo, "commit", "-m", "init")
+
+        write(f, "v2\n")
+        r = run_in_repo(repo)
+        out = r.stdout
+        ok = (
+            r.returncode == 0
+            and "1 file to commit." in out
+            and "Select buckets with e.g." not in out
+        )
+        return ok, f"rc={r.returncode}\n{out}"
+    finally:
+        subprocess.run(["rm", "-rf", str(repo)], check=False)
+
+
 def run_all(verbose: bool = False) -> int:
     tests = [
         ("script exists", test_script_exists),
@@ -178,6 +200,7 @@ def run_all(verbose: bool = False) -> int:
         ("-H matches color-stripped -h", test_raw_matches_color_stripped_help),
         ("dirty repo renders pending menu", test_dirty_repo_renders_pending_menu),
         ("unpushed-only mode", test_unpushed_only_mode),
+        ("single pending omits select hint", test_single_pending_commit_omits_select_hint),
         ("CTA lines are flush-left", test_cta_is_flush_left),
     ]
 
