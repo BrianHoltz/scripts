@@ -8,7 +8,7 @@ The rules in this file apply to all projects and all AI models. Any project-spec
 
 - Every file write must follow the [Write Rules](#write-rules).
 - Be terse: from chapters to words, omit or condense until meaning changes.
-- Ask the user for explicit permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. No exceptions.
+- Ask the user for explicit permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. Exception: files inside any `tmp/` folder (at any depth) are exempt — treat them as scratch space.
 
 ## ~/bin/ structure
 
