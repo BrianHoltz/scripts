@@ -1,56 +1,45 @@
 ---
-description: Build deterministic pending-commit UI from commitz_ui, then cluster changes into commit buckets and commit selected buckets.
+description: Show the deterministic pending-commit UI from commitz_ui and execute C/P token actions.
 allowed-tools: Bash(git *), Read, Grep, Glob
 ---
 
 ## Context
 
-- Deterministic commit UI source: !`commitz_ui`
+- Canonical UI source: !`commitz_ui`
 - Current git status (debug): !`git status`
-- Current git diff (staged and unstaged): !`git diff HEAD`
-- Recent commit messages (style reference): !`git log --oneline -10`
+- Current git diff (debug): !`git diff HEAD`
+- Recent commit style reference: !`git log --oneline -10`
 
-Do not treat conversation context as source-of-truth for changed files. The inventory from `commitz_ui` is authoritative.
+The command output from `commitz_ui` is the source of truth for pending files and push state.
 
 ## Your task
 
-First, show the `commitz_ui` output exactly as the top section of your response (heading, numbered lines, unpushed line if present, CTA). Do not rewrite file inventory freehand.
+1. Run `commitz_ui`.
+2. Paste its stdout verbatim as the full response block for the initial command call.
+3. Do not add buckets, draft commit messages, or extra narrative on that first response.
 
-Then, if there are uncommitted changes, cluster files into logically coherent commit buckets.
+## Follow-up token handling
 
-For each bucket, show:
+On a follow-up user response, interpret these tokens:
 
-- **Bucket number**
-- **Short title** describing the theme
-- **Files** included (must be a subset of `commitz_ui` inventory)
-- **Draft commit message** — multi-line, following repo style. The first line is terse. Add detail only when nontrivial. End with: `🌀 Magic applied with Wibey VSCode Extension 🪄`
+- `C` or `C.`: commit all pending uncommitted items.
+- `C1,3-5` or `C1,3-5.`: commit only selected item numbers.
+- `P` or `P.`: commit all pending items, then push. If no uncommitted items exist, push only.
+- `P1,3-5` or `P1,3-5.`: commit selected item numbers, then push.
 
-Clustering rules:
+When a token is a prompt prefix (for example `C1,3-5. and also rename foo`), execute token action first, then continue with the rest of the prompt.
 
-- Prefer fewer coherent buckets over many tiny ones
-- Every file from `commitz_ui` appears in exactly one bucket
-- Never introduce files absent from `commitz_ui`
-- If a change spans doc + code for one feature, keep together
-- If all changes are tightly related, one bucket is acceptable
-- Extract Jira ticket from branch name when present; otherwise use conventional prefixes (`docs:`, `fix:`, `refactor:`, `chore:`, `feat:`, `test:`)
+## Commit behavior
 
-If `commitz_ui` reports **unpushed-only mode** (no pending commits, only `P:`), do not produce buckets; just report that push-only action is available and wait for user confirmation.
+- Use item numbers from the latest `commitz_ui` block.
+- Stage only files mapped to selected numbers.
+- Create good commit messages autonomously using repo style. Do not ask the user to pick from drafted messages.
+- Keep one logical commit per selected numbered item unless the user asks otherwise.
+- After execution, show `git log --oneline` for new commits and `git status`.
+- Push only when token is `P...` or the user explicitly asks to push.
 
-**STOP HERE after presenting UI + buckets.** Do not commit until user explicitly selects buckets/tokens.
+## Formatting rules
 
-User responses may include:
-
-- Bucket numbers (e.g., `1,3,5`)
-- `all`
-- `C`, `C1,3-5`, `P`, or `P2-4`
-- Edits to bucket grouping/messages
-- `skip N`
-
-When committing:
-
-- Stage only files in the selected bucket(s)
-- Commit selected buckets in sequence
-- Keep commit messages based on approved drafts
-- Show `git log --oneline` for new commits and `git status` afterward
-
-Do not push unless user explicitly asks for `P` or otherwise requests push.
+- Keep CTA lines flush-left.
+- Do not indent `C:` or `P:` lines.
+- Do not rewrite or reflow the canonical `commitz_ui` block.
