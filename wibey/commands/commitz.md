@@ -65,6 +65,8 @@ C: commit. P: commit+push. Or ignore & keep prompting.
 
 Period separates token from rest of prompt: `C1,3. and also fix the tests`
 
+**Nothing to commit:** if `commitz_ui` shows no uncommitted files but there are unpushed commits, skip bucket presentation. Show only the unpushed count line and the P CTA.
+
 ## Commit behavior
 
 - Bucket numbers from the most recent bucketed block are the reference.
