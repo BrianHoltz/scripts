@@ -32,9 +32,9 @@ To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` r
 
 ## Write Rules
 
-**Write as you go.** After each logical unit of work — one function, one config change, one table row — write it immediately. Don't accumulate. Sessions die without warning; unwritten work is lost. Applies to project state too: update Active Work and Work Log entries incrementally, not at the end.
+**Write as you go.** After each logical unit of work, write immediately — don't accumulate. Sessions die without warning; unwritten work is lost.
 
-**Re-read immediately before each write.** The file may have changed since you last read it — user edits, another agent, your own previous write. In permit mode, `safewrite` exit 3 enforces this mechanically. In reviewed mode, it's your responsibility: re-read right before each Edit/Write call.
+**Re-read immediately before each write.** The file may have changed. In permit mode, `safewrite` exit 3 enforces this. In reviewed mode, re-read right before each Edit/Write call.
 
 Three rules for how to write:
 
@@ -90,8 +90,8 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 
 ## Communication Style TODO ailerts work v. home
 
-- Avoid tables and code blocks/text boxes in conversation output — the conversation window is kept narrow, and wide elements cause horizontal scrolling. Use bullet lists or plain prose instead. Tables and code blocks are fine in files, just not in chat replies.
-- **Getting the user's attention:** If you're blocked (need input, hit an unexpected error, must confirm a destructive action) and suspect the user has switched to another window expecting you to be making progress, use the `ailerts` skill (if available) to notify them. Don't use it for routine status — only when you're stopped and the user likely doesn't know.
+- Avoid tables and code blocks in chat replies — the window is narrow; they cause scrolling. Use bullet lists or plain prose. Fine in files.
+- **Getting the user's attention:** use the `ailerts` skill (if available) when blocked and the user has likely switched away. Not for routine status — only when stopped and user likely doesn't know.
 
 ## Inferring Intended Files
 
@@ -127,7 +127,7 @@ With these modifications:
 
 ### Evidence TODO doc-audit should handle this
 
-In documents the user designates as requiring cited evidence for empirical claims, collect evidence in a dedicated `## Evidence` section placed near the bottom of the document, above any log or TODO sections. Link claims inline with the Unicode dagger character U+2020 (†), with no space before it: `claim text[†](#e-descriptive-slug)`. The `†` renders as a clickable link immediately after the supported text. Example: "Latency dropped 40% after the cache change[†](#e-latency-drop)."
+In designated evidence docs, collect evidence in a `## Evidence` section (near the bottom, above logs/TODOs). Link claims inline with `†` (U+2020, no space before): `claim text[†](#e-slug)`. Example: "Latency dropped 40%[†](#e-latency-drop)."
 
 Each evidence entry is a `###` heading followed by structured fields:
 
@@ -142,11 +142,11 @@ Each evidence entry is a `###` heading followed by structured fields:
 - **Quote / data**: exact text excerpt, metric value, or command output that supports the claim
 ```
 
-Omit any field that genuinely does not apply, but include as many as possible. The goal is that a skeptical reader could independently re-verify the claim from the entry alone, without asking anyone.
+Omit fields that don't apply; include as many as possible so a skeptical reader can re-verify independently.
 
-When a URL is available, prefer a Markdown link with descriptive anchor text over printing the raw URL — embed the locator (line number, timestamp, etc.) in the link target rather than repeating it in prose. For example, write `[AuthService:L42](https://github.com/…/auth.ts#L42)` instead of `https://github.com/…/auth.ts, line 42`.
+Prefer Markdown links with locators in the target: `[AuthService:L42](https://github.com/…/auth.ts#L42)` not raw URLs.
 
-The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target environments: MD Wiki pages (GitHub/GitLab Wiki render fragment links natively) and Confluence (via any md2confluence pipeline).
+The `[†](#e-slug)` / `<a id="…">` convention works in GitHub/GitLab MD Wiki pages and Confluence (via md2confluence).
 
 ## Rules For Personal Laptop
 
@@ -158,36 +158,32 @@ For any question about family members, genealogy, life events, relationships, DN
 
 ### Coding Workflow TODO DRY work vs home
 
-Use the relationship-shared project's `/tdd` command for the full TDD workflow: pull main, create feature branch, write failing tests, implement, run tests, run full suite, run coverage (100% of new flows/conditions).
-
-In repos using the agent-toolkit pattern (with a `shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD) for test execution mechanics. Run postman/newman if available.
+Use `/tdd` for the full TDD workflow: pull main, branch, failing tests, implement, run tests, full suite, coverage (100% new flows/conditions). In agent-toolkit repos (`shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD). Run postman/newman if available.
 
 ### PR Diff Source of Truth
 
 When reviewing a PR or describing what a branch/PR changes relative to its base:
 
-- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** of what a PR changes. This is the merge diff — exactly what GitHub shows on the "Files changed" tab.
-- **Never** use `git diff main..branch` or `git log main..branch` to determine a PR's changes. Branches accumulate merge commits, intermediate history, and ancestry artifacts that do not reflect the actual PR diff. Using them will cause you to hallucinate changes that aren't part of the PR.
-- Commits are useful for understanding *how* the author arrived at the changes (intent, iteration history). But the diff — not the commits — defines *what* the PR changes.
+- Use `gh pr diff <number>` (or `gh pr view <number> --json files`) as the **sole authoritative source** — this is the merge diff GitHub shows on "Files changed".
+- **Never** use `git diff main..branch` — branches accumulate merge commits and ancestry artifacts that don't reflect the PR diff.
+- Commits show *how* changes were made; the diff defines *what* the PR changes.
 - If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
 
 ### Custom Commands
 
-On the personal laptop, Copilot custom commands are sourced from version-controlled files in `~/bin/wibey/commands/` and exposed to Copilot by per-command symlinks in `~/Library/Application Support/Code/User/prompts/` using the `*.prompt.md` suffix.
+Commands source from `~/bin/wibey/commands/` and are exposed via symlinks in `~/Library/Application Support/Code/User/prompts/*.prompt.md`. When triggered, read the source file before executing.
 
-When the user triggers a custom command, read the source file in `~/bin/wibey/commands/` for full instructions before executing.
+User-level commands TODO doesn't scaffolding make this WET?:
 
-User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, symlinked into VS Code user prompts):
+- **convo** — park conversation with visible title for Mission Control. Definition: `~/.wibey/commands/convo.md`
+- **commitz** — cluster diffs into commit buckets. Definition: `~/.wibey/commands/commitz.md`
 
-- **convo** — Park the current conversation with a visible title for Mac workspace/Mission Control switching. Definition: `~/.wibey/commands/convo.md`
-- **commitz** — Cluster uncommitted diffs into themed buckets, draft a commit message per bucket, commit approved ones. Definition: `~/.wibey/commands/commitz.md`
-
-Personal-laptop install paths:
+Install paths:
 
 - Source commands: `~/bin/wibey/commands/*.md`
-- Copilot discovery symlinks: `~/Library/Application Support/Code/User/prompts/*.prompt.md`
+- Copilot symlinks: `~/Library/Application Support/Code/User/prompts/*.prompt.md`
 - Source skills: `~/bin/wibey/skills/<name>/SKILL.md`
-- Copilot skill symlinks for this workspace: `<workspace>/.github/skills/<name>/SKILL.md`
+- Skill symlinks per workspace: `<workspace>/.wibey/skills/<name>/SKILL.md`
 
 Skills are **not** supported as user-level Copilot customizations. On the personal laptop, expose skills per workspace via `.github/skills/` symlinks.
 
