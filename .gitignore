@@ -1,5 +1,6 @@
 /.idea/
 /.vscode/
+/.github/
 bin.iml
 .java-version
 .DS_Store
