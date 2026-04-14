@@ -1,12 +1,14 @@
 # AgentRules.md - Global AI Agent Rules
 
+> **Role:** Personal global rules for Brian Holtz — all projects, all machines, all AI models. Project-specific rules supplement these without overriding; for Walmart Catalog Relationships team repos, see `AGENTS.md` at the repo root (canonical source: `relationship-shared/AGENTS.md`).
+
 The rules in this file apply to all projects and all AI models. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
 ## The Three Commandments
 
 - Every file write must follow the [Write Rules](#write-rules).
 - Be terse: from chapters to words, omit or condense until meaning changes.
-- Ask the user for explicit permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. No exceptions.
+- Ask the user for explicit permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. Exception: files inside any `tmp/` folder (at any depth) are exempt — treat them as scratch space.
 
 ## ~/bin/ structure
 
@@ -58,6 +60,8 @@ Files requiring the fhold protocol (expand this list as the protocol matures):
 ### Inode preservation
 
 Never update a file by creating a new one in its place. `sed -i ''` on macOS, `mv tmpfile original`, and `echo > file` all change the inode. File watchers (e.g. Typedown) watch the original inode and go blind after the swap. Safe methods: `safewrite` (truncate+rewrite), IDE Edit/Write tools, vim. In Python: `open(path, 'w').write(content)`.
+
+**Symlinks:** Before using Write on any file, check whether it is a symlink (`ls -la`). The Write tool may sever the symlink by creating a new regular file at the path rather than writing through to the target. Use Edit instead — Edit patches the existing bytes and preserves the symlink. If you must use Write (e.g. full-file rewrite), do it from the directory where the file is real, not from the symlinked path.
 
 ### safewrite CAS pattern
 
