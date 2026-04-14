@@ -1,12 +1,12 @@
 # AgentRules.md - Global AI Agent Rules
 
-Personal global rules for the user. The rules in this file apply to all repos, all AI models, on all hosts. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
+Personal global rules for the user. The rules in this file apply to all repos, all AI models, all hosts. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
 ## The Three Commandments
 
-- Every file write must follow the [Write Rules](#write-rules).
 - Be terse: from chapters to words, omit or condense until meaning changes.
-- Ask the user for explicit permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. Exception: files inside any `tmp/` folder (at any depth) are exempt — treat them as scratch space.
+- Every file write must follow the [Write Rules](#write-rules).
+- Ask permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. But files inside any `tmp/` folder (at any depth) don't count.
 
 ## ~/bin/ structure
 
@@ -29,8 +29,6 @@ The `~/bin/` repo also contains personal tool settings and reference docs (not s
 - `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
 
 To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
-
-When the user mentions a file by name without a path, check under `~/bin/`.
 
 ## Write Rules
 
@@ -95,31 +93,25 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 - Avoid tables and code blocks/text boxes in conversation output — the conversation window is kept narrow, and wide elements cause horizontal scrolling. Use bullet lists or plain prose instead. Tables and code blocks are fine in files, just not in chat replies.
 - **Getting the user's attention:** If you're blocked (need input, hit an unexpected error, must confirm a destructive action) and suspect the user has switched to another window expecting you to be making progress, use the `ailerts` skill (if available) to notify them. Don't use it for routine status — only when you're stopped and the user likely doesn't know.
 
-## Inferring User Intent from Open Editors
+## Inferring Intended Files
 
-When the user references a file ambiguously (e.g., "this file", "that doc", "the config", or just describes content without naming a file), use the IDE's open editor tabs to resolve the reference before asking clarifying questions.
+Resolve ambiguous file references before asking. Priority order:
 
-- In Wibey (Walmart only), use `getDiagnostics` with scope `open-editors` to list all open tabs. The **active tab** (marked Active) is the strongest signal — it's what the user is looking at right now.
-- Use filenames to decide relevance. If the user says "the test file" and one open tab is `foo.test.ts`, that's almost certainly it. Read the file only if the name alone is ambiguous.
-- If the active tab's filename doesn't match the user's reference, check the remaining open tabs before falling back to workspace-wide search or asking the user.
-- A **dirty** (unsaved) tab indicates recent editing — weight it higher than clean tabs when multiple tabs could match.
-- Prioritization order: active tab → dirty tabs → remaining open tabs → workspace search → ask user.
+**IDE (Wibey):** active tab → dirty tabs → other open tabs → workspace search → ask user. Use `getDiagnostics` scope `open-editors`. Active tab = strongest signal; dirty tab = recently edited.
 
-In CLI agents or other environments without editor tab access, use whatever information is immediately and efficiently available — recent git activity (`git diff`, `git log -1`), shell history, or the current working directory — to infer which file the user most recently accessed.
+**CLI:** use `git diff`, `git log -1`, shell history, or cwd to infer the most recently touched file.
 
-This is cheaper and faster than asking "which file do you mean?" and almost always resolves the reference correctly.
+**Name without path:** check `~/bin/` first, then workspace search. On work laptop also check `~/src/relationship-shared/` (symlinked as `shared`). On personal laptop also check `~/Documents/Google Drive/FamilyDocuments/`.
 
 ## Dates and Times
 
-**Always verify the current date before using it.** AI agents frequently hallucinate dates, confuse MM/DD with DD/MM, or use stale dates from context. Before creating date-stamped files or folders:
+### Always verify the current date
 
-```bash
-date "+%Y-%m-%d %H:%M %Z"
-```
+Before using the current date for anything, run `date "+%Y-%m-%d %H:%M %Z"`. Run once per session or whenever needed.
 
-This is cheap (a few tokens for the command and output) and prevents embarrassing date hallucinations. Run this once per session or whenever you need to use the current date.
+### Use EDTF for all dates
 
-**Use EDTF (Extended Date/Time Format) for all dates**, with these modifications:
+With these modifications:
 
 - Use **periods** as date component separators instead of hyphens (e.g. `2026.03.27` not `2026-03-27`). Periods prevent unwanted line breaks in cramped table layouts, are analogous to decimal points, save space in variable-width fonts, and cannot be confused with ranges.
 - Use hyphens as range indicators instead of slashes (e.g. `2026.03.01-2026.03.27` not `2026-03-01/2026-03-27`). Slashes read like ratios or alternatives, not ranges.
@@ -160,11 +152,9 @@ The `[†](#e-slug)` / `<a id="…">` anchor convention works in both target env
 
 ### Family Reference Documents
 
-When the user asks a question about family members, genealogy, life events, relationships, DNA, or any person in the Holtz/Lusin family tree, **first consult `~/Documents/Google Drive/FamilyDocuments/FamilyEncyclopedia.md`** before asking the user or searching the GED. The encyclopedia is the authoritative, human-readable reference designed specifically so agents can answer family questions without bothering the user. Only fall back to the GED (`Holtz Lusin.ged`) for low-level GEDCOM detail not covered there.
+For any question about family members, genealogy, life events, relationships, DNA, or the Holtz/Lusin family tree: consult `~/Documents/Google Drive/FamilyDocuments/FamilyEncyclopedia.md` first. It is the authoritative human-readable reference. `FamilyDocuments/Genealogy/FamilyTree.md` has the tree structure. Fall back to the GED file only for low-level GEDCOM detail not covered in either file.
 
 ## Rules For Work Laptop
-
-When the user mentions a file by name without a path, also check under `~/src/relationship-shared/`.
 
 ### Coding Workflow TODO DRY work vs home
 
