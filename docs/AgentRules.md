@@ -302,16 +302,33 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ### Custom Commands
 
-> **Wibey only (Walmart).** Skip this section if Wibey is not available.
+On the personal laptop, Copilot custom commands are sourced from version-controlled files in `~/bin/wibey/commands/` and exposed to Copilot by per-command symlinks in `~/Library/Application Support/Code/User/prompts/` using the `*.prompt.md` suffix.
 
-When the user triggers a custom command, read the command definition file for full instructions before executing. Command files live in `~/.wibey/commands/` (user-level) and `<workspace>/.wibey/commands/` (project-level). Project-level commands override user-level.
+When the user triggers a custom command, read the source file in `~/bin/wibey/commands/` for full instructions before executing.
 
-User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, symlinked from `~/.wibey/commands/`):
+User-level commands (personal, version-controlled in `~/bin/wibey/commands/`, symlinked into VS Code user prompts):
 
 - **convo** — Park the current conversation with a visible title for Mac workspace/Mission Control switching. Definition: `~/.wibey/commands/convo.md`
 - **commitz** — Cluster uncommitted diffs into themed buckets, draft a commit message per bucket, commit approved ones. Definition: `~/.wibey/commands/commitz.md`
 
-Project-level commands are version-controlled in the project repo under `.wibey/commands/`. See [§ Work Environment (Walmart)](#work-environment-walmart) for project-level commands used at work.
+Personal-laptop install paths:
+
+- Source commands: `~/bin/wibey/commands/*.md`
+- Copilot discovery symlinks: `~/Library/Application Support/Code/User/prompts/*.prompt.md`
+- Source skills: `~/bin/wibey/skills/<name>/SKILL.md`
+- Copilot skill symlinks for this workspace: `<workspace>/.github/skills/<name>/SKILL.md`
+
+Skills are **not** supported as user-level Copilot customizations. On the personal laptop, expose skills per workspace via `.github/skills/` symlinks.
+
+Maintenance/debug checklist:
+
+- If `/convo` or `/commitz` is missing, verify the symlink exists in `~/Library/Application Support/Code/User/prompts/` with a `*.prompt.md` name.
+- If a skill is not discovered, verify `<workspace>/.github/skills/<name>/SKILL.md` exists and points at `~/bin/wibey/skills/<name>/SKILL.md`.
+- After adding or changing symlinks, reload the VS Code window.
+- Keep the source files in `~/bin/wibey/`; do not rename or move them just to satisfy Copilot discovery.
+- If discovery still fails, check YAML frontmatter first: `description` must be present and valid.
+
+Project-level commands for Walmart/Wibey still live under `.wibey/commands/` or `shared/.wibey/commands/` as described below.
 
 ### Project-Level Commands
 
