@@ -1,8 +1,10 @@
 /.idea/
 /.vscode/
+/.github/
 bin.iml
 .java-version
 .DS_Store
+/AgentRules.md
 /aidocs/
 /tmp/
 __pycache__/
