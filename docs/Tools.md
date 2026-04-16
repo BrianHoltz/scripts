@@ -4,14 +4,14 @@
 
 
 | Feature                        | IDEA         | VS Code      | Cursor      |
-|--------------------------------|--------------|--------------|-------------|
+| ------------------------------ | ------------ | ------------ | ----------- |
 | Score                          | 21.5         | 18.5         | 12.5        |
-| IDE                            | 2025.3.3     | 1.114        | 3.1.14      |
+| IDE                            | 2025.3.3     | 1.116.0      | 3.1.14      |
 | VSCode engine                  | —            | —            | 1.105.1     |
-| Wibey                          | 1.0.6        | 1.0.5        | 1.0.6       |
+| Wibey                          | 1.0.7        | 1.0.6        | 1.0.6       |
 | └ parallel agents              | ❌            | ❌            | ❌           |
 | └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌          |
-| └ context += @ file            | ✅            | 🟡<100KB  | 🟡<100KB |
+| └ context += @ file            | ✅            | 🟡<100KB     | 🟡<100KB    |
 | └ context += selection         | ✅ cmd-' pill | ✅ cmd-L pill | ❌❌          |
 | └ image paste                  | ❌❌           | ✅            | ✅           |
 | └ convo title edit             | ❌            | ✅            | ✅           |
@@ -40,8 +40,8 @@
 | http                           | ✅            | ❌            | ❌           |
 | editor history UI              | ✅            | 🟡           | 🟡          |
 
-<details>
-<summary>Score rubric</summary>
+
+Score rubric
 
 - Glyph values: ✅✅ = 2 pts, ✅ = 1 pt, 🟡 / ✔️ = 0.5 pts, ❌ / ? = 0 pts, ❌❌ = −1 pt
 - Version/text-only cells (version numbers, descriptive text) = excluded
@@ -52,7 +52,7 @@
   - Cursor: best of typedown / zaaack / Cursor native → zaaack (4 pts)
 - Final score = IDE row subtotal + best editor subtotal
 
-</details>
+
 
 ## Markdown Viewers/ Editors
 
@@ -60,27 +60,30 @@ typedown and zaaack work in both VS Code and Cursor
 
 
 | Behavior                 | IDEA viewer | IDEA shuzijun       | typedown    | zaaack | Cursor native |
-|--------------------------|-------------|---------------------|-------------|--------|---------------|
+| ------------------------ | ----------- | ------------------- | ----------- | ------ | ------------- |
 | version                  | 2025.3.3    | 2.0.5               | 1.1.7       | 0.1.13 | 2.6.19        |
-| >1 tab at a time      | ✅           | ✅✅                  | ✅✅          | ❌      | ✅✅            |
+| >1 tab at a time         | ✅           | ✅✅                  | ✅✅          | ❌      | ✅✅            |
 | re-read changed file     | ?           | ?                   | ✅           | ?      | ?             |
 | wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅     | ❌ truncates   |
 | non-bloated side padding | ?           | ❌❌                  | ❌           | ✅      | ❌             |
 | shows images             | ?           | ?                   | ?           | ?      | ?             |
 | find in file             | ✅           | ✅                   | ❌           | ❌      | ❌             |
+| structure                | ✅           | ✅                   | ❌           | ❌      | ❌             |
 | link editing             | ?           | ✔️                  | ❌           | ✔️     | ❌             |
 | toolbar                  | ?           | ✔️                  | ✔️          | ✔️     | ❌             |
+
 
 ### IDE Keybindings
 
 
 | Action         | IDEA             | VS Code     | Cursor      |
-|----------------|------------------|-------------|-------------|
+| -------------- | ---------------- | ----------- | ----------- |
 | zoom in / out  | `^⌥=` / `^⌥-` ⚠️ | `⌘=` / `⌘-` | `⌘=` / `⌘-` |
 | open file      | `⇧⌘O` ⚠️         | `⌘P`        | `⌘P`        |
 | search project | `⇧⌘F`            | `⇧⌘F`       | `⇧⌘F`       |
 | Wibey history  | ?                | ?           | ?           |
 | Wibey new chat | ?                | ?           | ?           |
+
 
 IDEA keybinding overrides (defaults shown in table, actual bindings below):
 
@@ -170,7 +173,6 @@ This is useful for repositioning panels between left and right sidebars as neede
 - **Displays premium usage summary (cf. "usage summary")**
 - **in-context edit prompt**
 - Extra Info from Claude Opus 4.5:
-
   - **Composer mode for multi-file refactoring**
   - **Built-in codebase indexing for semantic search**
   - **Tab completion with diff preview**
@@ -216,7 +218,6 @@ If your Markdown preview (for example, Markdown Preview Enhanced) does not switc
 ```
 
 This makes the preview follow the active VS Code editor theme (and thus `window.autoDetectColorScheme`). If you prefer the preview to follow the OS system color scheme directly, use `"systemColorScheme"` instead of `"editorColorScheme"`.
-
 
 ### Cmd+Shift+V → Markdown Preview Enhanced
 
@@ -334,3 +335,4 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
 History of tool use practices, not of this doc.
 
 - 2026.03.26 Thu: Opus gets stuck in IDEA last few days, switching to Sonnet
+

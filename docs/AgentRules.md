@@ -6,9 +6,9 @@ Personal global rules for the user. The rules in this file apply to all repos, a
 
 - Be terse: from chapters to words, omit or condense until meaning changes.
 - Every file write must follow the [Write Rules](#write-rules).
-- Ask permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. But files inside any folder (at any depth) matching these names don't count — scratch space and build output:
-  - tmp/
-  - target/classes/
+- Ask permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. **Exception — no permission needed, ever, for any operation (including bulk deletes) on anything inside these folders at any depth:**
+  - `tmp/` — scratch space; treat entire subtree as freely disposable
+  - `target/classes/` — build output
 
 ## ~/bin/ structure
 
