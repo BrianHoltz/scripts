@@ -2,6 +2,36 @@
 
 Personal global rules for the user. The rules in this file apply to all repos, all AI models, all hosts. Any project-specific or model-specific AI rules override them only where they explicitly conflict.
 
+**AgentRules.md vs AGENTS.md:** These are two different layers of agent instruction:
+
+- **AgentRules.md** (this file) — global, cross-laptop, cross-repo, cross-model. Personal rules that always apply. Lives in `~/bin/`, synced to both laptops via git. Not team-visible; not project-specific.
+- **AGENTS.md** — project/team-level supplement. Lives at the repo root (or symlinked from the team's shared repo). Adds team context: domain terminology, shared tooling, team workflows, file layout conventions. Supplements this file; does not override it.
+
+When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md only where AGENTS.md explicitly says so. AGENTS.md can safely skip any rule already in AgentRules.md — agents will have both in context.
+
+## Table of Contents
+
+- [The Three Commandments](#the-three-commandments)
+- [~/bin/ structure](#bin-structure)
+  - [~/bin/ vs relationship-shared/](#bin-vs-relationship-shared)
+- [Write Rules](#write-rules)
+  - [Inode preservation](#inode-preservation)
+  - [safewrite CAS pattern](#safewrite-cas-pattern)
+  - [Other file operation rules](#other-file-operation-rules)
+- [Communication Style](#communication-style)
+- [Inferring Intended Files](#inferring-intended-files)
+- [Dates and Times](#dates-and-times)
+  - [Always verify the current date](#always-verify-the-current-date)
+  - [Use EDTF for all dates](#use-edtf-for-all-dates)
+- [Documentation](#documentation)
+- [Rules For Personal Laptop](#rules-for-personal-laptop)
+  - [Family Reference Documents](#family-reference-documents)
+- [Rules For Work Laptop](#rules-for-work-laptop)
+  - [Coding Workflow](#coding-workflow)
+  - [PR Diff Source of Truth](#pr-diff-source-of-truth)
+  - [Custom Commands](#custom-commands)
+    - [Project-Level Commands](#project-level-commands)
+
 ## The Three Commandments
 
 - Be terse: from chapters to words, omit or condense until meaning changes.
@@ -12,7 +42,7 @@ Personal global rules for the user. The rules in this file apply to all repos, a
 
 ## ~/bin/ structure
 
-The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). The following paths are symlinks to it:
+The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). **`~/bin/` is the cross-laptop sync mechanism** — push on work laptop, pull on personal laptop. No symlinks across machines; just git. The following paths are symlinks to this file:
 
 - `~/.claude/CLAUDE.md` — read by Claude Code CLI (and Wibey at Walmart)
 - `~/.cursor/cursorrules` — read by Cursor
@@ -31,6 +61,29 @@ The `~/bin/` repo also contains personal tool settings and reference docs (not s
 - `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
 
 To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
+
+### ~/bin/ vs relationship-shared/
+
+Two completely separate repos serve different scopes:
+
+
+|                           | `~/bin/`                                     | `relationship-shared/`       |
+| --------------------------- | ---------------------------------------------- | ------------------------------ |
+| Git host                  | GitHub (personal, public)                    | Walmart GHE (team, internal) |
+| Available on              | both laptops                                 | work laptop only             |
+| Contains                  | personal tools, rules, cross-platform skills | team skills, docs, commands  |
+| Access on personal laptop | always (`git pull`)                          | never (no VPN/auth)          |
+
+**Skills by laptop:**
+
+- **Work laptop**: team skills from `shared/.wibey/skills/` (relationship-shared); personal skills from `~/bin/wibey/skills/`
+- **Personal laptop**: only `~/bin/wibey/skills/`, exposed per-workspace via `.wibey/skills/` symlinks
+
+Skills useful on both laptops live canonically in relationship-shared (team owns them) and are manually copied to `~/bin/wibey/skills/` + committed when updated.
+
+**When resolving a skill on personal laptop**: look in `~/bin/wibey/skills/<name>/SKILL.md`. Do not attempt to read `shared/` — the symlink doesn't exist.
+
+**When resolving a skill on work laptop**: check `shared/.wibey/skills/` first (team version may be newer than `~/bin/` copy).
 
 ## Write Rules
 
@@ -90,9 +143,8 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 - Commit granularity: independent changes → separate commits; interdependent → one commit
 - **Two-tier commit policy**: mechanical changes (artifacts, formatting) → commit directly; substantive changes (logic, data, content) → `git add` and summarize for user review. User can override with "just commit it".
 
-## Communication Style TODO ailerts work v. home
+## Communication Style
 
-- Avoid tables and code blocks in chat replies — the window is narrow; they cause scrolling. Use bullet lists or plain prose. Fine in files.
 - **Getting the user's attention:** use the `ailerts` skill (if available) when blocked and the user has likely switched away. Not for routine status — only when stopped and user likely doesn't know.
 
 ## Inferring Intended Files
@@ -121,34 +173,7 @@ With these modifications:
 
 ## Documentation
 
-- Ad hoc docs should be created in the repo's aidocs/ folder in subfolder yyyy-mm-dd/.
-- Use hhmm_CamelCase.md for naming, where hhmm is create time not modtime
-- Do not use horizontal lines unless absolutely necessary
-- Do not number list items unless absolutely necessary e.g. to refer to step numbers (and even then, better to have bolded step names)
-- For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use [wibey/skills/doc-audit.md](wibey/skills/doc-audit.md) as the shared reference available on both Walmart and personal laptops.
-
-### Evidence TODO doc-audit should handle this
-
-In designated evidence docs, collect evidence in a `## Evidence` section (near the bottom, above logs/TODOs). Link claims inline with `†` (U+2020, no space before): `claim text[†](#e-slug)`. Example: "Latency dropped 40%[†](#e-latency-drop)."
-
-Each evidence entry is a `###` heading followed by structured fields:
-
-```
-### <brief description of what is being evidenced>
-
-<a id="e-descriptive-slug"></a>
-
-- **Claim**: the specific assertion being backed
-- **Source**: URL, file path, git commit SHA, dashboard name, or person name + role — include a locator within the source where applicable (line number, timestamp, query, panel ID, etc.)
-- **Dates**: source vintage (when the source was authored/published/recorded) and date collected (ISO YYYY-MM-DD, when you retrieved or observed it)
-- **Quote / data**: exact text excerpt, metric value, or command output that supports the claim
-```
-
-Omit fields that don't apply; include as many as possible so a skeptical reader can re-verify independently.
-
-Prefer Markdown links with locators in the target: `[AuthService:L42](https://github.com/…/auth.ts#L42)` not raw URLs.
-
-The `[†](#e-slug)` / `<a id="…">` convention works in GitHub/GitLab MD Wiki pages and Confluence (via md2confluence).
+For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use [wibey/skills/doc-audit.md](wibey/skills/doc-audit.md) as the shared reference available on both Walmart and personal laptops.
 
 ## Rules For Personal Laptop
 
@@ -158,7 +183,7 @@ For any question about family members, genealogy, life events, relationships, DN
 
 ## Rules For Work Laptop
 
-### Coding Workflow TODO DRY work vs home
+### Coding Workflow
 
 Use `/tdd` for the full TDD workflow: pull main, branch, failing tests, implement, run tests, full suite, coverage (100% new flows/conditions). In agent-toolkit repos (`shared/` symlink), see `shared/docs/WibeyAgentRef.md` § Coding Workflow (TDD). Run postman/newman if available.
 
@@ -175,7 +200,7 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 Commands source from `~/bin/wibey/commands/` and are exposed via symlinks in `~/Library/Application Support/Code/User/prompts/*.prompt.md`. When triggered, read the source file before executing.
 
-User-level commands TODO doesn't scaffolding make this WET?:
+User-level commands:
 
 - **convo** — park conversation with visible title for Mission Control. Definition: `~/.wibey/commands/convo.md`
 - **commitz** — cluster diffs into commit buckets. Definition: `~/.wibey/commands/commitz.md`

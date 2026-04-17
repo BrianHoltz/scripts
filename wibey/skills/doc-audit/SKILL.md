@@ -2,78 +2,153 @@
 
 Consolidated reference for documentation authoring, project document formatting, and audit standards for the agent-toolkit framework.
 
-## Topics Covered
+## Table of Contents
 
-- **Status / Active Work / Work Log** — conditional temporal views, status excerpts, consistency pipeline
-- **Where pending work lives** — two containers (Tasks, Active Work), two flags (TODO, TBD)
-- **Task list conventions** — glyph meanings, status rules, date format, task discipline
-- **Work Log format** — heading/bullet format, pacing (~30 min entries), status section updates
-- **Evidence protocol** — dagger links, entry structure, perishable data dating
-- **Temporal writing rules** — timeless perspective, no relative dates, no future prose
-- **Content brittleness** — keeping docs in sync with code, avoiding line number references, TOC maintenance
-- **Ad hoc documents** — placement in aidocs/, naming convention, when to create them
-- **Styling discipline** — footnote glyphs, table cell vocabulary, hyperlink conventions, escaping
-- **Doc audit checklist** — status audit, semantic audit, task creep audit
-- **DRY principles** — no revision history, no redundancy with git
-- **Doc audit dates** — format, when needed, update rules
+- [Document Sections](#document-sections) — requirement matrix; mandatory Work Log + Evidence for non-reference docs
+  - [Tasks](#tasks) · [Status](#status) · [Active Work](#active-work) · [Evidence](#evidence) · [Work Log](#work-log)
+  - [Consistency Pipeline](#consistency-pipeline) · [Where Pending Work Lives](#where-pending-work-lives)
+- [Task List Conventions](#task-list-conventions) — glyph definitions, format rules, discipline rules
+- [Temporal Writing Rules](#temporal-writing-rules) — timeless perspective, no relative dates, no future prose
+- [Content Brittleness](#content-brittleness) — keeping docs in sync with code, line number refs, TOC maintenance
+- [Ad Hoc Documents](#ad-hoc-documents) — placement in aidocs/, naming convention, when to create
+- [Styling Discipline](#styling-discipline) — footnote glyphs, table cell vocabulary, hyperlink conventions
+- [Doc Audit Checklist](#doc-audit-checklist) — status audit, semantic audit, task creep audit
+- [DRY Principles](#dry-principles) — no revision history, no redundancy with git
+- [Doc Audit Dates](#reference-doc-audit-dates) — format, when needed, update rules
 
-## Tasks and Logs
+## Document Sections
 
-### If The Doc Has a Tasks List
+Every tracked doc in this repo falls into one of two categories:
 
-A Tasks list is a planning device — it captures what was scoped before work began, not a retroactive record of what happened. In a perfectly Agile project, Tasks are 1:1 with Jira tickets, which are all created before the project starts.
+- **Reference docs** — `docs/*.md`, `docs/repos/*.md`, team playbooks. Maintained for accuracy against production; do not capture ongoing work.
+- **Non-reference docs** — `projects/*.md`, `incidents/*.md`, `memos/*.md`, `releases/*.md`. Capture active or historical work efforts.
 
-- Rows are added to describe planned work, not to describe completed work
-- Completed rows stay (as a high-level status/scope log)
-- Rows are rarely removed (only when entire line of work is canceled: 🚫)
-- Status column is updated as work progresses
+**Section requirements — ● required, ○ optional, — not applicable:**
 
-### If The Doc Also Has a Status Section
+| Section | Reference docs | Projects | Incidents | Memos / Releases |
+|---|---|---|---|---|
+| Tasks | — | ● | ○ | — |
+| Status | — | ● | — | — |
+| Active Work | — | ● | — | — |
+| Evidence | ○ | ● | ● | ● |
+| Work Log | — | ● | ● | ● |
 
-If the doc has both a Tasks list and a Status section, the Status section should include a verbatim excerpt of the Tasks list:
+**Any project, incident, or memo that lacks a Work Log or Evidence section is incomplete. Add both before closing the session.**
+
+### Tasks
+
+A planning device — captures scoped work before it begins. Not a retroactive record of what happened.
+
+- Rows describe **planned** work, not completed work
+- Completed rows stay (scope record); remove only on cancellation (🚫)
+- Status updated as work progresses
+
+See [Task List Conventions](#task-list-conventions) for glyph definitions, format rules, and discipline rules.
+
+### Status
+
+Quick-read project summary for agents or humans resuming a session. Sits near the top of project docs.
 
 - **Status rows are verbatim copies of Tasks rows** — never paraphrased or reworded
-- **Status excerpt** should include:
-  - All started, incomplete tasks (▶️ status)
-  - All tasks completed in the last 2 business days (no older completed tasks)
-  - Exception: minimum of the last 3 completed tasks (even if older than 2 business days)
-  - The next 2 tasks, chosen by judgment/priority
-- Update the Status section whenever the excerpted Tasks change (new tasks added, tasks completed, blockers introduced, phase transitions)
+- Excerpt includes: all ▶️ in-progress tasks; tasks completed in the last 2 business days (minimum: last 3 completed, even if older); the next 2 upcoming tasks by priority
+- Update whenever Tasks change: new tasks, completions, blockers, phase transitions
+- **Never backdate status changes** — reflect what is true now
 
-### If The Doc Is An Agent-Toolkit Project Plan
+### Active Work
 
-Our project docs also include Active Work and Work Logs sections.
-
-**Active Work (The Present)** — mutable working state for in-progress items. Answers: "What are we working on right now?"
+Mutable working state for in-progress items. Answers: "What are we doing right now?"
 
 - Reflects only ▶️ (in-progress) tasks
 - Contains subtasks, blockers, partial results, dependencies
-- If work is interrupted, next person/agent picks up here
-- Cleared when (sub)tasks complete — concluded items move to Work Log, never duplicated
+- Next agent or human picks up here after an interruption
+- Cleared when subtasks complete — concluded items move to Work Log, never duplicated
 
-**Work Log (The Past)** — Work Log is an audit trail of effort — what we spent time on, what the problems were, and how we moved closer to the goal. Git commits describe what changed; the Work Log describes how we got there.
+### Evidence
 
-- Records decisions made, discoveries, costs incurred, obstacles overcome
+**Required in all project, incident, and memo docs.** Every verifiable empirical claim must cite its source.
+
+**Placement:** Dedicated `## Evidence` section near the bottom, above Work Log.
+
+**Inline citation:** Unicode dagger † (U+2020), no space before: `claim text[†](#e-descriptive-slug)`
+
+Example: "Latency dropped 40%[†](#e-latency-drop)."
+
+**Entry structure** — each entry is a `###` heading:
+
+```
+### Brief description of what is being evidenced
+
+<a id="e-descriptive-slug"></a>
+
+- **Claim**: the specific assertion being backed
+- **Source**: URL, file path, git commit SHA, dashboard name, or person name + role
+- **Dates**: source vintage (when authored/published) and collection date (YYYY-MM-DD, when retrieved)
+- **Quote / data**: exact text excerpt, metric value, or command output
+```
+
+Omit any field that genuinely doesn't apply; include as many as possible.
+
+**Additional rules:**
+- **Many items (>5):** use `[†A1](#a1-slug)`, `[†A2](#a2-slug)`, etc.
+- **Unsourced claims:** label "Inference:" or "Unverified:" until evidenced
+- **Perishable data** (stats, counts, latency, costs, queue depths): add vintage parenthetical:
+
+  ```
+  claim text[(2025)](#e-slug)       — annual figures
+  claim text[(2025-03)](#e-slug)    — monthly figures
+  claim text[(2025-03-14)](#e-slug) — daily figures
+  ```
+
+  Granularity matches shelf life: annual for slow data, daily for fast-moving data.
+- **Citing dated sources** (incident, analysis, ADR): put the date *after* the verb:
+
+  `Rohith cataloged ([2025.09](#e-bv-sync-issue)) 5 manifestations` — not `Rohith (Sep 2025) cataloged...`
+
+### Work Log
+
+**Required in all project, incident, and memo docs.** Audit trail of effort — what we spent time on, what the problems were, how we moved closer to the goal. Git commits describe *what* changed; the Work Log describes *how* we got there.
+
+- Records decisions, discoveries, costs incurred, obstacles overcome
 - Provides context for why code looks the way it does
-- Built incrementally (one entry every ~30 minutes during active work)
-- Different purpose from git revision history (why/how, not what)
-- Completed items from Active Work are recorded here, then cleared from Active Work
+- Built incrementally — one entry every ~30 minutes during active work
+- Concluded items from Active Work are recorded here, then cleared from Active Work
 
-**Consistency Pipeline** — Tasks → Status → Active Work → Work Log must stay in sync:
+**Format:**
 
-- **Tasks ↔ Status**: Status rows are verbatim copies of Tasks rows (never paraphrased)
+```
+### 03.16 Sun Refactored cache layer
+
+- **14:32:** Pulled PR #582, found race condition in auth middleware lock ordering
+- **15:02:** Added mutex lock to fix race; unit tests updated and passing
+- **15:32:** Ran full test suite; 2 flaky timeouts (unrelated), otherwise green
+- **16:01:** Created PR #589 for review; ready for staging tomorrow
+```
+
+Heading: `### MM.DD Dow Title of The Day's Work` (prefix YYYY at year boundaries: `### 2026.03.16 Sun ...`)
+
+Entry: `- **HH:MM:** Entry text`
+
+**For incidents specifically:** Write entries in real time, not retroactively — before switching contexts, after each significant finding. Minimum required entries: when the incident opens (symptom, scope, first data inspected); when each major hypothesis is formed or ruled out; when root cause is confirmed or unresolved; when the doc is committed. **If auditing an incident with no Work Log:** flag as a critical gap; reconstruct what you can from git history and commit messages — note `(reconstructed from git; original timestamps unavailable)` if you do.
+
+### Consistency Pipeline
+
+Tasks → Status → Active Work → Work Log must stay in sync:
+
+- **Tasks ↔ Status**: Status rows are verbatim copies (never paraphrased)
 - **Tasks ↔ Active Work**: Active Work subtasks relate only to ▶️ tasks
 - **Active Work ↔ Work Log**: Concluded items are cleared from Active Work (not duplicated)
 
-### Where Pending Work Lives: Two Containers + Two Flags
+### Where Pending Work Lives
 
-**Containers (look here for "what's next"):**
-- **Tasks** — planned work with defined scope. Search Tasks when deciding what work to do.
-- **Active Work** — in-progress subtasks/blockers. Search Active Work when resuming an interrupted session.
+Two containers + two flags:
+
+**Containers (search here for "what's next"):**
+- **Tasks** — planned work with defined scope; search here when deciding what to do next
+- **Active Work** — in-progress subtasks/blockers; search here when resuming an interrupted session
 
 **Flags (inline markers for non-blocking items):**
-- **TODO** — low-priority improvement that blocks nothing and (often) is blocked by nothing. Use as code/doc comments. If work blocks something, it's a Task, not a TODO.
-- **TBD** — placeholder for values waiting to be filled in. Use inline where value belongs.
+- **TODO** — low-priority improvement blocking nothing; use as code/doc comments. If it blocks something, it's a Task.
+- **TBD** — placeholder for a value waiting to be filled in; use inline where the value belongs
 
 ## Task List Conventions
 
@@ -110,93 +185,6 @@ Acceptable columns (not all required):
 - **Never add a task and mark it complete in the same work session.** Work already finished when the task would be written belongs in the Work Log, not the task table.
 - **Never backfill completed work into Tasks.** Completed rows stay in the table (useful record), but Tasks is forward-looking only. If work was completed before the task was planned, it belongs in Work Log.
 - **Future work appears only in task lists and TODOs.** No "Critical/Important/Urgent" labels — use order. No capitalized exclamations (Bug, Gap, Pending, Next). No ⚠️ in task tables (use it for alarming situations that need footnotes).
-
-## Work Log Format
-
-Work Log headings use day-level dates; entries use per-action timestamps (~30 min apart):
-
-```
-### 03.16 Sun Refactored cache layer
-
-- **14:32:** Pulled PR #582, found race condition in auth middleware lock ordering
-- **15:02:** Added mutex lock to fix race; unit tests updated and passing
-- **15:32:** Ran full test suite; 2 flaky timeouts (unrelated), otherwise green
-- **16:01:** Created PR #589 for review; ready for staging tomorrow
-```
-
-**Heading format:** `### MM.DD Dow Title of The Day's Work` (prefix with YYYY at year boundaries: `### 2026.03.16 Sun ...`)
-
-**Entry format:** `- **HH:MM:** Entry text` (bold timestamp + colon, then action text)
-
-Aim for one entry every ~30 minutes during active work.
-
-## Status Section Updates
-
-When modifying a file in `projects/` that has a `## Status` section:
-
-1. **Re-read the Status section** after making your changes
-2. **Check whether your changes affect the status summary**:
-   - New tasks added?
-   - Tasks completed?
-   - New blockers introduced?
-   - Phase transitions?
-   - New appendices?
-3. **If yes, update Status section** to reflect current state
-4. **Never backdate status changes** — reflect what's true now
-
----
-
-## Evidence Protocol
-
-Every verifiable empirical claim must cite its source.
-
-### Inline Link Convention
-
-Use Unicode dagger † (U+2020) with no space before it:
-
-```
-claim text[†](#e-descriptive-slug)
-```
-
-Example: "Latency dropped 40% after the cache change[†](#e-latency-drop)."
-
-### Evidence Entry Structure
-
-Place evidence entries in a dedicated `## Evidence` section near the bottom of the document, above Work Log. Each entry is a `###` heading:
-
-```
-### Brief description of what is being evidenced
-
-<a id="e-descriptive-slug"></a>
-
-- **Claim**: the specific assertion being backed
-- **Source**: URL, file path, git commit SHA, dashboard name, or person name + role
-- **Dates**: source vintage (when authored/published) and collection date (ISO YYYY-MM-DD, when retrieved)
-- **Quote / data**: exact text excerpt, metric value, or command output
-```
-
-Omit any field that genuinely doesn't apply, but include as many as possible.
-
-### Additional Evidence Rules
-
-- **Letter-number prefixes for many items**: For docs with >5 evidence items, use `[†A1](#a1-slug)`, `[†A2](#a2-slug)`, etc.
-- **Unsourced claims**: Label "Inference:" or "Unverified:" until evidenced — they are assertions, not findings.
-- **Perishable data** (production stats, row counts, latency, costs, queue depths): Add vintage parenthetical linking to evidence entry:
-
-  ```
-  claim text[(2025)](#e-slug) for annual figures
-  claim text[(2025-03)](#e-slug) for monthly figures
-  claim text[(2025-03-14)](#e-slug) for daily figures
-  ```
-
-  The granularity matches shelf life: annual for slow data, daily for fast-moving data.
-- **Documents as sources**: When citing dated sources (incident, analysis, ADR), put the parenthetical date *after* the verb and link the date to the source:
-
-  ```
-  Rohith cataloged ([2025.09](#e-bv-sync-issue)) 5 manifestations
-  ```
-
-  Not: `Rohith (Sep 2025) cataloged...`
 
 ## Temporal Writing Rules
 
@@ -326,6 +314,7 @@ When citing a dated source (incident, analysis, ADR), put the parenthetical date
 
 ### Stylistic Restraint
 
+- **Never insert hard newlines inside a markdown paragraph.** A paragraph is one unbroken line of text. Mid-paragraph newlines produce ragged source that wraps differently in every viewer and causes visual layout bugs in rendered output (e.g. a trailing code-span on a short wrapped line can render as a block). Write the full paragraph on one line; let the editor wrap visually.
 - Avoid wasting space with horizontal rules — trust headings
 - Never use all-caps for emphasis (only when quoting literal all-caps strings)
 - Use bold/italics sparingly; bold is fine for list-item titles or table headers
@@ -341,6 +330,7 @@ Internal consistency verifiable without domain expertise:
 - ✅ All links resolve (no broken anchors, no dead URLs)
 - ✅ No links from tracked files to untracked files (aidocs/, tmp/, etc.)
 - ✅ For docs with Confluence mirrors: no relative links (they work in markdown/GHE but break in Confluence)
+- ✅ **Non-reference docs (projects, incidents, memos, releases) have both a Work Log and an Evidence section**
 - ✅ **For docs with Status/Tasks/Active Work/Work Log:**
   - Tasks rows are accurately reflected in Status rows (verbatim copies, not paraphrased)
   - Active Work subtasks relate only to ▶️ (in-progress) tasks
@@ -359,6 +349,7 @@ Claims match current reality (requires domain knowledge and cross-referencing):
 - ✅ Architecture diagrams reflect deployed services
 - ✅ URLs are reachable and current
 - ✅ Every Walmart acronym expansion is either (a) footnoted with an evidence link (file path, doc URL, code reference) or (b) hyperlinked directly to its canonical page. Unexpanded acronyms are acceptable; confidently wrong expansions are not. If no source exists, use the acronym without expansion.
+- ✅ Team system names use preferred vocabulary from [CatalogRelationships.md § Vocabulary](CatalogRelationships.md#vocabulary): BV not VGS, RelationshipRT not Relship, GroupRT not QGS, Catalog Relationships not CatRel, BVShell not BV Shell.
 
 Semantic audit dates older than 90 days are candidates for review.
 
@@ -387,6 +378,19 @@ Forensic check that the Tasks table has not been used as a work log (invoked on 
 - **Never link to untracked files** from tracked files
 - **Avoid version-controlled comments** explaining recent corrections — git history captures changes; tracked content is for durable info
 - **For temporal writing rules**, see § Temporal Writing Rules above
+
+### Banned Words and Phrases
+
+These words and phrases are always wrong in tracked docs. No exceptions.
+
+- **"final"** / **"FINAL"** — a document is not a draft cycle. There is no final; there is just what it says. If you write "final", you are implying there were non-final versions — which is what git is for.
+- **"all prior drafts superseded"** — revision narrative. Delete it.
+- **"current state as of [date]"** — if the state changes, this becomes a lie. Write what is true; let git record when it became true.
+- **"updated to reflect"**, **"now reflects"**, **"as updated"** — correction narrative. Just say the thing.
+- **"see previous version"**, **"prior version stated"** — links to deleted content. Meaningless.
+- **"superseded by"** (self-referential) — only acceptable when describing an external artifact being replaced (e.g. "the v1 API was superseded by v2"), not when describing the document itself.
+
+If you are tempted to write any of these, ask: does the sentence say something true about the subject, or does it say something about the editing history? If the latter, delete it.
 
 ---
 
