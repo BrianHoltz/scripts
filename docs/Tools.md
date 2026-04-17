@@ -330,6 +330,80 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
 - Patches apply to `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/plugins/markdown-editor/lib/markdown-editor-2.0.5.jar`. Patches are overwritten on plugin update — reapply after each update. Restart IDEA after patching (tab close/reopen is not enough — IDEA caches plugin JAR resources at startup).
 - Patch procedure: extract `vditor/style.css` from the JAR, add the override, repack with `jar uf`
 
+## Wibey Skills
+
+### usage-dashboard: UTC day-boundary bug
+
+The `usage-dashboard` skill buckets sessions by UTC date, not local time. Sessions after ~7 PM CDT (midnight UTC) are credited to tomorrow's bar in the chart.
+
+**Root cause** — two places in the installed scripts:
+
+- `~/.wibey/usage/wibey_usage_lib.py`: `msg_date = ts[:10]` slices the first 10 chars of a UTC `Z` timestamp without converting to local time first.
+- `~/.wibey/usage/wibey-usage`: `DATE(s.ended_at)` in the SQL GROUP BY, plus the `--days` cutoff uses `datetime.now(timezone.utc)`.
+
+**Fix** — in both the installed files AND the skill source (`~/.wibey/skills/usage-dashboard/scripts/`):
+
+In `wibey_usage_lib.py`, replace the raw slice with a local-time conversion:
+
+```python
+# Before (UTC):
+msg_date = ts[:10] if ts and len(ts) >= 10 else None
+
+# After (local):
+from datetime import timezone
+import datetime as _dt
+def _utc_ts_to_local_date(ts):
+    if not ts or len(ts) < 10:
+        return None
+    try:
+        dt = _dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt.astimezone().strftime("%Y-%m-%d")
+    except Exception:
+        return ts[:10]
+msg_date = _utc_ts_to_local_date(ts)
+```
+
+In `wibey-usage`, replace the SQL `DATE(s.ended_at)` fallback with a local-time equivalent. SQLite has no built-in local-time function; easiest fix is to store the local date in the DB at record time (fix the lib above) so the fallback is rarely hit, and additionally change the `--days` cutoff:
+
+```python
+# Before:
+cutoff = (datetime.now(timezone.utc) - timedelta(days=args.days)).isoformat()
+
+# After:
+cutoff = (datetime.now().astimezone() - timedelta(days=args.days)).isoformat()
+```
+
+Patches needed in two locations each time the skill is reinstalled:
+- `~/.wibey/skills/usage-dashboard/scripts/wibey_usage_lib.py` (canonical)
+- `~/.wibey/skills/usage-dashboard/scripts/wibey-usage` (canonical)
+- `~/.wibey/usage/wibey_usage_lib.py` (installed copy)
+- `~/.wibey/usage/wibey-usage` (installed copy)
+
+After patching, existing DB rows with UTC `usage_date` values won't be retroactively corrected — they'll remain on the UTC-bucketed dates.
+
+### usage-dashboard: auto-regeneration via SessionEnd hook
+
+The dashboard HTML at `~/.wibey/usage/dashboard.html` is static — baked at generation time. It must be regenerated to show new sessions. The `SessionEnd` hook in `~/.claude/settings.json` calls `session-end-usage.py`, which records to the DB and then spawns `wibey-usage dash --no-open` to regenerate the HTML automatically after each session.
+
+**Hook config** (`~/.claude/settings.json`):
+```json
+{
+  "type": "command",
+  "command": "~/.claude/hooks/session-end-usage.py",
+  "timeout": 30,
+  "statusMessage": "Recording usage metrics and refreshing dashboard..."
+}
+```
+Timeout is 30s (not 10) to allow time for the dash regeneration subprocess.
+
+**`--no-open` flag** — `wibey-usage dash --no-open` generates the HTML without opening a browser tab. Supported in both installed (`~/.wibey/usage/wibey-usage`) and skill source (`~/.wibey/skills/usage-dashboard/scripts/wibey-usage`).
+
+**If today's data is missing:** the HTML is stale — regenerate manually: `~/.wibey/usage/wibey-usage dash`
+
+Files that implement auto-regen (keep in sync):
+- `~/.claude/hooks/session-end-usage.py` (active hook)
+- `~/.wibey/skills/usage-dashboard/scripts/session-end-usage.py` (skill source)
+
 ## History
 
 History of tool use practices, not of this doc.
