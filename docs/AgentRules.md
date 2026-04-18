@@ -19,6 +19,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
   - [safewrite CAS pattern](#safewrite-cas-pattern)
   - [Other file operation rules](#other-file-operation-rules)
 - [Communication Style](#communication-style)
+- [Browser Automation](#browser-automation)
 - [Inferring Intended Files](#inferring-intended-files)
 - [Dates and Times](#dates-and-times)
   - [Always verify the current date](#always-verify-the-current-date)
@@ -146,6 +147,15 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 ## Communication Style
 
 - **Getting the user's attention:** use the `ailerts` skill (if available) when blocked and the user has likely switched away. Not for routine status — only when stopped and user likely doesn't know.
+
+## Browser Automation
+
+- When an agent needs to inspect a live page, take screenshots, or read DOM content, prefer a terminal-launched Chrome with `--remote-debugging-port` (CDP) over VS Code browser tabs.
+- Default pattern on personal laptop: launch Google Chrome from the terminal with CDP enabled, then drive it via the DevTools protocol using a single shared agent profile directory, not the user's personal profile.
+- Agents must NEVER point CDP Chrome at the user's personal Chrome profile, and must NEVER copy cookies or other session state out of the personal profile into an agent profile.
+- Use one stable shared agent profile path for browser automation work, for example `--user-data-dir=/tmp/agent-chrome-profile`, so all agents converge on the same non-personal session state instead of creating ad hoc profiles.
+- Avoid opening VS Code integrated browser tabs for agent work unless the user explicitly wants a human-view-only tab. Those tabs clutter the IDE and may not expose screenshot or DOM access to the agent.
+- If a VS Code browser tab was opened only for agent investigation and a CDP-capable browser is available, switch to CDP and stop adding more IDE tabs.
 
 ## Inferring Intended Files
 
