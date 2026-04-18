@@ -154,6 +154,11 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 - Default pattern on personal laptop: launch Google Chrome from the terminal with CDP enabled, then drive it via the DevTools protocol using a single shared agent profile directory, not the user's personal profile.
 - Agents must NEVER point CDP Chrome at the user's personal Chrome profile, and must NEVER copy cookies or other session state out of the personal profile into an agent profile.
 - Use one stable shared agent profile path for browser automation work, for example `--user-data-dir=/tmp/agent-chrome-profile`, so all agents converge on the same non-personal session state instead of creating ad hoc profiles.
+- For bot-protected government sites, assume direct `curl`/`fetch_webpage` may be blocked even when an interactive browser succeeds. Treat CDP browser context as the source of truth.
+- Prefer direct, parameterized page URLs when available (for example `view=electronic`) instead of brittle click navigation.
+- For protected downloads, retrieve artifacts within the browser session context (request with browser credentials) rather than unauthenticated terminal HTTP calls.
+- Capture evidence in a reusable triad: 1) page text extract, 2) full-page screenshot, 3) source artifact download when available.
+- After recovering a missing artifact, store it in the canonical local archive path immediately and verify the file content before concluding.
 - Avoid opening VS Code integrated browser tabs for agent work unless the user explicitly wants a human-view-only tab. Those tabs clutter the IDE and may not expose screenshot or DOM access to the agent.
 - If a VS Code browser tab was opened only for agent investigation and a CDP-capable browser is available, switch to CDP and stop adding more IDE tabs.
 
