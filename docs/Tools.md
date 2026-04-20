@@ -194,7 +194,7 @@ This is useful for repositioning panels between left and right sidebars as neede
 The built-in preview `markdown.preview.fontSize` defaults to something tiny (was accidentally set to 6). Current settings in `~/Library/Application Support/Code/User/settings.json`:
 
 ```json
-"markdown.preview.fontSize": 14,
+"markdown.preview.fontSize": 13,
 "markdown.preview.lineHeight": 1.2,
 ```
 
@@ -202,12 +202,48 @@ The built-in preview `markdown.preview.fontSize` defaults to something tiny (was
 
 VS Code's `[markdown]` language-specific `editor.fontFamily` applies to the raw source editor — setting it to a proportional font breaks pipe-delimited tables. **Do not use it.** Each WYSIWYG editor has its own font control:
 
-- **TypeDown**: has `typedown.editor.fontFamily` and `typedown.editor.fontSize` settings — set in `settings.json`:
+- **TypeDown**: has `typedown.editor.fontFamily` and `typedown.editor.fontSize` settings — current matching settings in `settings.json`:
   ```json
   "typedown.editor.fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif",
   "typedown.editor.fontSize": 13
   ```
 - **Zaaack**: no settings; requires CSS patch to `media/dist/main.css` — see § Zaaack Markdown Editor Patches below
+
+If you want a no-patch approach in VS Code user settings, set `markdown-editor.customCss` to override Zaaack's built-in monospace binding:
+
+```json
+"markdown-editor.customCss": ".vditor .vditor-reset, .vditor-ir pre.vditor-reset, .vditor-sv { font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif !important; font-size: 13px !important; } .vscode-light .vditor--dark .vditor-reset { color: #111111 !important; background: #ffffff !important; } .vscode-light .vditor--dark .vditor-ir pre { color: #111111 !important; }"
+```
+
+Learned behavior: if a markdown tab still looks fixed-width after changing `typedown.editor.fontFamily`, the tab is likely Zaaack (`markdown-editor.openEditor`) rather than TypeDown (`typedown.openWysiwygEditor`). In that case, `markdown-editor.customCss` is the correct knob.
+
+### Multiple Markdown Tabs (No Reuse)
+
+To stop VS Code from reusing a single preview/pseudo-preview tab and allow side-by-side markdown panes, set in `~/Library/Application Support/Code/User/settings.json`:
+
+```json
+"workbench.editor.enablePreview": false,
+"workbench.editor.enablePreviewFromQuickOpen": false
+```
+
+For Markdown Preview Enhanced specifically, also set:
+
+```json
+"markdown-preview-enhanced.previewMode": "Multiple Previews"
+```
+
+Without this, MPE defaults to **Single Preview** and keeps one preview tab that follows whichever markdown source tab is active.
+MPE notes this setting requires a window reload/restart to take effect.
+
+Practical workflow:
+
+- Open Markdown Preview Enhanced with `⇧⌘V` (already rebound to MPE in this setup).
+- Use `⌘\\` (Split Editor) or `Open Preview to the Side` to place additional previews/editors side-by-side.
+- For WYSIWYG editors, use `Reopen Editor With...` and choose either TypeDown or Markdown Editor (Zaaack); with preview reuse disabled, each opened editor stays in its own tab.
+
+Observed result: this workflow successfully enables independent previews per markdown file.
+
+Current limitation (unresolved): Zaaack `markdown-editor.openEditor` still behaves like a single shared editor tab that switches documents instead of opening one editor instance per file. Tried and not sufficient: disabling preview reuse (`workbench.editor.enablePreview*`), setting MPE `previewMode` to `Multiple Previews`, and opening to side. Those affect preview panes, not Zaaack's editor-panel reuse behavior.
 
 ### Markdown Preview Theme (auto-switch)
 
@@ -221,7 +257,7 @@ This makes the preview follow the active VS Code editor theme (and thus `window.
 
 ### Cmd+Shift+V → Markdown Preview Enhanced
 
-The built-in Markdown preview has broken intra-doc anchor links in some situations. Markdown Preview Enhanced (`shd101wyy.markdown-preview-enhanced`) handles them correctly. `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` (scoped to `editorLangId == markdown`).
+The built-in Markdown preview has broken intra-doc anchor links in some situations. Markdown Preview Enhanced (`shd101wyy.markdown-preview-enhanced`) handles them correctly. `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreviewToTheSide` so each use opens a side preview instead of replacing the current one.
 
 ### Zaaack Markdown Editor Patches
 
