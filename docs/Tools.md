@@ -251,6 +251,21 @@ Important: preview settings (`workbench.editor.enablePreview*`, MPE `previewMode
 
 Patch caveat: extension updates overwrite patched files; reapply after each Zaaack update.
 
+Cursor parity status:
+
+- Applied matching Cursor user settings in `~/Library/Application Support/Cursor/User/settings.json`:
+  - `workbench.editor.enablePreview=false`
+  - `workbench.editor.enablePreviewFromQuickOpen=false`
+  - `markdown-preview-enhanced.previewMode="Multiple Previews"`
+  - `markdown-preview-enhanced.previewColorScheme="systemColorScheme"`
+  - `markdown.preview.fontSize=13`, `markdown.preview.lineHeight=1.2`
+  - `typedown.editor.fontFamily` / `typedown.editor.fontSize`
+  - `markdown-editor.customCss` override for proportional Zaaack editing font
+- Applied matching Cursor keybindings in `~/Library/Application Support/Cursor/User/keybindings.json`:
+  - `⇧⌘V -> markdown-preview-enhanced.openPreviewToTheSide`
+  - typedown / zaaack WYSIWYG shortcut swap parity with VS Code
+- Not patchable yet in Cursor on this machine: no installed `zaaack.markdown-editor-*` extension under `~/.cursor/extensions/`, so the singleton-to-multi-panel `out/extension.js` patch could not be applied there yet.
+
 ### Markdown Preview Theme (auto-switch)
 
 If your Markdown preview (for example, Markdown Preview Enhanced) does not switch between light/dark automatically when VS Code or your OS changes theme, add this to your user `settings.json`:
