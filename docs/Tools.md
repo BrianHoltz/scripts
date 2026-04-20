@@ -243,7 +243,13 @@ Practical workflow:
 
 Observed result: this workflow successfully enables independent previews per markdown file.
 
-Current limitation (unresolved): Zaaack `markdown-editor.openEditor` still behaves like a single shared editor tab that switches documents instead of opening one editor instance per file. Tried and not sufficient: disabling preview reuse (`workbench.editor.enablePreview*`), setting MPE `previewMode` to `Multiple Previews`, and opening to side. Those affect preview panes, not Zaaack's editor-panel reuse behavior.
+Zaaack multi-file editor behavior is singleton by default. Root cause in `out/extension.js`: `EditorPanel.currentPanel` is treated as the only instance and prior panel is disposed when opening a different file.
+
+Working fix: patch `~/.vscode/extensions/zaaack.markdown-editor-0.1.13/out/extension.js` to maintain a per-file map (`EditorPanel.panelsByPath`) keyed by `uri.fsPath`, reveal existing panel for the same file, and dispose only that file's panel. This allows two different markdown files to stay open in Zaaack at the same time.
+
+Important: preview settings (`workbench.editor.enablePreview*`, MPE `previewMode`) do not solve this by themselves because they control preview reuse, not Zaaack editor panel lifecycle.
+
+Patch caveat: extension updates overwrite patched files; reapply after each Zaaack update.
 
 ### Markdown Preview Theme (auto-switch)
 
