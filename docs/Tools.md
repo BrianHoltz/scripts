@@ -251,6 +251,20 @@ Important: preview settings (`workbench.editor.enablePreview*`, MPE `previewMode
 
 Patch caveat: extension updates overwrite patched files; reapply after each Zaaack update.
 
+### Zaaack String Search (Limitation)
+
+**Find/search (Cmd+F) does not work inside Zaaack WYSIWYG editor.** Root cause: Zaaack runs as a webview inside the editor, and browser search APIs inside webviews have limited integration with VS Code's find UI. The underlying vditor library does not expose a search method through Zaaack's extension API.
+
+**Workarounds:**
+
+1. **Outline navigation** (heading-based): Zaaack's underlying vditor supports an outline panel for jump-to-heading navigation. Suggested enhancement: add `options.outline.enable=true` to Zaaack's vditor initialization to expose heading-based navigation menu in the WYSIWYG editor.
+
+2. **Switch to source markdown view**: Press `Ctrl+Alt+Cmd+M` to toggle back to the plain markdown source editor (or use command palette "Open Default Editor"), where `Cmd+F` works normally. This trade-off abandons WYSIWYG rendering but gains standard find.
+
+3. **Exit webview context**: Close the Zaaack editor tab and use Markdown Preview Enhanced preview instead. Preview tabs have independent search via browser context.
+
+Not recommended: patching Zaaack to add a custom search button would be complex (vditor's internal search is not exposed via its public API, and custom webview search requires message passing between VSCode host and vditor instance), and patches are overwritten on extension update.
+
 Cursor parity status:
 
 - Applied matching Cursor user settings in `~/Library/Application Support/Cursor/User/settings.json`:
