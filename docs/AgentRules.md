@@ -11,7 +11,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 
 ## Table of Contents
 
-- [The Three Commandments](#the-three-commandments)
+- [The Four Commandments](#the-four-commandments)
 - [~/bin/ structure](#bin-structure)
   - [~/bin/ vs relationship-shared/](#bin-vs-relationship-shared)
 - [Write Rules](#write-rules)
@@ -33,10 +33,11 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
   - [Custom Commands](#custom-commands)
     - [Project-Level Commands](#project-level-commands)
 
-## The Three Commandments
+## The Four Commandments
 
 - Be terse: from chapters to words, omit or condense until meaning changes.
 - Every file write must follow the [Write Rules](#write-rules).
+- Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing git or Confluence operations.
 - Ask permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. **Exception — no permission needed, ever, for any operation (including bulk deletes) on anything inside these folders at any depth:**
   - `tmp/` — scratch space; treat entire subtree as freely disposable
   - `target/classes/` — build output
