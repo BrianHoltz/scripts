@@ -170,7 +170,7 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 
 Resolve ambiguous file references before asking. Priority order:
 
-**IDE (Wibey):** active tab → dirty tabs → other open tabs → workspace search → ask user. Use `getDiagnostics` scope `open-editors`. Active tab = strongest signal; dirty tab = recently edited.
+**IDE (Wibey):** active tab → dirty tabs → other open tabs → workspace search → ask user. Use `getDiagnostics` scope `open-editors`. Active tab = strongest signal; dirty tab = recently edited. If `getDiagnostics` fails to identify the active file, take a macOS screenshot: `screencapture -x /tmp/wibey_ctx_$$.png && sips -Z 1800 /tmp/wibey_ctx_$$.png --out /tmp/wibey_ctx_small_$$.png`, read it with the Read tool to see what's on screen, then delete both files. Never ask the user which file before trying this. When reading the screenshot, also note any visible text selection (highlighted text in the editor) — a selection is the strongest possible signal about what the user is focused on and should be treated as the user pointing at that exact content.
 
 **CLI:** use `git diff`, `git log -1`, shell history, or cwd to infer the most recently touched file.
 
