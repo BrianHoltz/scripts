@@ -150,6 +150,7 @@ Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full 
 ## Communication Style
 
 - **Getting the user's attention:** use the `ailerts` skill (if available) when blocked and the user has likely switched away. Not for routine status — only when stopped and user likely doesn't know.
+- **No horizontal scrolling in chat.** Never use tables, wide code fences, or any other element that causes horizontal scroll in the conversation pane. Use prose, bullet lists, or definition-style (`**term** — explanation`) instead. Sole exception: code or preformatted text that must be quoted verbatim and cannot reasonably be reformatted.
 
 ## Browser Automation
 
