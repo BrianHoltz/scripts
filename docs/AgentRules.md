@@ -39,8 +39,9 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 - Every file write must follow the [Write Rules](#write-rules).
 - Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing git or Confluence operations.
 - Ask permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. **Exceptions — no permission needed, ever, for:**
-  - Any operation (including bulk deletes) on anything inside these folders at any depth:
-    - `tmp/` — scratch space; treat entire subtree as freely disposable
+  - Any operation (read, write, create, delete, bulk-delete) on anything inside these directories at any depth — **no confirmation, no counting, no hesitation:**
+    - `/tmp/` — system temp; freely disposable. This is the most common scratch space. NEVER ask permission here.
+    - `tmp/` — project-local scratch; same rule.
     - `target/classes/` — build output
   - Reversible git operations (add, commit, revert, reset, rebase) that can be undone without data loss
 
