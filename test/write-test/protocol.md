@@ -77,7 +77,7 @@ Repeat for turns 1 through 10:
 6. Write new content to `/tmp/wct-YOURID.md`
 7. Run:
    ```
-   ~/bin/write_if_unchanged ~/bin/write-test/doc.md \
+   ~/bin/safewrite ~/bin/write-test/doc.md \
        --from /tmp/wct-YOURID.md \
        --expect-sha256 "$HASH" \
        --note "agent=YOURID, turn=N"

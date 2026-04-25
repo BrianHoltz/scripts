@@ -102,11 +102,13 @@ Files requiring the fhold protocol (expand this list as the protocol matures):
 
 - Git-tracked markdown files (`*.md`)
 
+**Path rule:** Always call `fhold` and `safewrite` via full path (`~/bin/fhold`, `~/bin/safewrite`). Agent subshells (Bash tool, spawned agents) may run in a non-login shell that does not inherit the interactive `PATH`, causing bare commands to fail with "not found" even when `~/bin/` is in the user's interactive PATH.
+
 **Rule 1 — Files in the list above:** use `fhold` to coordinate, then write.
 
-- Before every write: `fhold status FILE`
-- **Reviewed mode** (default — no permit holds): `fhold review register FILE --agent $AGENT` (exit 0 → proceed; exit 2 → show user the MENU from `fhold -H` and wait for their choice). Write with an **inode-preserving method** (IDE Edit/Write tools, vim). The IDE shows your changes as a diff for user review. `fhold review release FILE` when you know you're done, or just let 30min TTL lapse.
-- **Permit mode** (any permit holds exist): `fhold permit register FILE --agent $AGENT` if not already registered. Write with **`safewrite`**. `fhold permit release FILE --agent $AGENT` when you know you're done, or just let the 30min TTL lapse.
+- Before every write: `~/bin/fhold status FILE`
+- **Reviewed mode** (default — no permit holds): `~/bin/fhold review register FILE --agent $AGENT` (exit 0 → proceed; exit 2 → show user the MENU from `~/bin/fhold -H` and wait for their choice). Write with an **inode-preserving method** (IDE Edit/Write tools, vim). The IDE shows your changes as a diff for user review. `~/bin/fhold review release FILE` when you know you're done, or just let 30min TTL lapse.
+- **Permit mode** (any permit holds exist): `~/bin/fhold permit register FILE --agent $AGENT` if not already registered. Write with **`~/bin/safewrite`**. `~/bin/fhold permit release FILE --agent $AGENT` when you know you're done, or just let the 30min TTL lapse.
 - **IDE diff in permit mode = violation.** If an Accept/Reject diff button appears while you're in permit mode, you used Edit/Write tools when you should have used `safewrite`. That write will race with other agents working on the file.
 
 **Rule 2 — All other files:** use inode-preserving Edit/Write tools. IDE diff shows your changes; observer buffers stay live. No fhold needed because these other files are not expected to get concurrent edits.
@@ -138,7 +140,7 @@ python3 my_transform.py > /tmp/new_out
 
 On exit 3 (CAS mismatch): file changed since you read it. Re-read, rebuild from new state, retry. Never reuse stale content.
 
-Run `safewrite -h` for full options. Run `fhold -h` for the fhold MENU and full protocol.
+Run `~/bin/safewrite -h` for full options. Run `~/bin/fhold -h` for the fhold MENU and full protocol.
 
 ### Other file operation rules
 

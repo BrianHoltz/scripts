@@ -14,7 +14,7 @@ Agent 2 needs to write to a file. It calls `fhold review register` and discovers
 
 ## Hold Tags
 
-Holds are implemented as sidecar tag files under `/tmp/fhold.tags/`. Each file is keyed by `sha256(resolved_path)[:24]`, the same scheme as write_if_unchanged locks. Not in any repo; ephemeral; cleared on reboot.
+Holds are implemented as sidecar tag files under `/tmp/fhold.tags/`. Each file is keyed by `sha256(resolved_path)[:24]`, the same scheme as safewrite locks. Not in any repo; ephemeral; cleared on reboot.
 
 Applies only to git-tracked markdown files.
 

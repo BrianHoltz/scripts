@@ -21,7 +21,7 @@ DESCRIPTION
     then the user wants the agents to do parallel writes
     without clobbering each other.
 
-    write_if_unchanged is a sibling utility that lets agents do parallel writes.
+    safewrite is a sibling utility that lets agents do parallel writes.
     It enables agents to do parallel writes, at the price of
     bypassing the system by which IDEs offer review of agent changes.
 
@@ -43,7 +43,7 @@ DESCRIPTION
 
     Holds are implemented as sidecar tag files under --tag-root
     (default: /tmp/fhold.tags/). Each file is keyed by sha256 of the
-    resolved target path (same scheme as write_if_unchanged locks).
+    resolved target path (same scheme as safewrite locks).
     Ephemeral; cleared on reboot.
 
     The author's practice is to apply fhold only to git-tracked markdown files.
@@ -107,7 +107,7 @@ MENU
     Diff resolved, switch to unreviewed mode — This agent will start doing
         its writes without user review. Other agents that attempt writes
         will recognize that they too should start writing without user review.
-        All parallel writes will be safe if the agents use e.g. write_if_unchanged.
+        All parallel writes will be safe if the agents use e.g. safewrite.
         Enjoy your safe multi-agent workflow!
 
     Diff ignored, switch to unreviewed mode — Current on-disk state will be
@@ -134,7 +134,7 @@ EXAMPLES
     $ fhold review release README.md
     $ fhold permit register README.md --agent claude2
     /tmp/fhold.tags/_users_fred_myrepo_README.md_36885306.concurrent_write_permit.claude2
-    # Agent 2 proceeds to make unreviewed concurrent edits using e.g. write_if_unchanged
+    # Agent 2 proceeds to make unreviewed concurrent edits using e.g. safewrite
 
     # As usual, Agent 1 checks status before its next reviewed write and gets a surprise:
     $ fhold status README.md
@@ -142,7 +142,7 @@ EXAMPLES
     # Agent 1 sees the file is now in permit mode, and so requests a permit:
     $ fhold permit register README.md --agent claude1
     /tmp/fhold.tags/_private_myrepo_README.md_36885306.concurrent_write_permit.claude1
-    # Agent 1 proceeds to make unreviewed concurrent edits using e.g. write_if_unchanged
+    # Agent 1 proceeds to make unreviewed concurrent edits using e.g. safewrite
 
     # Permits expire 30mins after creation, or agents can explicitly release their permits:
     $ fhold permit release README.md --agent claude1
@@ -162,7 +162,7 @@ import sys
 
 
 def show_usage() -> None:
-    # TODO: add colorization matching write_if_unchanged's style
+    # TODO: add colorization matching safewrite's style
     sys.stdout.write(usage_msg)
 
 

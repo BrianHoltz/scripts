@@ -32,7 +32,7 @@ import tempfile
 import time
 from pathlib import Path
 
-SCRIPT = Path(__file__).parent / "write_if_unchanged"
+SCRIPT = Path(__file__).parent.parent / "safewrite"
 PYTHON = sys.executable
 
 
@@ -458,7 +458,7 @@ def _test_help_flag_exits_0(tmpdir: Path, lock_root: str, details: list[str]) ->
     if r.returncode != 0:
         details.append(f"expected exit 0, got {r.returncode}")
         return False
-    if b"write_if_unchanged" not in r.stdout:
+    if b"safewrite" not in r.stdout:
         details.append("expected usage text in stdout")
         return False
     return True
@@ -858,7 +858,7 @@ def list_tests() -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Tests for write_if_unchanged",
+        description="Tests for safewrite",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("-v", dest="verbose", action="store_true",

@@ -72,7 +72,7 @@ EXIT CODES
 
 EXAMPLE
     HASH=$(shasum -a 256 config.json | awk '{print $1}')
-    write_if_unchanged config.json \\
+    safewrite config.json \\
         --from new_config.json --expect-sha256 "$HASH" \\
         --note "agent=claude, task=abc123"
 """
