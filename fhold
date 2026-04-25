@@ -93,7 +93,7 @@ EXIT CODES
     3  no hold found (release of nonexistent hold)
 
 MENU
-    An agent should show this menu to the user when it encounters 
+    An agent should show this menu to the user when it encounters
     a review hold registered by another agent.
 
     [FILE] has a review hold from another agent. Resolve or ignore the
@@ -113,7 +113,7 @@ MENU
     Diff ignored, switch to unreviewed mode — Current on-disk state will be
         treated as accepted. Agents will proceed as in the previous option.
         WARNING: The pending diff can still be safely accepted at any time,
-        but in some IDEs rejecting any part of it will overwrite 
+        but in some IDEs rejecting any part of it will overwrite
         any changes that were saved after that pending diff was authored.
         Those IDEs may or may not warn you that saved changes will be discarded.
         So your smart play is to resolve the other agent's changes first.
@@ -158,7 +158,297 @@ EXAMPLES
 # When they aren't in sync, agents must update show_usage()'s underlying
 # non-colorized text to match usage_msg, while keeping all colorization intact.
 
+import hashlib
+import json
+import os
+import subprocess
 import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+
+# ---------------------------------------------------------------------------
+# Key generation (same pattern as safewrite)
+# ---------------------------------------------------------------------------
+
+def _fakepath(path: Path) -> str:
+    """Generate tag key: try fakepath utility, fallback to sha256 hash."""
+    try:
+        result = subprocess.run(
+            ["fakepath", str(path)],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    # Fallback: resolve without strict so nonexistent files still work
+    return hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:24]
+
+
+def _sha256_of_file(path: Path) -> str:
+    """SHA-256 of file content, or sha256('') if file doesn't exist."""
+    if not path.exists():
+        return hashlib.sha256(b"").hexdigest()
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Tag file helpers
+# ---------------------------------------------------------------------------
+
+def _ensure_tag_root(tag_root: Path) -> None:
+    tag_root.mkdir(parents=True, exist_ok=True)
+
+
+def _review_hold_path(tag_root: Path, target: Path) -> Path:
+    key = _fakepath(target)
+    return tag_root / f"{key}.review_hold"
+
+
+def _permit_path(tag_root: Path, target: Path, agent: str) -> Path:
+    key = _fakepath(target)
+    return tag_root / f"{key}.concurrent_write_permit.{agent}"
+
+
+def _find_permits(tag_root: Path, target: Path) -> list[Path]:
+    """Find all permit tags for a given target file."""
+    if not tag_root.exists():
+        return []
+    key = _fakepath(target)
+    prefix = f"{key}.concurrent_write_permit."
+    return sorted(p for p in tag_root.iterdir() if p.name.startswith(prefix))
+
+
+def _read_tag(path: Path) -> Optional[dict]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _write_tag(path: Path, meta: dict) -> None:
+    path.write_text(json.dumps(meta, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _format_age(seconds: float) -> str:
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    if seconds < 3600:
+        return f"{int(seconds / 60)}m"
+    return f"{seconds / 3600:.1f}h"
+
+
+# ---------------------------------------------------------------------------
+# Subcommand implementations
+# ---------------------------------------------------------------------------
+
+def cmd_review_register(target: Path, agent: str, task: str, tag_root: Path) -> int:
+    _ensure_tag_root(tag_root)
+    hold_path = _review_hold_path(tag_root, target)
+
+    # Check for existing hold
+    if hold_path.exists():
+        existing = _read_tag(hold_path)
+        existing_agent = (existing or {}).get("agent", "unknown")
+        # Same agent re-registering: update in place
+        if existing_agent == agent:
+            meta = existing or {}
+            meta["task"] = task
+            meta["acquired"] = datetime.now(timezone.utc).isoformat()
+            meta["pre_write_sha256"] = _sha256_of_file(target)
+            _write_tag(hold_path, meta)
+            print(str(hold_path))
+            return 0
+        # Different agent: contention
+        existing_task = (existing or {}).get("task", "")
+        acquired = (existing or {}).get("acquired", "unknown")
+        age_s = 0.0
+        try:
+            age_s = time.time() - hold_path.stat().st_mtime
+        except Exception:
+            pass
+        task_part = f' task="{existing_task}"' if existing_task else ""
+        print(
+            f"fhold: exit 2 — review_hold exists: agent={existing_agent}"
+            f"{task_part} age={_format_age(age_s)}",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Create atomically
+    meta = {
+        "agent": agent,
+        "file": str(target),
+        "task": task,
+        "acquired": datetime.now(timezone.utc).isoformat(),
+        "pre_write_sha256": _sha256_of_file(target),
+    }
+    try:
+        fd = os.open(str(hold_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        os.write(fd, json.dumps(meta, indent=2, sort_keys=True).encode("utf-8"))
+        os.close(fd)
+    except FileExistsError:
+        # Race: another agent created it between our check and open
+        existing = _read_tag(hold_path)
+        existing_agent = (existing or {}).get("agent", "unknown")
+        existing_task = (existing or {}).get("task", "")
+        task_part = f' task="{existing_task}"' if existing_task else ""
+        print(
+            f"fhold: exit 2 — review_hold exists: agent={existing_agent}{task_part}",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(str(hold_path))
+    return 0
+
+
+def cmd_review_release(target: Path, tag_root: Path) -> int:
+    hold_path = _review_hold_path(tag_root, target)
+    if not hold_path.exists():
+        print(f"fhold: no review hold found for {target}", file=sys.stderr)
+        return 3
+    hold_path.unlink()
+    return 0
+
+
+def cmd_review_check(target: Path, tag_root: Path) -> int:
+    hold_path = _review_hold_path(tag_root, target)
+    if not hold_path.exists():
+        print(f"fhold: no review hold found for {target}", file=sys.stderr)
+        return 3
+    meta = _read_tag(hold_path)
+    if not meta:
+        print(f"fhold: review hold tag unreadable at {hold_path}", file=sys.stderr)
+        return 3
+    agent = meta.get("agent", "unknown")
+    task = meta.get("task", "")
+    acquired = meta.get("acquired", "unknown")
+    pre_hash = meta.get("pre_write_sha256", "")
+    post_hash = meta.get("post_write_sha256", "")
+    age_s = 0.0
+    try:
+        age_s = time.time() - hold_path.stat().st_mtime
+    except Exception:
+        pass
+    print(f"review_hold: agent={agent} task=\"{task}\" acquired={acquired} age={_format_age(age_s)}")
+    if pre_hash:
+        print(f"  pre_write_sha256: {pre_hash}")
+    if post_hash:
+        print(f"  post_write_sha256: {post_hash}")
+    return 0
+
+
+def cmd_permit_register(target: Path, agent: str, tag_root: Path) -> int:
+    _ensure_tag_root(tag_root)
+    permit_path = _permit_path(tag_root, target, agent)
+    meta = {
+        "agent": agent,
+        "file": str(target),
+        "acquired": datetime.now(timezone.utc).isoformat(),
+    }
+    _write_tag(permit_path, meta)
+    print(str(permit_path))
+    return 0
+
+
+def cmd_permit_release(target: Path, agent: str, tag_root: Path) -> int:
+    permit_path = _permit_path(tag_root, target, agent)
+    if not permit_path.exists():
+        print(f"fhold: no permit hold found for agent={agent} on {target}", file=sys.stderr)
+        return 3
+    permit_path.unlink()
+    return 0
+
+
+def cmd_permit_check(target: Path, tag_root: Path) -> int:
+    permits = _find_permits(tag_root, target)
+    if not permits:
+        print(f"fhold: no permit holds found for {target}", file=sys.stderr)
+        return 3
+    for p in permits:
+        meta = _read_tag(p)
+        agent = (meta or {}).get("agent", p.name.rsplit(".", 1)[-1])
+        age_s = 0.0
+        try:
+            age_s = time.time() - p.stat().st_mtime
+        except Exception:
+            pass
+        acquired = (meta or {}).get("acquired", "unknown")
+        print(f"  permit: agent={agent} acquired={acquired} age={_format_age(age_s)}")
+    return 0
+
+
+def cmd_status(target: Path, tag_root: Path, ttl: int) -> int:
+    _ensure_tag_root(tag_root)
+    hold_path = _review_hold_path(tag_root, target)
+    permits = _find_permits(tag_root, target)
+    file_hash = _sha256_of_file(target)
+
+    has_review = hold_path.exists()
+    review_meta = _read_tag(hold_path) if has_review else None
+
+    if permits:
+        agents = []
+        for p in permits:
+            meta = _read_tag(p)
+            agents.append((meta or {}).get("agent", p.name.rsplit(".", 1)[-1]))
+        agent_list = ", ".join(agents)
+        print(f"mode: unreviewed ({len(permits)} permit hold{'s' if len(permits) != 1 else ''}: {agent_list})")
+    elif has_review:
+        agent = (review_meta or {}).get("agent", "unknown")
+        task = (review_meta or {}).get("task", "")
+        age_s = 0.0
+        try:
+            age_s = time.time() - hold_path.stat().st_mtime
+        except Exception:
+            pass
+        task_part = f' task="{task}"' if task else ""
+        print(f"mode: reviewed (review hold: agent={agent}{task_part} age={_format_age(age_s)})")
+    else:
+        print("mode: reviewed (no holds)")
+
+    print(f"sha256: {file_hash}")
+    return 0
+
+
+def cmd_gc(tag_root: Path, ttl: int) -> int:
+    if not tag_root.exists():
+        return 0
+    now = time.time()
+    removed = 0
+    for tag_file in sorted(tag_root.iterdir()):
+        if not tag_file.is_file():
+            continue
+        is_review = tag_file.name.endswith(".review_hold")
+        is_permit = ".concurrent_write_permit." in tag_file.name
+        if not is_review and not is_permit:
+            continue
+        try:
+            age_s = now - tag_file.stat().st_mtime
+        except Exception:
+            continue
+        if age_s > ttl:
+            meta = _read_tag(tag_file)
+            agent = (meta or {}).get("agent", "unknown")
+            kind = "review_hold" if is_review else "permit"
+            print(f"gc: removed stale {kind} (agent={agent}, age={_format_age(age_s)}): {tag_file.name}")
+            tag_file.unlink()
+            removed += 1
+    if removed:
+        print(f"gc: removed {removed} stale tag{'s' if removed != 1 else ''}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+def _default_agent() -> str:
+    return os.environ.get("WIBEY_SESSION_ID", os.environ.get("USER", "unknown"))
 
 
 def show_usage() -> None:
@@ -175,8 +465,107 @@ def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
         show_usage()
         return 0
-    print("fhold: not yet implemented", file=sys.stderr)
-    print("Run 'fhold -h' for help.", file=sys.stderr)
+
+    # Parse arguments manually since the command structure is:
+    #   fhold {review|permit} {register|release|check} FILE [options]
+    #   fhold status FILE [options]
+    #   fhold gc [options]
+    args = sys.argv[1:]
+    if not args:
+        print("usage: fhold {review|permit} {register|release|check} FILE [options]", file=sys.stderr)
+        print("       fhold status FILE [options]", file=sys.stderr)
+        print("       fhold gc [options]", file=sys.stderr)
+        print("Run 'fhold -h' for help.", file=sys.stderr)
+        return 1
+
+    # Extract global options from anywhere in args
+    tag_root_str = "/tmp/fhold.tags/"
+    ttl = 1800
+    agent = _default_agent()
+    task = ""
+
+    # Pull out known flags
+    positional: list[str] = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--tag-root" and i + 1 < len(args):
+            tag_root_str = args[i + 1]
+            i += 2
+        elif args[i] == "--ttl" and i + 1 < len(args):
+            try:
+                ttl = int(args[i + 1])
+            except ValueError:
+                print(f"fhold: invalid --ttl value: {args[i + 1]}", file=sys.stderr)
+                return 1
+            i += 2
+        elif args[i] == "--agent" and i + 1 < len(args):
+            agent = args[i + 1]
+            i += 2
+        elif args[i] == "--task" and i + 1 < len(args):
+            task = args[i + 1]
+            i += 2
+        else:
+            positional.append(args[i])
+            i += 1
+
+    tag_root = Path(tag_root_str).expanduser()
+
+    # Route subcommands
+    if not positional:
+        print("fhold: missing subcommand", file=sys.stderr)
+        return 1
+
+    subcmd = positional[0]
+
+    if subcmd == "gc":
+        return cmd_gc(tag_root, ttl)
+
+    if subcmd == "status":
+        if len(positional) < 2:
+            print("fhold: status requires FILE argument", file=sys.stderr)
+            return 1
+        target = Path(positional[1]).expanduser()
+        return cmd_status(target, tag_root, ttl)
+
+    if subcmd in ("review", "permit"):
+        if len(positional) < 2:
+            print(f"fhold: {subcmd} requires an action (register|release|check)", file=sys.stderr)
+            return 1
+        action = positional[1]
+        if action not in ("register", "release", "check"):
+            print(f"fhold: unknown action '{action}' for {subcmd}", file=sys.stderr)
+            return 1
+        if action == "check":
+            if len(positional) < 3:
+                print(f"fhold: {subcmd} check requires FILE argument", file=sys.stderr)
+                return 1
+            target = Path(positional[2]).expanduser()
+            if subcmd == "review":
+                return cmd_review_check(target, tag_root)
+            else:
+                return cmd_permit_check(target, tag_root)
+
+        if action == "register":
+            if len(positional) < 3:
+                print(f"fhold: {subcmd} register requires FILE argument", file=sys.stderr)
+                return 1
+            target = Path(positional[2]).expanduser()
+            if subcmd == "review":
+                return cmd_review_register(target, agent, task, tag_root)
+            else:
+                return cmd_permit_register(target, agent, tag_root)
+
+        if action == "release":
+            if len(positional) < 3:
+                print(f"fhold: {subcmd} release requires FILE argument", file=sys.stderr)
+                return 1
+            target = Path(positional[2]).expanduser()
+            if subcmd == "review":
+                return cmd_review_release(target, tag_root)
+            else:
+                return cmd_permit_release(target, agent, tag_root)
+
+    print(f"fhold: unknown subcommand '{subcmd}'", file=sys.stderr)
     return 1
 
 
