@@ -6,7 +6,7 @@
 - Drive holds **working trees only** — no git object stores inside Drive.
 - Working trees that live in Drive use `--separate-git-dir` so Drive never touches `.git` objects.
 - Separate git dirs live at `~/gitdirs/<name>/` (outside Drive, outside any synced folder).
-- One `~/My Drive/Workspaces.code-workspace` (relative paths) unifies IDE view across all roots; lives in Drive so it auto-syncs across laptops.
+- `~/My Drive/Workspaces-template.code-workspace` (relative paths) is the canonical all-laptops template; copy to `~/Workspaces.code-workspace` on each laptop and remove folders not present on that machine.
 - `~/Documents/` is a private repo (in-tree `.git`, like `~/bin/`); must have a GitHub remote so history isn't lost again.
 
 ---
@@ -33,7 +33,7 @@
     lpscc/
   My Drive/             ← working tree; .git FILE points to ~/gitdirs/personal-drive
     .git                ← one-line pointer: "gitdir: ~/gitdirs/personal-drive"
-    Workspaces.code-workspace  ← multi-root workspace; auto-syncs via Drive
+    Workspaces-template.code-workspace  ← template; copy to ~/Workspaces.code-workspace per laptop
     ...files...
   Documents/            ← private repo (in-tree .git), GitHub remote
     HoltzDotOrg/        ← future public nested repo; parent won't track its contents
@@ -55,24 +55,56 @@ Step 2 — **`~/My Drive/`** ← **do this next**:
 mkdir -p ~/gitdirs
 git init --separate-git-dir="$HOME/gitdirs/gdrive" "$HOME/My Drive"
 cd ~/My\ Drive
-# add .gitignore to whitelist only selected files, then:
-git add -A && git commit -m "chore: initial commit"
+
+# Whitelist only FamilyDocuments/Heather/2026 NYC for initial commit
+# (must un-ignore each parent dir so git can descend into them)
+cat > .gitignore << 'EOF'
+# ignore everything
+*
+# un-ignore the path to 2026 NYC and its contents
+!FamilyDocuments/
+!FamilyDocuments/Heather/
+!FamilyDocuments/Heather/2026 NYC/
+!FamilyDocuments/Heather/2026 NYC/**
+# and the standard git files
+!.gitignore
+EOF
+
+git add "FamilyDocuments/Heather/2026 NYC" .gitignore
+git commit -m "chore: initial commit — FamilyDocuments/Heather/2026 NYC"
 gh repo create gdrive --private --source=. --remote=origin --push
 ```
 
-Step 3 — **`Workspaces.code-workspace`** (do alongside step 2):
+Step 3 — **`Workspaces-template.code-workspace`** (do alongside step 2):
+
+Create the template in Drive (tracks all possible folders across all laptops):
 
 ```bash
-cat > "$HOME/My Drive/Workspaces.code-workspace" << 'EOF'
+cat > "$HOME/My Drive/Workspaces-template.code-workspace" << 'EOF'
 {
+  // TEMPLATE — do not open this file directly as a workspace.
+  // On each laptop:
+  //   cp "$HOME/My Drive/Workspaces-template.code-workspace" "$HOME/Workspaces.code-workspace"
+  // Then edit ~/Workspaces.code-workspace to remove folders not present on that machine.
+  // ~/Workspaces.code-workspace is local-only (not in Drive, not in git).
+  //
+  // Laptop notes:
+  //   work laptop:     keep My Drive + bin; remove Documents (not set up here)
+  //   personal laptop: keep My Drive + bin + Documents
   "folders": [
-    { "path": ".",            "name": "My Drive" },
-    { "path": "../bin",       "name": "bin" },
-    { "path": "../Documents", "name": "Documents" }
+    { "path": "My Drive",   "name": "My Drive" },  // ~ relative; adjust if Drive mounts elsewhere
+    { "path": "bin",        "name": "bin" },
+    { "path": "Documents",  "name": "Documents" }   // personal laptop only
   ]
 }
 EOF
-# add ../src/<name> entries as needed
+```
+
+Then create your local copy for this laptop (work — omit Documents):
+
+```bash
+cp "$HOME/My Drive/Workspaces-template.code-workspace" "$HOME/Workspaces.code-workspace"
+# then edit ~/Workspaces.code-workspace: remove the Documents entry
 ```
 
 Step 4 — **`~/Documents/`** (simple — no separate-git-dir needed):
