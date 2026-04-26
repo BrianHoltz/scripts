@@ -246,6 +246,13 @@ Maintenance/debug checklist:
 
 Project-level commands for Walmart/Wibey still live under `.wibey/commands/` or `shared/.wibey/commands/` as described below.
 
+**Outside team repos (work laptop only):** When the current workspace has no `shared/` symlink (e.g. `~/My Drive/`, `~/Desktop/`, any personal folder), the team skills and commands are still available directly at `~/src/relationship-shared/.wibey/`. Always check there before concluding a skill or command doesn't exist.
+
+- Team skills: `~/src/relationship-shared/.wibey/skills/<name>/SKILL.md`
+- Team commands: `~/src/relationship-shared/.wibey/commands/<name>.md`
+
+Read the command/skill file before executing it, exactly as you would for a workspace-local command.
+
 ### Project-Level Commands
 
 In teams using the agent-toolkit shared repo pattern, commands live at `<workspace>/shared/.wibey/commands/` and are consistent across all repos via the `shared/` symlink:
