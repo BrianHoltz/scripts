@@ -6,6 +6,7 @@ bin.iml
 .DS_Store
 /AgentRules.md
 /aidocs/
+/shared
 /tmp/
 __pycache__/
 # installed software
