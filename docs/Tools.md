@@ -189,6 +189,30 @@ This is useful for repositioning panels between left and right sidebars as neede
   - *Chat panel context limited vs dedicated AI IDEs*
 - *Accept All in diff review simply accepts what's on disk and ends the review — safe even if the user made local edits during review.*
 
+### Proxy / GitHub Copilot off VPN
+
+When VPN is off, `proxy.wal-mart.com:9080` is unreachable, blocking GitHub Copilot. Fix: add GitHub domains to `http.noProxy` so Copilot bypasses the proxy entirely (internal traffic still routes through it).
+
+Current `http.noProxy` in `~/Library/Application Support/Code/User/settings.json` (as of 2026.04.26):
+
+```json
+"http.noProxy": [
+    ".local",
+    "169.254/16",
+    ".walmart.com",
+    ".wal-mart.com",
+    ".walmartlabs.com",
+    "wmlink",
+    "wamnetNAD",
+    "github.com",
+    ".github.com",
+    ".githubcopilot.com",
+    ".githubusercontent.com"
+]
+```
+
+`http.proxy` and `http.proxySupport: override` remain in place for all other traffic.
+
 ### Markdown Preview Font Size
 
 The built-in preview `markdown.preview.fontSize` defaults to something tiny (was accidentally set to 6). Current settings in `~/Library/Application Support/Code/User/settings.json`:
