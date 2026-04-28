@@ -144,7 +144,7 @@ Run `~/bin/safewrite -h` for full options. Run `~/bin/fhold -h` for the fhold ME
 
 ### Other file operation rules
 
-- Never `rm` directly — use `trash` or `mv ~/.Trash/`
+- Never `rm` directly on user files — use `trash` or `mv ~/.Trash/`. **Exception: `/tmp/` and `tmp/` may be deleted with plain `rm` — no `trash`, no confirmation, no hesitation (see [Four Commandments](#the-four-commandments)).**
 - Duplicate/conflicting files: ASK which to keep before deleting either
 - No VCS changes unless you're certain the user wants them
 - Commit granularity: independent changes → separate commits; interdependent → one commit
