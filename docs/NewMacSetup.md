@@ -158,7 +158,13 @@ Add to `~/Library/Application Support/Code/User/settings.json`
   "markdown-preview-enhanced.previewColorScheme": "systemColorScheme",
   "typedown.editor.fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif",
   "typedown.editor.fontSize": 13,
-  "markdown-editor.customCss": ".vditor .vditor-reset, .vditor-ir pre.vditor-reset, .vditor-sv { font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif !important; font-size: 13px !important; } .vscode-light .vditor--dark .vditor-reset { color: #111111 !important; background: #ffffff !important; } .vscode-light .vditor--dark .vditor-ir pre { color: #111111 !important; }"
+  "markdown-editor.customCss": ".vditor .vditor-reset, .vditor-ir pre.vditor-reset, .vditor-sv { font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif !important; font-size: 13px !important; } .vscode-light .vditor--dark .vditor-reset { color: #111111 !important; background: #ffffff !important; } .vscode-light .vditor--dark .vditor-ir pre { color: #111111 !important; }",
+  "chat.tools.global.autoApprove": true,
+  "chat.tools.urls.autoApprove": { "*": true },
+  "chat.agent.maxRequests": 250,
+  "git.confirmSync": false,
+  "explorer.confirmDelete": false,
+  "security.workspace.trust.untrustedFiles": "open"
 }
 ```
 
