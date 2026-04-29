@@ -34,7 +34,7 @@ fi
 unset _gcloud_dir
 
 # --- Credentials ---
-export GOOGLE_APPLICATION_CREDENTIALS=~/qualityeng-prod-sa1-key.json
+[ -f ~/qualityeng-prod-sa1-key.json ] && export GOOGLE_APPLICATION_CREDENTIALS=~/qualityeng-prod-sa1-key.json
 
 # --- SSH ---
 ssh-add ~/.ssh/app_id.rsa 2>/dev/null

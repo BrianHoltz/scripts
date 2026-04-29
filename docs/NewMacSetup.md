@@ -63,6 +63,7 @@ brew install --cask discord
 brew install --cask signal
 brew install --cask vlc
 brew install --cask plex
+brew install --cask libreoffice
 brew install --cask kiwix
 brew install --cask simple-comic
 brew install --cask google-earth-pro
@@ -73,25 +74,20 @@ brew install --cask vysor
 ## Manual: Additional Apps
 
 - Kindle — App Store
-- Family Tree Maker — mackiev.com
-- OBSBOT Center — obsbot.com/download
+- Family Tree Maker — https://mackiev.com/ftm/
+- OBSBOT Center — https://www.obsbot.com/download
 - YiHomeMacInt — App Store
-- Reolink for Mac — reolink.com
-- Microsoft Office — App Store or microsoft.com
+- Reolink for Mac — https://reolink.com/software-and-manual/
 - World of Tanks Blitz — App Store
 
 ## Copilot: Shell / Git Config
 
 ```sh
-brew tap homebrew/bundle
-brew tap oven-sh/bun
-
 git config --global user.name "Brian Holtz"
 git config --global user.email "brianholtz1965@gmail.com"
 git config --global core.editor "code --wait"
 git config --global pull.rebase true
 ```
-
 
 ## Copilot: Core CLI
 
@@ -114,6 +110,12 @@ brew install \
 - `d2` — text-to-diagram CLI (used for architecture docs)
 - `rdiff-backup` — incremental backup utility
 - `parallel` — GNU parallel (used in scripts)
+
+```sh
+# ~/bin/ script deps (agent_browse requires these)
+pip3 install playwright requests
+playwright install chromium
+```
 
 ## Copilot: VS Code Extensions
 
@@ -263,8 +265,21 @@ brew install openai-whisper   # pulls pytorch, numpy, etc. — takes a while
 - `ffmpeg` — pulls x264, x265, lame, opus, dav1d, libvpx, svt-av1, sdl2 automatically
 - `openai-whisper` — local speech-to-text; also installs pytorch + openblas as deps
 
+## Copilot: Optional
+
+Containers:
+
+```sh
+brew install kubernetes-cli
+brew install --cask docker
+```
+
+Bun:
+
+```sh
+brew install oven-sh/bun/bun
+```
+
 ## Notes
 
 - `brew list` on work Mac = deps-included; only manually install the named formulae above (deps pull automatically)
-- Java stack (kafka/maven/sbt/tomcat) — work-only; skip unless doing personal JVM dev
-- Microsoft Office apps — personal MS account may suffice; install from App Store or microsoft.com if needed
