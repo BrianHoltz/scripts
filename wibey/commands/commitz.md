@@ -56,6 +56,20 @@ C: commit. P: commit+push. Or ignore & keep prompting.
 
 **STOP after presenting buckets. Do not commit until the user sends a C or P token.**
 
+## `yours` mode
+
+Invoked as `/commitz yours`.
+
+1. **Identify agent-touched files**: review this conversation's history to determine which files you (the agent) created or modified via Edit, Write, or equivalent file-writing tools. These are "your files."
+2. **Run `commitz_ui`** to get the canonical file inventory.
+3. **Filter**: keep only commitz_ui entries matching your files. If a file you touched is absent from commitz_ui (already committed or untracked), note it but don't block.
+4. **Bucket** the filtered files using the normal bucketing rules above.
+5. **Show the buckets** briefly for visibility, then immediately — without waiting for a C/P token:
+   - Commit each bucket (autonomous commit messages, repo style, one per bucket).
+   - Push all commits.
+   - For any `.md` files in the committed buckets: if the `md2confluence` skill is available and the file has a Confluence front-matter marker, invoke `md2confluence` to mirror it. Skip silently otherwise.
+6. Show final `git log --oneline` for new commits and `git status`.
+
 ## Token handling
 
 - `C` or `C.`: commit all buckets.
