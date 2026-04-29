@@ -216,7 +216,7 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ### Custom Commands
 
-Commands source from `~/bin/wibey/commands/` and are exposed via symlinks in `~/Library/Application Support/Code/User/prompts/*.prompt.md`. When triggered, read the source file before executing.
+Commands source from `~/bin/wibey/commands/`. When triggered, read the source file before executing.
 
 User-level commands:
 
@@ -226,18 +226,27 @@ User-level commands:
 Install paths:
 
 - Source commands: `~/bin/wibey/commands/*.md`
-- Copilot symlinks: `~/Library/Application Support/Code/User/prompts/*.prompt.md`
+- Wibey user commands: `~/.wibey/commands/*.md` — **must be hardlinks, not symlinks** (Wibey's extension filters with `entry.isFile()`, which returns `false` for symlinks, silently dropping them)
 - Source skills: `~/bin/wibey/skills/<name>/SKILL.md`
 - Skill symlinks per workspace: `<workspace>/.wibey/skills/<name>/SKILL.md`
 
-Skills are **not** supported as user-level Copilot customizations. On the personal laptop, expose skills per workspace via `.github/skills/` symlinks.
+To install or reinstall a user command as a hardlink:
+
+```sh
+rm ~/.wibey/commands/convo.md ~/.wibey/commands/commitz.md
+ln ~/bin/wibey/commands/convo.md ~/.wibey/commands/convo.md
+ln ~/bin/wibey/commands/commitz.md ~/.wibey/commands/commitz.md
+```
+
+Skills are **not** supported as user-level Wibey customizations. On the personal laptop, expose skills per workspace via `.github/skills/` symlinks.
 
 Maintenance/debug checklist:
 
-- If `/convo` or `/commitz` is missing, verify the symlink exists in `~/Library/Application Support/Code/User/prompts/` with a `*.prompt.md` name.
+- If `/convo` or `/commitz` is missing: check `~/.wibey/commands/` — if files are symlinks (`isSymlink: true` via Node.js), replace with hardlinks (see above).
+- Verify with: `node -e "const fs=require('fs'); fs.readdirSync(process.env.HOME+'/.wibey/commands',{withFileTypes:true}).forEach(e=>console.log(e.name,'isFile:',e.isFile(),'isSymlink:',e.isSymbolicLink()))"`
 - If a skill is not discovered, verify `<workspace>/.github/skills/<name>/SKILL.md` exists and points at `~/bin/wibey/skills/<name>/SKILL.md`.
-- After adding or changing symlinks, reload the VS Code window.
-- Keep the source files in `~/bin/wibey/`; do not rename or move them just to satisfy Copilot discovery.
+- After adding or changing files, reload the VS Code window.
+- Keep the source files in `~/bin/wibey/`; do not rename or move them.
 - If discovery still fails, check YAML frontmatter first: `description` must be present and valid.
 
 Project-level commands for Walmart/Wibey still live under `.wibey/commands/` or `shared/.wibey/commands/` as described below.
