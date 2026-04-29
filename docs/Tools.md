@@ -215,7 +215,11 @@ Current `http.noProxy` in `~/Library/Application Support/Code/User/settings.json
 
 ### Markdown Preview Font Size
 
-The built-in preview `markdown.preview.fontSize` defaults to something tiny (was accidentally set to 6). Current settings in `~/Library/Application Support/Code/User/settings.json`:
+**Locked configuration (2026.04.29):**
+
+- **Markdown Preview Enhanced (MPE) preview rendering**: `14px`, `line-height: 1.2` in `~/.local/state/crossnote/style.less`
+- **VS Code built-in preview** (`markdown.preview.fontSize`): `13`, `line-height: 1.2` (fallback setting; MPE uses its own renderer)
+- **Apply in both Code and Cursor** for parity: `~/Library/Application Support/{Code,Cursor}/User/settings.json`
 
 ```json
 "markdown.preview.fontSize": 13,
@@ -231,13 +235,10 @@ VS Code's `[markdown]` language-specific `editor.fontFamily` applies to the raw 
   "typedown.editor.fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif",
   "typedown.editor.fontSize": 13
   ```
-- **Zaaack**: no settings; requires CSS patch to `media/dist/main.css` — see § Zaaack Markdown Editor Patches below
-
-If you want a no-patch approach in VS Code user settings, set `markdown-editor.customCss` to override Zaaack's built-in monospace binding:
-
-```json
-"markdown-editor.customCss": ".vditor .vditor-reset, .vditor-ir pre.vditor-reset, .vditor-sv { font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif !important; font-size: 13px !important; } .vscode-light .vditor--dark .vditor-reset { color: #111111 !important; background: #ffffff !important; } .vscode-light .vditor--dark .vditor-ir pre { color: #111111 !important; }"
-```
+- **Zaaack**: uses `markdown-editor.customCss` in settings.json with font-size `13px` and `line-height: 1.2`:
+  ```json
+  "markdown-editor.customCss": ".vditor .vditor-reset, .vditor-ir pre.vditor-reset, .vditor-sv { font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif !important; font-size: 13px !important; line-height: 1.2 !important; } .vscode-light .vditor--dark .vditor-reset { color: #111111 !important; background: #ffffff !important; } .vscode-light .vditor--dark .vditor-ir pre { color: #111111 !important; }"
+  ```
 
 Learned behavior: if a markdown tab still looks fixed-width after changing `typedown.editor.fontFamily`, the tab is likely Zaaack (`markdown-editor.openEditor`) rather than TypeDown (`typedown.openWysiwygEditor`). In that case, `markdown-editor.customCss` is the correct knob.
 
@@ -271,6 +272,33 @@ Zaaack multi-file editor behavior is singleton by default. Root cause in `out/ex
 
 Working fix: patch `~/.vscode/extensions/zaaack.markdown-editor-0.1.13/out/extension.js` to maintain a per-file map (`EditorPanel.panelsByPath`) keyed by `uri.fsPath`, reveal existing panel for the same file, and dispose only that file's panel. This allows two different markdown files to stay open in Zaaack at the same time.
 
+Concrete patch shape in `EditorPanel`:
+
+```js
+static panelsByPath = new Map();
+
+static async createOrShow(context, uri) {
+  const fsPath = uri?.fsPath || vscode.window.activeTextEditor?.document.uri.fsPath;
+  const existingPanel = fsPath && EditorPanel.panelsByPath.get(fsPath);
+  if (existingPanel) {
+    existingPanel._panel.reveal(column);
+    return;
+  }
+
+  // create panel as before
+  const editorPanel = new EditorPanel(context, panel, extensionUri, doc, uri);
+  EditorPanel.panelsByPath.set(editorPanel._fsPath, editorPanel);
+}
+
+dispose() {
+  EditorPanel.panelsByPath.delete(this._fsPath);
+  this._panel.dispose();
+  ...
+}
+```
+
+Do not dispose some other file's panel inside `createOrShow`; that singleton teardown is the behavior that forces tab reuse.
+
 Important: preview settings (`workbench.editor.enablePreview*`, MPE `previewMode`) do not solve this by themselves because they control preview reuse, not Zaaack editor panel lifecycle.
 
 Patch caveat: extension updates overwrite patched files; reapply after each Zaaack update.
@@ -296,11 +324,11 @@ Cursor parity status:
   - `workbench.editor.enablePreviewFromQuickOpen=false`
   - `markdown-preview-enhanced.previewMode="Multiple Previews"`
   - `markdown-preview-enhanced.previewColorScheme="systemColorScheme"`
-  - `markdown.preview.fontSize=13`, `markdown.preview.lineHeight=1.2`
+  - `markdown.preview.fontSize=11`, `markdown.preview.lineHeight=1.2`
   - `typedown.editor.fontFamily` / `typedown.editor.fontSize`
   - `markdown-editor.customCss` override for proportional Zaaack editing font
 - Applied matching Cursor keybindings in `~/Library/Application Support/Cursor/User/keybindings.json`:
-  - `⇧⌘V -> markdown-preview-enhanced.openPreviewToTheSide`
+  - `⇧⌘V -> markdown-preview-enhanced.openPreview` (current tab group)
   - typedown / zaaack WYSIWYG shortcut swap parity with VS Code
 - Not patchable yet in Cursor on this machine: no installed `zaaack.markdown-editor-*` extension under `~/.cursor/extensions/`, so the singleton-to-multi-panel `out/extension.js` patch could not be applied there yet.
 
@@ -316,7 +344,9 @@ This makes the preview follow the active VS Code editor theme (and thus `window.
 
 ### Cmd+Shift+V → Markdown Preview Enhanced
 
-The built-in Markdown preview has broken intra-doc anchor links in some situations. Markdown Preview Enhanced (`shd101wyy.markdown-preview-enhanced`) handles them correctly. `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreviewToTheSide` so each use opens a side preview instead of replacing the current one.
+The built-in Markdown preview has broken intra-doc anchor links in some situations. Markdown Preview Enhanced (`shd101wyy.markdown-preview-enhanced`) handles them correctly. `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` so each use opens Enhanced preview in the current tab group.
+
+If rendered markdown in Zaaack still appears oversized after settings changes, patch `~/.vscode/extensions/zaaack.markdown-editor-0.1.13/out/extension.js` theme overrides from `font-size: 13px;` to `font-size: 11px !important;` and add matching `11px !important` for `.vditor-ir pre.vditor-reset` and `.vditor-sv`.
 
 ### Zaaack Markdown Editor Patches
 

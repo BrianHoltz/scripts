@@ -90,6 +90,8 @@ Skills useful on both laptops live canonically in relationship-shared (team owns
 
 **Re-read immediately before each write.** The file may have changed. In permit mode, `safewrite` exit 3 enforces this. In reviewed mode, re-read right before each Edit/Write call.
 
+Think about whether a change you encounter might be intentional and recent.
+
 Three rules for how to write:
 
 Files requiring the fhold protocol (expand this list as the protocol matures):

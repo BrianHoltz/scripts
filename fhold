@@ -15,15 +15,16 @@ SYNOPSIS
     fhold gc [--tag-root DIR]
 
 DESCRIPTION
-    If a given file is being updated by only one AI agent,
-    then the user wants to review the diff in their IDE.
-    But if the file is being updated by multiple AI agents,
-    then the user wants the agents to do parallel writes
-    without clobbering each other.
+    If a given file is being updated by only one AI agent, then the user wants
+    to review the diff in their IDE. But if the file is being updated by 
+    multiple AI agents, then IDE diff reviewing can clobber changes by other agents.
+    fhold allows agents to coordinate, so the user can review diffs when only
+    one agent is active on the file, but switch to safe unreviewed parallel writes
+    when multiple agents are active.
 
-    safewrite is a sibling utility that lets agents do parallel writes.
-    It enables agents to do parallel writes, at the price of
-    bypassing the system by which IDEs offer review of agent changes.
+    safewrite is a sibling utility that lets agents do such unreviewed parallel
+    writes.  It enables parallel writes, at the price of bypassing the fhold
+    system by which IDEs offer review of agent changes.
 
     fhold lets agents coordinate which mode to use. Agents
     register their intention about the file, detect when their intentions
@@ -47,13 +48,6 @@ DESCRIPTION
     Ephemeral; cleared on reboot.
 
     The author's practice is to apply fhold only to git-tracked markdown files.
-
-    fhold decides whether writes stay in review mode or switch to permit
-    mode; safewrite is the permit-mode writer that makes concurrent,
-    unreviewed writes safe via CAS locking.
-
-
-
 
 SUBCOMMANDS
     review register FILE  Tag FILE with review_hold. Atomic
@@ -165,6 +159,7 @@ EXAMPLES
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -456,8 +451,101 @@ def _default_agent() -> str:
 
 
 def show_usage() -> None:
-    # TODO: add colorization matching safewrite's style
-    sys.stdout.write(usage_msg)
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    ITALIC = "\033[3m"
+    CMD = "\033[1;34m"
+    FLAG = "\033[1;36m"
+    FS_VAR = "\033[32m"
+    FS_LIT = "\033[1;32m"
+    ARG_VAR = "\033[33m"
+    ARG_LIT = "\033[1;33m"
+    FF_VAR = "\033[35m"
+
+    section_titles = {
+        "NAME",
+        "SYNOPSIS",
+        "DESCRIPTION",
+        "SUBCOMMANDS",
+        "OPTIONS",
+        "EXIT CODES",
+        "MENU",
+        "EXAMPLES",
+    }
+
+    def cmd(s: str) -> str:
+        return f"{CMD}{s}{RESET}"
+
+    def flag(s: str) -> str:
+        return f"{FLAG}{s}{RESET}"
+
+    def fs_var(s: str) -> str:
+        return f"{FS_VAR}{UNDERLINE}{ITALIC}{s}{RESET}"
+
+    def fs_lit(s: str) -> str:
+        return f"{FS_LIT}{UNDERLINE}{s}{RESET}"
+
+    def arg_var(s: str) -> str:
+        return f"{ARG_VAR}{ITALIC}{s}{RESET}"
+
+    def arg_lit(s: str) -> str:
+        return f"{ARG_LIT}{s}{RESET}"
+
+    def ff_var(s: str) -> str:
+        return f"{FF_VAR}{ITALIC}{s}{RESET}"
+
+    command_words = ("fhold", "safewrite", "fakepath", "shasum", "awk")
+    fs_var_words = ("FILE", "DIR")
+    ff_var_words = ("ID", "TEXT", "TASK")
+    arg_var_words = ("SECS",)
+    fs_lits = ("/tmp/fhold.tags/",)
+
+    def _style_line(line: str) -> str:
+        if line.strip() in section_titles:
+            return f"{BOLD}{UNDERLINE}{line}{RESET}"
+
+        styled = line
+
+        # Protect filesystem literals from later regex-based styling.
+        literal_placeholders: dict[str, str] = {}
+        for idx, lit in enumerate(fs_lits):
+            placeholder = f"__FS_LIT_{idx}__"
+            if lit in styled:
+                styled = styled.replace(lit, placeholder)
+                literal_placeholders[placeholder] = fs_lit(lit)
+
+        # Commands.
+        for w in command_words:
+            styled = re.sub(rf"\b{re.escape(w)}\b", cmd(w), styled)
+
+        # Flags.
+        styled = re.sub(r"--[a-zA-Z0-9-]+", lambda m: flag(m.group(0)), styled)
+        styled = re.sub(r"(?<!\S)-[A-Za-z](?=[,\s]|$)", lambda m: flag(m.group(0)), styled)
+
+        # Placeholder variables by category.
+        for w in fs_var_words:
+            styled = re.sub(rf"\b{re.escape(w)}\b", fs_var(w), styled)
+        for w in ff_var_words:
+            styled = re.sub(rf"\b{re.escape(w)}\b", ff_var(w), styled)
+        for w in arg_var_words:
+            styled = re.sub(rf"\b{re.escape(w)}\b", arg_var(w), styled)
+
+        # Exit code literals.
+        styled = re.sub(r"(?<=\s)([0-9])(?=\s{2,})", lambda m: arg_lit(m.group(1)), styled)
+
+        # Restore filesystem literals after other substitutions.
+        for placeholder, rendered in literal_placeholders.items():
+            styled = styled.replace(placeholder, rendered)
+        return styled
+
+    for line in usage_msg.splitlines(keepends=True):
+        newline = ""
+        body = line
+        if line.endswith("\n"):
+            newline = "\n"
+            body = line[:-1]
+        sys.stdout.write(_style_line(body) + newline)
 
 
 def main() -> int:

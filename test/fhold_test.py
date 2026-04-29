@@ -210,6 +210,74 @@ def _test_raw_help_exits_0(tmpdir: Path, tag_root: str, details: list[str]) -> b
     return True
 
 
+def _test_help_is_colorized(tmpdir: Path, tag_root: str, details: list[str]) -> bool:
+    """-h should include ANSI color sequences."""
+    r = run_fhold("-h")
+    details.append(f"exit={r.returncode} stdout_len={len(r.stdout)}")
+    if r.returncode != 0:
+        details.append(f"expected exit 0, got {r.returncode}")
+        return False
+    if b"\x1b[" not in r.stdout:
+        details.append("expected ANSI escapes in -h output")
+        return False
+    return True
+
+
+def _test_raw_help_is_not_colorized(tmpdir: Path, tag_root: str, details: list[str]) -> bool:
+    """-H should not include ANSI color sequences."""
+    r = run_fhold("-H")
+    details.append(f"exit={r.returncode} stdout_len={len(r.stdout)}")
+    if r.returncode != 0:
+        details.append(f"expected exit 0, got {r.returncode}")
+        return False
+    if b"\x1b[" in r.stdout:
+        details.append("did not expect ANSI escapes in -H output")
+        return False
+    return True
+
+
+def _test_help_and_raw_help_match_when_stripped(tmpdir: Path, tag_root: str, details: list[str]) -> bool:
+    """-h text should match -H text after stripping ANSI escapes."""
+    rh = run_fhold("-h")
+    rr = run_fhold("-H")
+    details.append(f"-h exit={rh.returncode} -H exit={rr.returncode}")
+    if rh.returncode != 0 or rr.returncode != 0:
+        details.append("expected both -h and -H to exit 0")
+        return False
+
+    h_clean = strip_ansi(rh.stdout)
+    if h_clean != rr.stdout:
+        details.append("-h output (ANSI-stripped) differs from -H output")
+        details.append(f"stripped_h_len={len(h_clean)} raw_len={len(rr.stdout)}")
+        return False
+    return True
+
+
+def _test_help_follows_manpagerules_colors(tmpdir: Path, tag_root: str, details: list[str]) -> bool:
+    """-h should include the ManPageRules color classes used in fhold usage."""
+    r = run_fhold("-h")
+    if r.returncode != 0:
+        details.append(f"expected exit 0, got {r.returncode}")
+        return False
+
+    out = r.stdout
+
+    checks = [
+        (rb"\x1b\[1;34mfhold\x1b\[0m", "command style for fhold (bold DodgerBlue)"),
+        (rb"\x1b\[1;36m--agent\x1b\[0m", "flag style for --agent (DeepSkyBlue)"),
+        (rb"\x1b\[32m\x1b\[4m\x1b\[3mFILE\x1b\[0m", "filesystem variable style for FILE"),
+        (rb"\x1b\[1;32m\x1b\[4m/tmp/fhold\.tags/\x1b\[0m", "filesystem literal style for /tmp/fhold.tags/"),
+        (rb"\x1b\[35m\x1b\[3mID\x1b\[0m", "freeform variable style for ID"),
+    ]
+
+    for pattern, label in checks:
+        if not re.search(pattern, out):
+            details.append(f"missing style: {label}")
+            return False
+
+    return True
+
+
 def _test_no_args_exits_1(tmpdir: Path, tag_root: str, details: list[str]) -> bool:
     """No arguments should exit 1 (usage error)."""
     r = run_fhold(tag_root=tag_root)
@@ -980,6 +1048,10 @@ TESTS = [
     # Help & usage
     ("-h exits 0 with usage",                          _test_help_exits_0),
     ("-H exits 0 with raw usage",                      _test_raw_help_exits_0),
+    ("-h output is colorized",                         _test_help_is_colorized),
+    ("-H output is plain text",                        _test_raw_help_is_not_colorized),
+    ("-h stripped matches -H",                         _test_help_and_raw_help_match_when_stripped),
+    ("-h follows ManPageRules color classes",          _test_help_follows_manpagerules_colors),
     ("no args exits 1",                                _test_no_args_exits_1),
     ("invalid subcommand exits 1",                     _test_invalid_subcommand_exits_1),
 

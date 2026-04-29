@@ -30,9 +30,11 @@ DESCRIPTION
     A lock held by a crashed writer (heartbeat older than --ttl seconds) is
     automatically broken and the stale owner and note are logged to stderr.
 
-    fhold decides whether writes stay in review mode or switch to permit
-    mode; safewrite is the permit-mode writer that makes concurrent,
-    unreviewed writes safe via CAS locking.
+    fhold is a sibling utility that lets agents coordinate whether
+    1) only one agent is active on the file and thus IDE diff reviews are possible, or
+    2) multiple agents are active and thus safe unreviewed parallel writes are the
+    best option. (IDE diff reviewing can clobber changes by other agents, but 
+    safewrite's CAS locking makes parallel writes safe.)
 
 ARGUMENTS
     TARGET                File to write (created if it does not exist)
@@ -382,9 +384,11 @@ def show_usage() -> None:
     W(f"    A lock held by a crashed writer (heartbeat older than {flag('--ttl')} seconds) is{NL}")
     W(f"    automatically broken and the stale owner and note are logged to stderr.{NL}")
     W(NL)
-    W(f"    fhold decides whether writes stay in review mode or switch to permit{NL}")
-    W(f"    mode; safewrite is the permit-mode writer that makes concurrent,{NL}")
-    W(f"    unreviewed writes safe via CAS locking.{NL}")
+    W(f"    fhold is a sibling utility that lets agents coordinate whether{NL}")
+    W(f"    1) only one agent is active on the file and thus IDE diff reviews are possible, or{NL}")
+    W(f"    2) multiple agents are active and thus safe unreviewed parallel writes are the{NL}")
+    W(f"    best option. (IDE diff reviewing can clobber changes by other agents, but {NL}")
+    W(f"    safewrite's CAS locking makes parallel writes safe.){NL}")
     W(NL)
 
     section("ARGUMENTS")
