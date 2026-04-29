@@ -11,7 +11,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 
 ## Table of Contents
 
-- [The Four Commandments](#the-four-commandments)
+- [The Three Commandments](#the-three-commandments)
 - [~/bin/ structure](#bin-structure)
   - [~/bin/ vs relationship-shared/](#bin-vs-relationship-shared)
 - [Write Rules](#write-rules)
@@ -33,17 +33,11 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
   - [Custom Commands](#custom-commands)
     - [Project-Level Commands](#project-level-commands)
 
-## The Four Commandments
+## The Three Commandments
 
 - Be terse: from chapters to words, omit or condense until meaning changes.
 - Every file write must follow the [Write Rules](#write-rules).
 - Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing git or Confluence operations.
-- Ask permission before touching >10 files. This count includes all writes, moves, renames, and deletions, across all directories. **Exceptions — no permission needed, ever, for:**
-  - Any operation (read, write, create, delete, bulk-delete) on anything inside these directories at any depth — **no confirmation, no counting, no hesitation:**
-    - `/tmp/` — system temp; freely disposable. This is the most common scratch space. NEVER ask permission here.
-    - `tmp/` — project-local scratch; same rule.
-    - `target/classes/` — build output
-  - Reversible git operations (add, commit, revert, reset, rebase) that can be undone without data loss
 
 ## ~/bin/ structure
 
