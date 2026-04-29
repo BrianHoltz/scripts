@@ -289,3 +289,35 @@ brew install oven-sh/bun/bun
 ## Notes
 
 - `brew list` on work Mac = deps-included; only manually install the named formulae above (deps pull automatically)
+
+## 2026.04.28 Run Status (Copilot)
+
+Completed in this run:
+
+- Homebrew casks installed and registered: `google-chrome`, `firefox`, `cursor`, `jetbrains-toolbox`, `stats`, `tableplus`, `github`, `postman`, `slack`, `zoom`, `google-drive`, `claude`, `discord`, `signal`, `vlc`, `plex`, `libreoffice`, `kiwix`, `simple-comic`, `google-earth-pro`, `emacs-app`, `vysor`
+- Homebrew formulae installed: `git-filter-repo`, `jq`, `node`, `python@3.13`, `parallel`, `netcat`, `pstree`, `sqlite`, `rdiff-backup`, `d2`, `ffmpeg`, `openai-whisper`
+- `@anthropic-ai/claude-code` installed globally and verified
+- Playwright Chromium runtime installed for `~/bin/.venv`
+- VS Code settings/keybindings updated (including agent permission knobs)
+- Cursor settings/keybindings updated to match VS Code behavior
+- VS Code TypeDown + Zaaack patches applied
+- Cursor extension set installed (except GitHub Copilot/Copilot Chat IDs; see learnings)
+- SSH keychain-based auth behavior configured and verified (`git pull` without repeated passphrase prompt)
+
+Manual-only items still outside Copilot automation scope:
+
+- App Store / vendor installs in "Manual: Additional Apps"
+- JetBrains Toolbox follow-up UI actions (install IDEA, apply IntelliJ-specific settings)
+
+## Install Learnings (Personal Mac)
+
+- Some casks unexpectedly invoke `sudo` even when they look like app-bundle installs (observed during this run: `zoom`, `google-drive`, and overwrite paths for `kiwix`/`simple-comic`).
+- Avoid broad `--force` batches when possible. Prefer normal install first, then targeted single-cask retries for failures.
+- If a cask says "already installed" but app bundle presence is unclear, verify both cask registry and filesystem state:
+
+```sh
+brew list --cask | grep -E 'zoom|simple-comic|google-drive'
+ls -ld /Applications/zoom.us.app /Applications/Simple\ Comic.app /Applications/Google\ Drive.app
+```
+
+- Cursor CLI accepted most extension IDs but rejected `github.copilot` and `github.copilot-chat` with "not found" in this environment. Treat those two as optional in Cursor unless marketplace support changes.
