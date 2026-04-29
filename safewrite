@@ -30,6 +30,10 @@ DESCRIPTION
     A lock held by a crashed writer (heartbeat older than --ttl seconds) is
     automatically broken and the stale owner and note are logged to stderr.
 
+    fhold decides whether writes stay in review mode or switch to permit
+    mode; safewrite is the permit-mode writer that makes concurrent,
+    unreviewed writes safe via CAS locking.
+
 ARGUMENTS
     TARGET                File to write (created if it does not exist)
 
@@ -377,6 +381,10 @@ def show_usage() -> None:
     W(f"    All cooperating agents must use the same {flag('--lock-root')} to rendezvous.{NL}")
     W(f"    A lock held by a crashed writer (heartbeat older than {flag('--ttl')} seconds) is{NL}")
     W(f"    automatically broken and the stale owner and note are logged to stderr.{NL}")
+    W(NL)
+    W(f"    fhold decides whether writes stay in review mode or switch to permit{NL}")
+    W(f"    mode; safewrite is the permit-mode writer that makes concurrent,{NL}")
+    W(f"    unreviewed writes safe via CAS locking.{NL}")
     W(NL)
 
     section("ARGUMENTS")

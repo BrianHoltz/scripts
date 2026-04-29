@@ -48,6 +48,10 @@ DESCRIPTION
 
     The author's practice is to apply fhold only to git-tracked markdown files.
 
+    fhold decides whether writes stay in review mode or switch to permit
+    mode; safewrite is the permit-mode writer that makes concurrent,
+    unreviewed writes safe via CAS locking.
+
 
 
 
