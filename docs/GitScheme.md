@@ -34,7 +34,7 @@ Interpretation:
 
 ### Phase 1: Reconnect `~/My Drive` to its git dir
 
-Repair the stale pointer first so `~/My Drive` is a working repo again:
+Repair the stale `.git` pointer (currently points to `/Users/b0h0166/gitdirs/gdrive`, which does not exist on this laptop):
 
 ```bash
 mkdir -p ~/gitdirs
@@ -52,47 +52,61 @@ git --git-dir="$HOME/gitdirs/gdrive" --work-tree="$HOME/My Drive" status
 git --git-dir="$HOME/gitdirs/gdrive" --work-tree="$HOME/My Drive" remote -v
 ```
 
-### Phase 2: Migrate history from `Documents` old root to `My Drive`
+### Phase 2: Migrate history from `Documents` into `My Drive`
 
-Goal: preserve commit ancestry for former `Google Drive/*` files while making `~/My Drive/*` canonical.
+**Why it matters**: 22 files worth tracking; the high-value ones have deep history in `Documents`:
+`FamilyEncyclopedia.md`=155 commits, `Log Family.txt`=48, `Log Holtzes.md`=12, `FamilyTree.md`=19, etc.
+
+**Pre-verified**: all 7 files that differ between old snapshot and current `~/My Drive` have been diff-reviewed; `~/My Drive` is newer in every case. `-X ours` is confirmed safe.
+
+**Why `git subtree split` failed in testing**: the space in `"Google Drive"` causes the git subtree command to misparse the prefix even when quoted. Use `git filter-repo` instead (reliable with spaces):
 
 ```bash
-# 1) In Documents repo, create a history branch only for the old subdir.
-cd ~/Documents
-git subtree split --prefix='Google Drive' -b migrate/gdrive-history
+# 0) Ensure git-filter-repo is available.
+pip install git-filter-repo 2>/dev/null || brew install git-filter-repo
 
-# 2) In My Drive repo, import that history branch.
+# 1) Create filtered clone of Documents with only the Google Drive subtree.
+TMP=$(mktemp -d)
+git clone /Users/brian/Documents "$TMP/docs-filtered"
+cd "$TMP/docs-filtered"
+git filter-repo --subdirectory-filter "Google Drive" --force
+# Result: commits now have files at root (FamilyDocuments/...), matching My Drive layout.
+
+# 2) Fetch from filtered clone into My Drive repo.
 cd ~/My\ Drive
-git remote add documents-local ~/Documents 2>/dev/null || true
-git fetch documents-local migrate/gdrive-history
+git remote add docs-filtered-local "$TMP/docs-filtered" 2>/dev/null || true
+git fetch docs-filtered-local
 
-# 3) Merge histories; prefer current My Drive content on conflicts.
-git merge --allow-unrelated-histories -X ours --no-ff documents-local/migrate/gdrive-history \
+# 3) Merge with -X ours (safe: all 7 conflict files verified, My Drive is newer).
+git merge --allow-unrelated-histories -X ours --no-ff docs-filtered-local/main \
   -m 'chore: import legacy Google Drive history from Documents repo'
+
+# 4) Cleanup temp remote.
+git remote remove docs-filtered-local
+rm -rf "$TMP"
 ```
 
-Notes:
-
-- `-X ours` keeps current `~/My Drive` file content if conflicts occur while still bringing in history graph.
-- After this, `git log --follow -- <path>` in `~/My Drive` should show legacy ancestry for migrated files.
+After this, `git log --follow -- FamilyDocuments/FamilyEncyclopedia.md` in `~/My Drive` will show the full 155-commit ancestry.
 
 ### Phase 3: Clean up `Documents` repo
 
 After Phase 2 is verified:
 
-- Keep non-Drive files in `~/Documents` as-is (for example `HoltzDotOrg/...`).
-- Commit expected `Google Drive/*` removals in `~/Documents` with a clear migration message.
-- Push `~/Documents` and `~/My Drive`.
+- Commit the expected `Google Drive/*` deletions in `~/Documents` (all files migrated to `~/My Drive`).
+- Keep `HoltzDotOrg/...` and other non-Drive content untouched.
+- Push both repos.
 
-Suggested commit message in `~/Documents`:
+Commit message for `~/Documents`:
 
-- `chore: remove obsolete Google Drive path after migration to ~/My Drive`
+```
+chore: remove stale Google Drive path — files migrated to ~/My Drive repo
+```
+
+Also commit the blogtoc.js modification visible in the Source Control panel.
 
 ### Phase 4: Unified no-src workspace
 
-Create one workspace file (local to laptop) that includes all census repos except `~/src/*`.
-
-Recommended location: `~/Workspaces-no-src.code-workspace`
+Create `~/Workspaces-no-src.code-workspace` (local to laptop, not tracked in any repo):
 
 ```json
 {
@@ -100,7 +114,6 @@ Recommended location: `~/Workspaces-no-src.code-workspace`
     { "path": "bin", "name": "scripts" },
     { "path": "Documents", "name": "Documents" },
     { "path": "My Drive", "name": "gdrive" },
-    { "path": "My Drive/LP SCC Financial", "name": "lpscc" },
     { "path": "Documents/HoltzDotOrg/Thoughts/wiki", "name": "wiki" }
   ],
   "settings": {
@@ -109,7 +122,10 @@ Recommended location: `~/Workspaces-no-src.code-workspace`
 }
 ```
 
-If `LP SCC Financial` is not mounted on a given laptop, remove that folder entry from the local copy.
+Notes:
+- Paths are relative to `$HOME`. VS Code resolves them from the workspace file location only when the file is at `~/`; otherwise use absolute paths.
+- LPSCC omitted until the shared Drive folder path is confirmed on this laptop.
+- `src/*` intentionally excluded per requirements.
 
 ## Operating Rules (Carry Forward)
 
