@@ -13,6 +13,7 @@
 - Agents see across all repos in one VS Code window.
 - Minimize Explorer panes; exclude `src/*`.
 - Back up lpscc to a private GitHub repo, with workspace root at `LP SCC Financial/` level.
+- **Work laptop access (read-only in practice):** On the work laptop, VPN off allows Drive to sync `~/My Drive` in mirror mode — fine for reading. Any edits made that way bypass git entirely (no history, no merge tracking). Google Drive's conflict resolution creates a duplicate file named "filename (Conflicted copy ...)" rather than merging; it cannot reconcile those with git. Treat Drive-mirror access as read-only; all real edits go through a git commit on the personal laptop.
 
 ## Workspace Architecture (North Star)
 
