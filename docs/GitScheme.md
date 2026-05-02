@@ -35,7 +35,9 @@ The appeal: `~/Documents` as a root would show `bin/` as a subfolder, reducing E
 - The gain is one fewer Explorer pane. The Explorer pane count is not actually painful at 4.
 - Source Control pane count is unchanged regardless — you still have one section per repo.
 
-**Verdict: keep `~/bin/` where it is.**
+**Verdict: keep `~/bin/` where it is, and keep it as a separate workspace root.**
+
+The real case for a separate `bin/` root is not filesystem layout — it's that `~/bin/` is actively edited on both laptops while the other roots are personal-laptop-only. A separate root makes it easy to open `~/bin/` alone on the work laptop without pulling in `Documents`, `My Drive`, or LPSCC. Collapsing it into `Documents` would save one Explorer pane but cost that flexibility.
 
 ### Recommended North Star: 4-root workspace
 
@@ -58,12 +60,14 @@ If you ever find 4 panes annoying, the path to 3 is: accept that `~/Documents` s
 
 ## Repo Census (Current State)
 
-- `scripts`: `~/bin` (in-tree `.git`), `BrianHoltz/scripts` (public). ✅ fully operational
-- `Documents`: `~/Documents` (in-tree `.git`), `BrianHoltz/Documents`. ✅ has remote; needs Phase 3 cleanup commit
-- `gdrive`: working tree `~/My Drive`, git dir broken pointer → needs Phase 1 repair; `BrianHoltz/gdrive` exists on GitHub
-- `lpscc`: working tree `LP SCC Financial/Admin/`, git dir `~/.git-lpscc-admin`, 23 commits, **no remote yet**
-- `wiki`: nested repo at `~/Documents/HoltzDotOrg/Thoughts/wiki`, remote unknown
-- `src/*`: excluded from workspace
+| Repo | Working tree | Git dir | Remote | Laptops | Status |
+| --- | --- | --- | --- | --- | --- |
+| `scripts` | `~/bin` | in-tree | `BrianHoltz/scripts` public | personal + work | ✅ operational |
+| `Documents` | `~/Documents` | in-tree | `BrianHoltz/Documents` private | personal | ✅ has remote; needs Phase 3 cleanup |
+| `gdrive` | `~/My Drive` | `~/gitdirs/gdrive` | `BrianHoltz/gdrive` private | personal | ⚠️ pointer broken; needs Phase 1 |
+| `lpscc` | `LP SCC Financial/Admin/` | `~/.git-lpscc-admin` | none yet | personal | 🔴 no remote; needs Phase 5 |
+| `wiki` | `~/Documents/HoltzDotOrg/Thoughts/wiki` | in-tree | unknown | personal | ❓ verify remote |
+| `src/*` | `~/src/<name>` | in-tree | GitHub | work | excluded from workspace |
 
 ## Plan
 
