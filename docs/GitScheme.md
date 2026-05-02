@@ -2,33 +2,68 @@
 
 ## Snapshot (2026.05.02)
 
-What is true right now:
-
-- `~/Documents` is a git repo on `main` with `origin=git@github.com:BrianHoltz/Documents.git`.
-- The many `D` entries under `Google Drive/...` are expected path deletions because `~/Documents/Google Drive` no longer exists.
-- Every one of those deleted tracked files exists in `~/My Drive/...` at the same relative path minus the `Google Drive/` prefix.
-- `~/My Drive` contains a `.git` pointer file, but it points to `/Users/b0h0166/gitdirs/gdrive` (old laptop username path), which does not exist here.
-- `BrianHoltz/gdrive` exists on GitHub.
-
-Interpretation:
-
-- This is not content loss. It is a path migration plus a stale `--separate-git-dir` pointer after laptop restore.
+- `~/Documents`: git repo on `main`, `origin=github.com:BrianHoltz/Documents.git`. The 22 `D` entries under `Google Drive/...` are expected — that directory no longer exists, but all 22 files are present in `~/My Drive` at the same relative paths. Not data loss; path migration.
+- `~/My Drive`: has a `.git` pointer file, but it points to `/Users/b0h0166/gitdirs/gdrive` (old laptop username). `BrianHoltz/gdrive` exists on GitHub. Needs pointer repair.
+- `lpscc`: gitdir survived at `~/.git-lpscc-admin`, 23 commits, no remote (never backed up). Worktree: `LP SCC Financial/Admin/`. Pending: `.txt`→`.md` renames committed 2026.05.02. **Urgent: needs GitHub remote.**
 
 ## Requirements (Confirmed)
 
 - Establish the new long-term git scheme.
-- Preserve and migrate history for prior `~/Documents/Google Drive/*` tracked files into the `~/My Drive` repo.
-- Keep `~/Documents` history intact.
-- Use a `.code-workspace` setup so one VS Code window can see all repos in this census except `~/src/*`.
+- Migrate `Documents/Google Drive/*` history into `~/My Drive` repo (FamilyEncyclopedia.md=155 commits, Log Family.txt=48, etc — worth preserving).
+- Agents see across all repos in one VS Code window.
+- Minimize Explorer panes; exclude `src/*`.
+- Back up lpscc to a private GitHub repo, with workspace root at `LP SCC Financial/` level.
 
-## Repo Census (Target)
+## Workspace Architecture (North Star)
 
-- `scripts`: `~/bin` (in-tree `.git`), remote `BrianHoltz/scripts`.
-- `Documents`: `~/Documents` (in-tree `.git`), remote `BrianHoltz/Documents`.
-- `gdrive`: working tree `~/My Drive`, git dir `~/gitdirs/gdrive` (separate git dir), remote `BrianHoltz/gdrive`.
-- `lpscc`: shared Drive folder (path TBD), git dir `~/gitdirs/lpscc` (separate git dir), private remote.
-- `wiki`: nested repo at `~/Documents/HoltzDotOrg/Thoughts/wiki`.
-- `src/*`: intentionally excluded from the unified workspace file.
+### How VS Code multi-root workspaces actually work
+
+- Each `"folders"` entry in `.code-workspace` → one Explorer root pane. Four entries = four panes.
+- Nested git repos (repos inside a folder root) appear as subfolders in Explorer — no extra pane.
+- Source Control sidebar: one section per repo, regardless of Explorer layout. Five repos = five Source Control sections, whether you have 1 folder root or 5.
+- `git.autoRepositoryDetection: "openEditors"` suppresses phantom repo detection noise.
+
+### Should `~/bin/` move under `~/Documents/`?
+
+The appeal: `~/Documents` as a root would show `bin/` as a subfolder, reducing Explorer panes from 4 to 3.
+
+**Reasons not to do it:**
+
+- `~/bin/` is load-bearing infrastructure. `$PATH`, `~/.claude/CLAUDE.md`, `~/.cursor/cursorrules`, per-repo `.github/copilot-instructions.md` symlinks, and shell rc files all hardcode or resolve `~/bin/`. The symlink would work for `$PATH` but every agent or script that calls `~/bin/fhold`, `~/bin/safewrite`, etc. resolves the symlink at call time — fragile if the symlink ever breaks.
+- Every new laptop restore requires: clone bin → put it in the right place → create symlink → verify PATH. Currently it is: clone bin → done.
+- `~/Documents` is a git repo. Putting a separate git repo inside it means Documents must gitignore `bin/`. Any mistake in that gitignore silently leaks private paths into the public `scripts` repo or noise into `Documents`.
+- The gain is one fewer Explorer pane. The Explorer pane count is not actually painful at 4.
+- Source Control pane count is unchanged regardless — you still have one section per repo.
+
+**Verdict: keep `~/bin/` where it is.**
+
+### Recommended North Star: 4-root workspace
+
+```
+~/Workspaces-no-src.code-workspace   (local to laptop, not in any git repo)
+
+Roots:
+  ~/My Drive          → gdrive repo (separate git dir at ~/gitdirs/gdrive)
+  ~/Documents         → Documents repo + wiki nested repo
+  LP SCC Financial/   → lpscc repo (git dir at ~/.git-lpscc-admin)
+  ~/bin               → scripts repo
+
+Excluded by design:
+  ~/src/*             → too many repos, work-laptop-specific
+```
+
+This gives 4 Explorer panes and agents can search/edit across all of them. Source Control shows 4 sections (gdrive, Documents, lpscc, scripts) plus wiki as a 5th when it has changes.
+
+If you ever find 4 panes annoying, the path to 3 is: accept that `~/Documents` shows `bin/` as a plain subfolder (not a git root pane) by symlinking, with the known caveats above.
+
+## Repo Census (Current State)
+
+- `scripts`: `~/bin` (in-tree `.git`), `BrianHoltz/scripts` (public). ✅ fully operational
+- `Documents`: `~/Documents` (in-tree `.git`), `BrianHoltz/Documents`. ✅ has remote; needs Phase 3 cleanup commit
+- `gdrive`: working tree `~/My Drive`, git dir broken pointer → needs Phase 1 repair; `BrianHoltz/gdrive` exists on GitHub
+- `lpscc`: working tree `LP SCC Financial/Admin/`, git dir `~/.git-lpscc-admin`, 23 commits, **no remote yet**
+- `wiki`: nested repo at `~/Documents/HoltzDotOrg/Thoughts/wiki`, remote unknown
+- `src/*`: excluded from workspace
 
 ## Plan
 
@@ -111,10 +146,22 @@ Create `~/Workspaces-no-src.code-workspace` (local to laptop, not tracked in any
 ```json
 {
   "folders": [
-    { "path": "bin", "name": "scripts" },
-    { "path": "Documents", "name": "Documents" },
-    { "path": "My Drive", "name": "gdrive" },
-    { "path": "Documents/HoltzDotOrg/Thoughts/wiki", "name": "wiki" }
+    {
+      "path": "/Users/brian/My Drive",
+      "name": "gdrive"
+    },
+    {
+      "path": "/Users/brian/Documents",
+      "name": "Documents"
+    },
+    {
+      "path": "/Users/brian/Library/CloudStorage/GoogleDrive-brianholtz1965@gmail.com/Shared drives/LP SCC Financial",
+      "name": "lpscc"
+    },
+    {
+      "path": "/Users/brian/bin",
+      "name": "scripts"
+    }
   ],
   "settings": {
     "git.autoRepositoryDetection": "openEditors"
@@ -123,9 +170,26 @@ Create `~/Workspaces-no-src.code-workspace` (local to laptop, not tracked in any
 ```
 
 Notes:
-- Paths are relative to `$HOME`. VS Code resolves them from the workspace file location only when the file is at `~/`; otherwise use absolute paths.
-- LPSCC omitted until the shared Drive folder path is confirmed on this laptop.
-- `src/*` intentionally excluded per requirements.
+- Absolute paths used throughout because LP SCC Financial lives outside `$HOME` and relative paths would be unreliable.
+- LPSCC root is `LP SCC Financial/` (not `Admin/`); VS Code will detect the nested git repo in `Admin/` via autoRepositoryDetection.
+- `src/*` intentionally excluded.
+- `wiki` not listed as a root — it is nested inside `Documents/` so it appears as a subfolder in Explorer and as a separate section in Source Control automatically.
+
+### Phase 5: Back up lpscc to GitHub
+
+The gitdir at `~/.git-lpscc-admin` has 23 commits and no remote. This is urgent — it has never been backed up.
+
+```bash
+GITDIR=/Users/brian/.git-lpscc-admin
+WORKTREE="/Users/brian/Library/CloudStorage/GoogleDrive-brianholtz1965@gmail.com/Shared drives/LP SCC Financial/Admin"
+
+# Create private repo and push full history.
+gh repo create lpscc --private
+git --git-dir="$GITDIR" remote add origin git@github.com:BrianHoltz/lpscc.git
+git --git-dir="$GITDIR" push -u origin main
+```
+
+Note: the git worktree is currently `Admin/` (matching all tracked file paths). The VS Code workspace root is one level up at `LP SCC Financial/` — these are independent and both correct.
 
 ## Operating Rules (Carry Forward)
 
@@ -136,12 +200,11 @@ Notes:
 
 ## Execution Order
 
-Do this in order:
-
-1. Phase 1 pointer repair for `~/My Drive`.
-2. Phase 2 history import from `~/Documents` into `~/My Drive`.
-3. Validate history on representative files.
-4. Phase 3 cleanup commit in `~/Documents`.
-5. Build/update `~/Workspaces-no-src.code-workspace`.
+1. Phase 1: repair `~/My Drive` git pointer
+2. Phase 2: import history from `Documents` into `~/My Drive`
+3. Validate: `git log --follow -- FamilyDocuments/FamilyEncyclopedia.md` in `~/My Drive`
+4. Phase 3: cleanup commit in `~/Documents`, push both repos
+5. Phase 4: create `~/Workspaces-no-src.code-workspace`, open it
+6. Phase 5: push lpscc to GitHub (**urgent — no backup exists**)
 
 Last updated: 2026.05.02
