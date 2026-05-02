@@ -4,7 +4,7 @@
 
 - `~/Documents`: git repo on `main`, `origin=github.com:BrianHoltz/Documents.git`. The 22 `D` entries under `Google Drive/...` are expected — that directory no longer exists, but all 22 files are present in `~/My Drive` at the same relative paths. Not data loss; path migration.
 - `~/My Drive`: has a `.git` pointer file, but it points to `/Users/b0h0166/gitdirs/gdrive` (old laptop username). `BrianHoltz/gdrive` exists on GitHub. Needs pointer repair.
-- `lpscc`: gitdir survived at `~/.git-lpscc-admin`, 23 commits, no remote (never backed up). Worktree: `LP SCC Financial/Admin/`. Pending: `.txt`→`.md` renames committed 2026.05.02. **Urgent: needs GitHub remote.**
+- `lpscc`: gitdir survived at `~/.git-lpscc-admin`, 23 commits, no remote (never backed up). Worktree: `LP SCC Financial/Admin/`. Pending: `.txt`→`.md` renames committed 2026.05.02. **Urgent: needs GitHub remote.** Will be moved to `~/gitdirs/lpscc`.
 
 ## Requirements (Confirmed)
 
@@ -47,7 +47,7 @@ The real case for a separate `bin/` root is not filesystem layout — it's that 
 Roots:
   ~/My Drive          → gdrive repo (separate git dir at ~/gitdirs/gdrive)
   ~/Documents         → Documents repo + wiki nested repo
-  LP SCC Financial/   → lpscc repo (git dir at ~/.git-lpscc-admin)
+  LP SCC Financial/   → lpscc repo (git dir at ~/gitdirs/lpscc)
   ~/bin               → scripts repo
 
 Excluded by design:
@@ -65,9 +65,9 @@ If you ever find 4 panes annoying, the path to 3 is: accept that `~/Documents` s
 | `scripts` | `~/bin` | in-tree | `BrianHoltz/scripts` public | personal + work | ✅ operational |
 | `Documents` | `~/Documents` | in-tree | `BrianHoltz/Documents` private | personal | ✅ has remote; needs Phase 3 cleanup |
 | `gdrive` | `~/My Drive` | `~/gitdirs/gdrive` | `BrianHoltz/gdrive` private | personal | ⚠️ pointer broken; needs Phase 1 |
-| `lpscc` | `LP SCC Financial/Admin/` | `~/.git-lpscc-admin` | none yet | personal | 🔴 no remote; needs Phase 5 |
+| `lpscc` | `LP SCC Financial/Admin/` | `~/gitdirs/lpscc` | none yet | personal | 🔴 no remote; needs Phase 5 |
 | `wiki` | `~/Documents/HoltzDotOrg/Thoughts/wiki` | in-tree | unknown | personal | ❓ verify remote |
-| `src/*` | `~/src/<name>` | in-tree | GitHub | work | excluded from workspace |
+| `src/*` | `~/src/<name>` | in-tree | GitHub public | personal | excluded from workspace |
 
 ## Plan
 
@@ -181,16 +181,25 @@ Notes:
 
 ### Phase 5: Back up lpscc to GitHub
 
-The gitdir at `~/.git-lpscc-admin` has 23 commits and no remote. This is urgent — it has never been backed up.
+The gitdir survived at `~/.git-lpscc-admin` (23 commits, no remote). First move it to the canonical location, then push.
 
 ```bash
-GITDIR=/Users/brian/.git-lpscc-admin
 WORKTREE="/Users/brian/Library/CloudStorage/GoogleDrive-brianholtz1965@gmail.com/Shared drives/LP SCC Financial/Admin"
 
-# Create private repo and push full history.
+# 1) Move gitdir to canonical location.
+mkdir -p ~/gitdirs
+mv ~/.git-lpscc-admin ~/gitdirs/lpscc
+
+# 2) Update core.worktree in the moved gitdir.
+git --git-dir=~/gitdirs/lpscc config core.worktree "$WORKTREE"
+
+# 3) Validate.
+git --git-dir=~/gitdirs/lpscc --work-tree="$WORKTREE" status
+
+# 4) Create private GitHub repo and push full history.
 gh repo create lpscc --private
-git --git-dir="$GITDIR" remote add origin git@github.com:BrianHoltz/lpscc.git
-git --git-dir="$GITDIR" push -u origin main
+git --git-dir=~/gitdirs/lpscc remote add origin git@github.com:BrianHoltz/lpscc.git
+git --git-dir=~/gitdirs/lpscc push -u origin main
 ```
 
 Note: the git worktree is currently `Admin/` (matching all tracked file paths). The VS Code workspace root is one level up at `LP SCC Financial/` — these are independent and both correct.
