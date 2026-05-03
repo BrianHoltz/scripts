@@ -1,12 +1,12 @@
 # GitScheme.md - Repo Organization Plan
 
-## Snapshot (2026.05.02 — all phases complete)
+## Snapshot (2026.05.02 final)
 
 - `~/Documents`: clean. `Google Drive/` subtree removed (migrated to `~/My Drive`). `.gitignore` pruned of dead Google Drive rules.
-- `~/My Drive`: git pointer repaired → `~/gitdirs/gdrive`. Legacy Documents history imported via `git filter-repo` (322 commits). Pushed to `BrianHoltz/gdrive`.
-- `lpscc`: gitdir moved to `~/gitdirs/lpscc`. Pushed to `BrianHoltz/lpscc` (private, 23 commits).
+- `~/My Drive`: git pointer repaired → `~/gitdirs/gdrive`. Legacy Documents history imported via `git filter-repo` (322 commits). Pushed to `BrianHoltz/gdrive`. ✅ Working.
+- `lpscc`: gitdir at `~/gitdirs/lpscc`, worktree at `LP SCC Financial/` (parent folder). All 23 commits preserved with paths rewritten to Admin/*. Pushed to `BrianHoltz/lpscc`. ✅ Working, ready for future expansion.
 - `wiki`: re-cloned from `BrianHoltz/wiki` after local object-store corruption (crash on 2025.12.06). Corrupt copy archived at `wiki.corrupt.20260502`.
-- `~/Workspaces-no-src.code-workspace`: created with 4 roots (gdrive, Documents, LPSCC, bin).
+- `~/Personal.code-workspace`: multi-root workspace with 4 roots (GDrive, Documents, LPSCC, bin). Git detection set to `subFolders` for nested repo visibility.
 
 ## Requirements (Confirmed)
 
@@ -45,16 +45,18 @@ The real case for a separate `bin/` root is not filesystem layout — it's that 
 ### Recommended North Star: 4-root workspace
 
 ```
-~/Workspaces-no-src.code-workspace   (local to laptop, not in any git repo)
+~/Personal.code-workspace   (local to laptop, not in any git repo)
 
 Roots:
   ~/My Drive          → gdrive repo (separate git dir at ~/gitdirs/gdrive)
   ~/Documents         → Documents repo + wiki nested repo
-  LP SCC Financial/   → lpscc repo (git dir at ~/gitdirs/lpscc)
+  LP SCC Financial/   → lpscc repo (git dir at ~/gitdirs/lpscc), Admin/ tracked
   ~/bin               → scripts repo
 
 Excluded by design:
   ~/src/*             → too many repos, work-laptop-specific
+
+Git detection: git.autoRepositoryDetection = "subFolders"
 ```
 
 This gives 4 Explorer panes and agents can search/edit across all of them. Source Control shows 4 sections (gdrive, Documents, lpscc, scripts) plus wiki as a 5th when it has changes.
@@ -67,10 +69,49 @@ If you ever find 4 panes annoying, the path to 3 is: accept that `~/Documents` s
 | --- | --- | --- | --- | --- | --- |
 | `scripts` | `~/bin` | in-tree | `BrianHoltz/scripts` public | personal + work | ✅ operational |
 | `Documents` | `~/Documents` | in-tree | `BrianHoltz/Documents` private | personal | ✅ clean; Google Drive path removed |
-| `gdrive` | `~/My Drive` | `~/gitdirs/gdrive` | `BrianHoltz/gdrive` private | personal | ✅ pointer repaired; 322-commit history imported |
-| `lpscc` | `LP SCC Financial/Admin/` | `~/gitdirs/lpscc` | `BrianHoltz/lpscc` private | personal | ✅ backed up to GitHub |
+| `gdrive` | `~/My Drive` | `~/gitdirs/gdrive` | `BrianHoltz/gdrive` private | personal | ✅ pointer repaired; 322-commit history imported; clean status |
+| `lpscc` | `LP SCC Financial/` | `~/gitdirs/lpscc` | `BrianHoltz/lpscc` private | personal | ✅ 23 commits with paths rewritten to Admin/*; ready for future expansion |
 | `wiki` | `~/Documents/HoltzDotOrg/Thoughts/wiki` | in-tree | `BrianHoltz/wiki` public | personal | ✅ re-cloned after corruption |
 | `src/*` | `~/src/<name>` | in-tree | GitHub public | personal | excluded from workspace |
+
+## Session Update (2026.05.02 — Final)
+
+### Final Configuration Achieved
+
+**GDrive repo:**
+- Worktree: `/Users/brian/My Drive`
+- Git dir: `~/gitdirs/gdrive`
+- Status: ✅ Clean, 322-commit history, pushed to BrianHoltz/gdrive
+
+**LPSCC repo — Re-rooted to Parent:**
+- **Old state**: worktree at `LP SCC Financial/Admin/`, tracked Admin files as bare names
+- **New state**: worktree at `LP SCC Financial/`, tracked Admin files as Admin/*, repo root at parent
+- Git dir: `~/gitdirs/lpscc` (unchanged location)
+- History: ✅ All 23 commits preserved; git-filter-repo rewrite prepended `Admin/` to all file paths
+- Benefit: Can now commit files from anywhere under LP SCC Financial (not just Admin/)
+- Pushed: ✅ Rewritten history pushed to BrianHoltz/lpscc (forced update)
+
+**Workspace:**
+- File: `~/Personal.code-workspace`
+- Git detection: `subFolders` (shows nested repos and enables immediate Source Control visibility)
+- Folder structure:
+  - GDrive (`~/My Drive`) — direct repo root
+  - Documents (`~/Documents`) — repo root + nested wiki
+  - LPSCC (`LP SCC Financial/`) — repo root with Admin tracked
+  - bin (`~/bin`) — repo root
+
+### Result
+
+- **Source Control pane**: Shows 4 main sections (gdrive, Documents, lpscc, scripts) + wiki when active
+- **No nested repos hidden**: `subFolders` detection means repos appear immediately without opening files
+- **LPSCC shown as "LPSCC"**: Named after workspace folder, not "Admin"
+- **Future flexibility**: LPSCC repo root is now at parent level, enabling commits of other folders (e.g., Treasurer Reports) when desired
+
+### Technical Notes
+
+- Backups preserved: `~/gitdirs/lpscc.backup3.20260502` (pre-rewrite state)
+- Filter-repo clean: No Admin/Admin/ nesting; paths correctly rewritten before checkout
+- Remote restored: Origin correctly points to BrianHoltz/lpscc after forced push
 
 ## Plan
 
