@@ -1,10 +1,12 @@
 # GitScheme.md - Repo Organization Plan
 
-## Snapshot (2026.05.02)
+## Snapshot (2026.05.02 — all phases complete)
 
-- `~/Documents`: git repo on `main`, `origin=github.com:BrianHoltz/Documents.git`. The 22 `D` entries under `Google Drive/...` are expected — that directory no longer exists, but all 22 files are present in `~/My Drive` at the same relative paths. Not data loss; path migration.
-- `~/My Drive`: has a `.git` pointer file, but it points to `/Users/b0h0166/gitdirs/gdrive` (old laptop username). `BrianHoltz/gdrive` exists on GitHub. Needs pointer repair.
-- `lpscc`: gitdir survived at `~/.git-lpscc-admin`, 23 commits, no remote (never backed up). Worktree: `LP SCC Financial/Admin/`. Pending: `.txt`→`.md` renames committed 2026.05.02. **Urgent: needs GitHub remote.** Will be moved to `~/gitdirs/lpscc`.
+- `~/Documents`: clean. `Google Drive/` subtree removed (migrated to `~/My Drive`). `.gitignore` pruned of dead Google Drive rules.
+- `~/My Drive`: git pointer repaired → `~/gitdirs/gdrive`. Legacy Documents history imported via `git filter-repo` (322 commits). Pushed to `BrianHoltz/gdrive`.
+- `lpscc`: gitdir moved to `~/gitdirs/lpscc`. Pushed to `BrianHoltz/lpscc` (private, 23 commits).
+- `wiki`: re-cloned from `BrianHoltz/wiki` after local object-store corruption (crash on 2025.12.06). Corrupt copy archived at `wiki.corrupt.20260502`.
+- `~/Workspaces-no-src.code-workspace`: created with 4 roots (gdrive, Documents, LPSCC, bin).
 
 ## Requirements (Confirmed)
 
@@ -64,10 +66,10 @@ If you ever find 4 panes annoying, the path to 3 is: accept that `~/Documents` s
 | Repo | Working tree | Git dir | Remote | Laptops | Status |
 | --- | --- | --- | --- | --- | --- |
 | `scripts` | `~/bin` | in-tree | `BrianHoltz/scripts` public | personal + work | ✅ operational |
-| `Documents` | `~/Documents` | in-tree | `BrianHoltz/Documents` private | personal | ✅ has remote; needs Phase 3 cleanup |
-| `gdrive` | `~/My Drive` | `~/gitdirs/gdrive` | `BrianHoltz/gdrive` private | personal | ⚠️ pointer broken; needs Phase 1 |
-| `lpscc` | `LP SCC Financial/Admin/` | `~/gitdirs/lpscc` | none yet | personal | 🔴 no remote; needs Phase 5 |
-| `wiki` | `~/Documents/HoltzDotOrg/Thoughts/wiki` | in-tree | unknown | personal | ❓ verify remote |
+| `Documents` | `~/Documents` | in-tree | `BrianHoltz/Documents` private | personal | ✅ clean; Google Drive path removed |
+| `gdrive` | `~/My Drive` | `~/gitdirs/gdrive` | `BrianHoltz/gdrive` private | personal | ✅ pointer repaired; 322-commit history imported |
+| `lpscc` | `LP SCC Financial/Admin/` | `~/gitdirs/lpscc` | `BrianHoltz/lpscc` private | personal | ✅ backed up to GitHub |
+| `wiki` | `~/Documents/HoltzDotOrg/Thoughts/wiki` | in-tree | `BrianHoltz/wiki` public | personal | ✅ re-cloned after corruption |
 | `src/*` | `~/src/<name>` | in-tree | GitHub public | personal | excluded from workspace |
 
 ## Plan
@@ -214,11 +216,12 @@ Note: the git worktree is currently `Admin/` (matching all tracked file paths). 
 
 ## Execution Order
 
-1. Phase 1: repair `~/My Drive` git pointer
-2. Phase 2: import history from `Documents` into `~/My Drive`
-3. Validate: `git log --follow -- FamilyDocuments/FamilyEncyclopedia.md` in `~/My Drive`
-4. Phase 3: cleanup commit in `~/Documents`, push both repos
-5. Phase 4: create `~/Workspaces-no-src.code-workspace`, open it
-6. Phase 5: push lpscc to GitHub (**urgent — no backup exists**)
+1. ✅ Phase 5: push lpscc to GitHub
+2. ✅ Phase 1: repair `~/My Drive` git pointer
+3. ✅ Phase 2: import history from `Documents` into `~/My Drive`
+4. ✅ Validated: `git log --follow -- FamilyDocuments/FamilyEncyclopedia.md` traces back continuously
+5. ✅ Phase 3: cleanup commit in `~/Documents`, push both repos
+6. ✅ Phase 4: create `~/Workspaces-no-src.code-workspace`
+7. ✅ wiki: re-cloned from `BrianHoltz/wiki` after corruption
 
-Last updated: 2026.05.02
+All phases complete as of 2026.05.02.
