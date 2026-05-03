@@ -36,6 +36,9 @@ if [[ "$TERMINAL_EMULATOR" == "JetBrains-JediTerm" ]] || [[ "$TERM_PROGRAM" == "
 else
     export whoami=$(whoami | sed 's/b0h0166/BH/' | sed 's/^brian$/BH/')
     export hostname=$(hostname | sed 's/m-c02xf1jsjgh7/mac/' | sed 's/m-c47v699ryp/mac/' | sed 's/qualityengpdp00-ien1-contentquality-1/CQGCP/')
+    case $(whoami) in
+        holtzorg) hostname=holtzorg ;;
+    esac
     case $(hostname) in
         *MacBook*|BrianMac*|brian-mac*) hostname=mac ;;
     esac
