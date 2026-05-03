@@ -1,0 +1,40 @@
+.android
+.cache
+.claude
+.config
+.copilot
+.cursor
+.DS_Store
+.eclipse
+.gradle
+.ivy2
+.local
+.m2
+.npm
+.p2
+.Trash
+.venv
+.vscode
+.vscode-server
+.wine
+*.hprof
+/Library
+Applications
+archive
+Archives
+cam.jpg
+GenealogyAgentWorkspace
+Icon*
+macports
+Movies/2edit
+Movies/iMovie Library.imovielibrary
+My Drive
+node_modules
+novnc-env
+Photos Library.photoslibrary
+Shows
+tmp/
+ToDelete
+watt
+World_of_Tanks
+/Pictures/Photo Booth Library/
