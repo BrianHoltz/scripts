@@ -1,6 +1,7 @@
 # ~/bin/shellrc.common — shared PATH and environment for zsh + bash
 # Canonical location: ~/bin/shellrc.common (symlinked from ~/.shellrc.common)
 # Sourced by both ~/bin/zshrc and ~/bin/bash_profile
+# One-time host setup: bash ~/bin/shellrc/setup.sh [-n]
 
 # --- Java ---
 if [ -d /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home ]; then
