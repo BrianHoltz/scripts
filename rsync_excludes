@@ -4,6 +4,9 @@
 .config
 .copilot
 .cursor
+.git
+.git/
+.git/***
 .DS_Store
 .eclipse
 .gradle
