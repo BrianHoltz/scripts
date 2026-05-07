@@ -6,7 +6,7 @@
 | Feature                        | IDEA         | VS Code      | Cursor      |
 | ------------------------------ | ------------ | ------------ | ----------- |
 | Score                          | 21.5         | 18.5         | 12.5        |
-| IDE                            | 2025.3.3     | 1.118.0      | 3.1.14      |
+| IDE                            | 2025.3.3     | 1.119      | 3.1.14      |
 | VSCode engine                  | —            | —            | 1.105.1     |
 | Wibey                          | 1.0.7        | 1.10        | 1.0.6       |
 | └ parallel agents              | ❌            | ❌            | ❌           |
@@ -454,6 +454,76 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
   - Added `font-size: 13px !important` override on `.vditor .vditor-reset`, `.vditor .vditor-sv`, `.vditor .vditor-ir` — overrides the Vditor default 16px across preview, split-view, and IR editing modes
 - Patches apply to `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/plugins/markdown-editor/lib/markdown-editor-2.0.5.jar`. Patches are overwritten on plugin update — reapply after each update. Restart IDEA after patching (tab close/reopen is not enough — IDEA caches plugin JAR resources at startup).
 - Patch procedure: extract `vditor/style.css` from the JAR, add the override, repack with `jar uf`
+
+### Wibey Extension Patches
+
+#### New Conversation Bug Fix (v1.0.10)
+
+**Bug:** Clicking "+" (new conversation button) shows the old/most-recent conversation instead of opening a blank chat.
+
+**Root cause:** The `newParallelSession` webview handler — which replaced the old `newSession` flow in the parallel-session (MSM) architecture — does not call `clearMessages()`. So the previous conversation stays visible while the async `createParallelSession` round-trip runs. When that round-trip fails (e.g. `MultiSessionManager` not yet injected, or `buildSessionServices()` throws), `parallelSessionSwitched` never arrives and the old conversation is shown permanently.
+
+**Files patched:**
+
+1. `~/.vscode/extensions/wibey.wibey-vscode-extension-1.0.10/out/webview/webview.js` (minified) — add `clearMessages` to `newParallelSession` handler:
+
+```python
+# Run from shell:
+python3 - <<'EOF'
+path = '$HOME/.vscode/extensions/wibey.wibey-vscode-extension-1.0.10/out/webview/webview.js'
+import os; path = os.path.expandvars(path)
+c = open(path).read()
+old = 'case"newParallelSession":c.showChat();{const e=bi.getState();'
+new = 'case"newParallelSession":c.showChat(),o.clearMessages(),o.clearTodos(),h.clearQueue();{const e=bi.getState();'
+assert c.count(old) == 1
+open(path, 'w').write(c.replace(old, new, 1))
+print("webview.js patched")
+EOF
+```
+
+2. `~/.vscode/extensions/wibey.wibey-vscode-extension-1.0.10/out/handlers/MultiSessionHandler.js` (readable) — two changes:
+
+**a.** In `handle()`, replace the silent return when MSM is null:
+```js
+// BEFORE (lines 46-49):
+if (!this.multiSessionManager) {
+    logger_js_1.logger.warn('[MultiSessionHandler] MultiSessionManager not initialized');
+    return;
+}
+
+// AFTER:
+if (!this.multiSessionManager) {
+    logger_js_1.logger.warn('[MultiSessionHandler] MultiSessionManager not initialized');
+    if (message.type === 'createParallelSession') {
+        // Fall back to legacy new-session flow so the webview always lands on a blank chat.
+        this.context.webviewController.postMessage({ type: 'newSession' });
+    }
+    return;
+}
+```
+
+**b.** In `handleCreateSession()` catch, replace the non-limit `streamError` path:
+```js
+// BEFORE:
+else {
+    this.context.webviewController.postMessage({
+        type: 'streamError',
+        error: `Failed to create new session: ${errorMessage}`,
+    });
+}
+
+// AFTER:
+else {
+    // Session creation failed — fall back to legacy new-session flow so the
+    // webview shows a blank chat rather than staying on the old conversation.
+    logger_js_1.logger.warn('[MultiSessionHandler] Falling back to legacy new-session after createSession failure');
+    this.context.webviewController.postMessage({ type: 'newSession' });
+}
+```
+
+After patching, run `Developer: Reload Window` in VS Code. Patches are overwritten on Wibey extension update — reapply after each update (adapt paths for new version).
+
+---
 
 ## Wibey Skills
 
