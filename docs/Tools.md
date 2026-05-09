@@ -3,60 +3,61 @@
 ## IDEs
 
 
-| Feature                        | IDEA         | VS Code      | Cursor      |
-| ------------------------------ | ------------ | ------------ | ----------- |
-| Score                          | 21.5         | 18.5         | 12.5        |
-| IDE                            | 2025.3.3     | 1.119      | 3.1.14      |
-| VSCode engine                  | —            | —            | 1.105.1     |
-| Wibey                          | 1.0.7        | 1.10        | 1.0.6       |
-| └ parallel agents              | ❌            | ❌            | ❌           |
-| └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌          |
-| └ context += @ file            | ✅            | 🟡<100KB     | 🟡<100KB    |
-| └ context += selection         | ✅ cmd-' pill | ✅ cmd-L pill | ❌❌          |
-| └ image paste                  | ❌❌           | ✅            | ✅           |
-| └ convo title edit             | ❌            | ✅            | ✅           |
-| └ convo title auto             | last prompt  | last prompt  | last prompt |
-| └ convo search                 | ❌            | ✅            | ✅           |
-| └ convo timestamps             | ✅            | ✅            | ✅           |
-| └ convo bookmark               | ❌            | ✅            | ✅           |
-| └ rich/linked paste            | ❌            | ❌            | ❌           |
-| Github Copilot                 | 1.6.1-243    | 0.39.0       | 1.388.0     |
-| └ parallel agents              | ✅            | ✅            | ✅           |
-| └ context += selection         | ✅ auto       | ✅ auto       | ?           |
-| └ convo title                  | 🟡 manual    | ✅ auto       | ✅ auto      |
-| AI diff review                 | ✅ per delta  | 🟡 per file  | 🟡 per file |
-| AI diff in linked repo         | ✅            | ❌            | ❌           |
-| git ops in linked repo         | ✅            | ✅            | ❌           |
-| approval UX                    | ✅            | ✅            | ✅           |
-| md preview                     | ✅            | 🟡 only 1    | ✅✅ wysiwyg  |
-| md preview search              | ✅            | ✅            | ❌❌          |
-| md table format                | ✅✅ auto      | 🟡 manual    | 🟡 manual   |
-| md pastes details block        | ❌            | ✔️           | ✔️          |
-| md headers paste bold to Slack | ✅            | ❌            | ❌           |
-| search/find                    | ✅            | ✅            | ✅           |
-| git                            | 🟡           | ✅✅           | 🟡          |
-| debug                          | ✅            | ?            | ?           |
-| database                       | ✅            | ❌            | ❌           |
-| http                           | ✅            | ❌            | ❌           |
-| editor history UI              | ✅            | 🟡           | 🟡          |
+| Feature                        | IDEA         | VS Code      | Cursor                  |
+| ------------------------------ | ------------ | ------------ | ----------------------- |
+| Score                          | 21.5         | 21.5 ⚙️      | 12.5                    |
+| IDE                            | 2025.3.3     | 1.119        | 3.3.27                  |
+| VSCode engine                  | —            | —            | 1.105.1                 |
+| Wibey                          | 1.0.7        | 1.10         | 1.0.6                   |
+| └ parallel agents              | ❌            | ❌            | ❌                       |
+| └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌                      |
+| └ context += @ file            | ✅            | 🟡<100KB     | 🟡<100KB                |
+| └ context += selection         | ✅ cmd-' pill | ✅ cmd-L pill | 🟡 cmd-L pill via Agent |
+| └ image paste                  | ❌❌           | ✅            | ✅                       |
+| └ convo title edit             | ❌            | ✅            | ✅                       |
+| └ convo title auto             | last prompt  | last prompt  | last prompt             |
+| └ convo search                 | ❌            | ✅            | ✅                       |
+| └ convo timestamps             | ✅            | ✅            | ✅                       |
+| └ convo bookmark               | ❌            | ✅            | ✅                       |
+| └ rich/linked paste            | ❌            | ❌            | ❌                       |
+| Github Copilot                 | 1.6.1-243    | 0.39.0       | 1.388.0 ????            |
+| └ parallel agents              | ✅            | ✅            | ✅                       |
+| └ context += selection         | ✅ auto       | ❌            | ❌                       |
+| └ convo title                  | 🟡 manual    | ✅ auto       | ✅ auto                  |
+| AI diff review                 | ✅ per delta  | 🟡 per file  | 🟡 per file             |
+| AI diff in linked repo         | ✅            | ❌            | ❌                       |
+| git ops in linked repo         | ✅            | ✅            | ✅                       |
+| approval UX                    | ✅            | ✅            | ✅                       |
+| md preview                     | ✅            | 🟡 only 1    | ✅✅ wysiwyg              |
+| md preview search              | ✅            | ✅            | ❌❌ neither              |
+| md table format                | ✅✅ auto      | 🟡 manual    | 🟡 manual               |
+| md pastes details block        | ❌            | ✔️           | ✔️                      |
+| md headers paste bold to Slack | ✅            | ❌            | ❌                       |
+| search/find                    | ✅            | ✅            | ✅                       |
+| git                            | 🟡           | ✅✅           | ✅✅                      |
+| debug                          | ✅            | ?            | ?                       |
+| database                       | ✅            | ❌            | ❌                       |
+| http                           | ✅            | ❌            | ❌                       |
+| editor history UI              | ✅            | 🟡           | 🟡                      |
 
 
 Score rubric
 
 - Glyph values: ✅✅ = 2 pts, ✅ = 1 pt, 🟡 / ✔️ = 0.5 pts, ❌ / ? = 0 pts, ❌❌ = −1 pt
+- ⚙️ suffix = capability provided by a local patch (`~/bin/patches/`); reapply after extension update
 - Version/text-only cells (version numbers, descriptive text) = excluded
 - Copilot rows excluded from IDE score
 - Editor score: each IDE gets the maximum score achievable by any editor available to it
   - IDEA: shuzijun only (3.5 pts)
-  - VS Code: best of typedown / zaaack → zaaack (4 pts)
-  - Cursor: best of typedown / zaaack / Cursor native → zaaack (4 pts)
+  - VS Code: best of typedown / zaaack → zaaack patched (7 pts; +3 from `patch-zaaack.py`)
+  - Cursor: best of typedown / zaaack / Cursor native → zaaack (4 pts; not patched on this machine)
 - Final score = IDE row subtotal + best editor subtotal
-
-
 
 ## Markdown Viewers/ Editors
 
-typedown and zaaack work in both VS Code and Cursor
+- VSCode md preview hangs for big files, but zaaack handles them
+  - zaaack lacks: string search; intra-doc link nav; outline view
+- typedown and zaaack work in both VS Code and Cursor
 
 
 | Behavior                 | IDEA viewer | IDEA shuzijun       | typedown    | zaaack | Cursor native |
@@ -67,8 +68,9 @@ typedown and zaaack work in both VS Code and Cursor
 | wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅     | ❌ truncates   |
 | non-bloated side padding | ?           | ❌❌                  | ❌           | ✅      | ❌             |
 | shows images             | ?           | ?                   | ?           | ?      | ?             |
-| find in file             | ✅           | ✅                   | ❌           | ❌      | ❌             |
-| structure                | ✅           | ✅                   | ❌           | ❌      | ❌             |
+| find in file             | ✅           | ✅                   | ❌           | ✅ ⚙️    | ❌             |
+| structure                | ✅           | ✅                   | ❌           | ✅ ⚙️    | ❌             |
+| internal links           | ?           | ?                   | ?           | ✅ ⚙️    | ?             |
 | link editing             | ?           | ✔️                  | ❌           | ✔️     | ❌             |
 | toolbar                  | ?           | ✔️                  | ✔️          | ✔️     | ❌             |
 
@@ -303,19 +305,64 @@ Important: preview settings (`workbench.editor.enablePreview*`, MPE `previewMode
 
 Patch caveat: extension updates overwrite patched files; reapply after each Zaaack update.
 
-### Zaaack String Search (Limitation)
+### Zaaack Find / Outline / Anchor Nav (patched)
 
-**Find/search (Cmd+F) does not work inside Zaaack WYSIWYG editor.** Root cause: Zaaack runs as a webview inside the editor, and browser search APIs inside webviews have limited integration with VS Code's find UI. The underlying vditor library does not expose a search method through Zaaack's extension API.
+The ⚙️ rows in the comparison table — find in file, structure, internal links — are added by `~/bin/patches/patch-zaaack.py` (canonical, lives in `~/bin/` repo and syncs across laptops via git). It patches `~/.vscode/extensions/zaaack.markdown-editor-<version>/media/dist/main.js`. **Pinned to Zaaack 0.1.13 + vditor 3.8.4** (the bundled lib version visible in `main.js`'s license footer). Update the version-pinned `PATH` constant inside the script when Zaaack updates.
 
-**Workarounds:**
+**Why patch instead of switching editors.** Every webview-based WYSIWYG competitor (typedown, IDEA shuzijun, Mark Sharp, Unotes, vscode-markdown-wysiwyg, Teddy Editor) shares the same Cmd+F gap — VS Code's find UI doesn't reach into webview content, and vditor doesn't expose a public search API. The only extension with native find is `remcohaszing.markdown-decorations`, but it's decoration-only and loses the rich WYSIWYG rendering that makes zaaack the best choice. So patching zaaack beats every alternative on the market as of 2026.05.
 
-1. **Outline navigation** (heading-based): Zaaack's underlying vditor supports an outline panel for jump-to-heading navigation. Suggested enhancement: add `options.outline.enable=true` to Zaaack's vditor initialization to expose heading-based navigation menu in the WYSIWYG editor.
+**The three patch sites in `main.js`** — all are uniquely addressable single-line minified strings:
 
-2. **Switch to source markdown view**: Press `Ctrl+Alt+Cmd+M` to toggle back to the plain markdown source editor (or use command palette "Open Default Editor"), where `Cmd+F` works normally. This trade-off abandons WYSIWYG rendering but gains standard find.
+1. **Outline view** — enable vditor's built-in outline panel:
+   - Anchor: `toolbarConfig:{pin:!0},`
+   - Insert after: `outline:{enable:!0,position:"left"},`
+   - Why this works: vditor 3.8.4 has full outline support built in (line 229 of `main.js`: `outline:{enable:!1` is the default). The user-options spread (`...i`) follows our insertion, so saved preferences can still override.
 
-3. **Exit webview context**: Close the Zaaack editor tab and use Markdown Preview Enhanced preview instead. Preview tabs have independent search via browser context.
+2. **after()-hook bridge** — call our enhancer once vditor finishes initializing:
+   - Anchor: `after(){V_(),Y_(),sB(),K_()}`
+   - Replace with: `after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}`
+   - Why this works: `after()` fires after vditor mounts the DOM — `window.vditor` is live and the editor `<div id="app">` is populated.
 
-Not recommended: patching Zaaack to add a custom search button would be complex (vditor's internal search is not exposed via its public API, and custom webview search requires message passing between VSCode host and vditor instance), and patches are overwritten on extension update.
+3. **Enhancer definition** — append `window.__zaaackEnhance` body just before the closing IIFE:
+   - Anchor: `vscode.postMessage({command:"ready"});})();`
+   - Insert before `})();`: the enhancer JS starting with marker `/*__zaaackEnhance__*/` (used as the idempotency check).
+   - Marker presence detection lets the script re-run safely without double-patching.
+
+**Enhancer responsibilities** (defined in the appended JS):
+
+- **Anchor link nav.** A capturing `click` listener on `#app`. Filters via `target.closest('a[href^="#"]')`. Resolution order:
+  - first try `ed.querySelector('[id="' + CSS.escape(id) + '"]')` (works when the markdown explicitly assigns ids)
+  - fall back to slug-matching every `h1..h6` (`text.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'')`) — vditor doesn't auto-id headings, so the slug walk is the workhorse.
+  - on hit: `e.preventDefault(); e.stopPropagation(); target.scrollIntoView({behavior:'smooth', block:'start'})`.
+
+- **Find-in-page (⌘F).** Capturing `keydown` on `document` matches `(metaKey||ctrlKey) && key==='f'/'F'`. Opens a fixed-position overlay (`#__zk-bar`) at top-right. Search algorithm:
+  - Build a `TreeWalker` over `#app` `SHOW_TEXT`. Reject nodes inside `#__zk-bar` (own UI), `vditor-toolbar`, `vditor-outline`, `vditor-hint`, `vditor-panel` so toolbar tooltips and the find overlay itself don't pollute results.
+  - For each accepted text node, run `new RegExp(escapedQuery, 'gi')` and replace matches in-place by splitting the node into a `DocumentFragment` of plain text + `<span class="__zk-hit">match</span>`.
+  - Track all hit spans in a `hits[]` array. Current hit gets `background:#ff9800`, others `background:#ffd54f`, both `color:#000`. `scrollIntoView({behavior:'smooth', block:'center'})` on selection.
+  - Clearing replaces every span back with a text node before re-querying — prevents stacked highlights and keeps the markdown content unchanged for vditor's `getValue()`.
+  - Bindings: `⌘F` open, type to live-search (120 ms debounce), `Enter` / `Shift+Enter` next/prev, `Esc` close. Buttons in the bar do the same.
+  - Styling uses VS Code CSS vars (`--vscode-editorWidget-background`, `--vscode-input-foreground`, `--vscode-widget-border`, etc.) so the bar matches the active theme.
+
+- **Idempotency guard:** sets `ed.__zaaackEnhanced = true` on the `#app` element so re-firing of `after()` (theme switch triggers a full vditor re-init via `extension.js`'s `onDidChangeActiveColorTheme`, which destroys+recreates vditor — the new `#app` is a fresh element so the guard doesn't block legitimate re-attaches).
+
+**CSP note.** The webview HTML in `extension.js`'s `_getHtmlForWebview()` sets no `Content-Security-Policy` meta tag, so inline scripts in `main.js` execute freely. If a future Zaaack version adds CSP, the enhancer needs to move to a separate file registered via `webview.asWebviewUri()`.
+
+**Reapply procedure** (after Zaaack extension update, OS migration, or fresh checkout):
+
+1. Confirm installed version: `ls ~/.vscode/extensions/ | grep zaaack`.
+2. If version differs from 0.1.13, edit the `PATH` constant in `~/bin/patches/patch-zaaack.py` to match.
+3. `python3 ~/bin/patches/patch-zaaack.py` — prints `[1/3]` … `[3/3]` and `done`. Re-running on already-patched files is a no-op.
+4. Sanity check: `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` should print no errors.
+5. Reload VS Code window (`Developer: Reload Window`).
+6. Open a markdown file with `^⌥⌘M` and verify: outline panel appears on the left, `[link](#some-heading)` jumps, `⌘F` opens the find bar.
+
+**Recreating the patch from scratch** (if `~/bin/patches/patch-zaaack.py` is ever lost): use the three anchor strings + the enhancer responsibilities described above. The complete enhancer is ~140 lines of plain ES5 — every behavior listed above is sufficient to rewrite it. Three Python `assert src.count(ANCHOR) == 1` checks plus marker-comment idempotency = the pattern.
+
+**Fallbacks if the patch ever breaks:**
+
+1. **Switch to source markdown view**: `^⌥⌘M` toggles back to the plain markdown source editor where `⌘F` works natively.
+2. **Use Markdown Preview Enhanced**: `⇧⌘V` opens a preview tab whose webview supports browser search.
+3. **Restore from backup**: every run leaves `main.js.bak.<unix-ts>` next to the patched file.
 
 Cursor parity status:
 
@@ -328,9 +375,9 @@ Cursor parity status:
   - `typedown.editor.fontFamily` / `typedown.editor.fontSize`
   - `markdown-editor.customCss` override for proportional Zaaack editing font
 - Applied matching Cursor keybindings in `~/Library/Application Support/Cursor/User/keybindings.json`:
-  - `⇧⌘V -> markdown-preview-enhanced.openPreview` (current tab group)
+  - `⇧⌘V -> workbench.action.markdown.openPreview` (built-in; preference over MPE in Cursor)
   - typedown / zaaack WYSIWYG shortcut swap parity with VS Code
-- Not patchable yet in Cursor on this machine: no installed `zaaack.markdown-editor-*` extension under `~/.cursor/extensions/`, so the singleton-to-multi-panel `out/extension.js` patch could not be applied there yet.
+- Not patchable yet in Cursor on this machine: no installed `zaaack.markdown-editor-`* extension under `~/.cursor/extensions/`, so the singleton-to-multi-panel `out/extension.js` patch could not be applied there yet.
 
 ### Markdown Preview Theme (auto-switch)
 
@@ -342,9 +389,11 @@ If your Markdown preview (for example, Markdown Preview Enhanced) does not switc
 
 This makes the preview follow the active VS Code editor theme (and thus `window.autoDetectColorScheme`). If you prefer the preview to follow the OS system color scheme directly, use `"systemColorScheme"` instead of `"editorColorScheme"`.
 
-### Cmd+Shift+V → Markdown Preview Enhanced
+### Cmd+Shift+V → Markdown Preview
 
-The built-in Markdown preview has broken intra-doc anchor links in some situations. Markdown Preview Enhanced (`shd101wyy.markdown-preview-enhanced`) handles them correctly. `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` so each use opens Enhanced preview in the current tab group.
+**VS Code:** `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` — MPE handles intra-doc anchor links correctly where the built-in sometimes breaks them.
+
+**Cursor:** `⇧⌘V` uses the built-in `workbench.action.markdown.openPreview` (preference). MPE's default binding is unbound via `-markdown-preview-enhanced.openPreview` in Cursor's `keybindings.json`.
 
 If rendered markdown in Zaaack still appears oversized after settings changes, patch `~/.vscode/extensions/zaaack.markdown-editor-0.1.13/out/extension.js` theme overrides from `font-size: 13px;` to `font-size: 11px !important;` and add matching `11px !important` for `.vditor-ir pre.vditor-reset` and `.vditor-sv`.
 
@@ -481,9 +530,10 @@ print("webview.js patched")
 EOF
 ```
 
-2. `~/.vscode/extensions/wibey.wibey-vscode-extension-1.0.10/out/handlers/MultiSessionHandler.js` (readable) — two changes:
+1. `~/.vscode/extensions/wibey.wibey-vscode-extension-1.0.10/out/handlers/MultiSessionHandler.js` (readable) — two changes:
 
 **a.** In `handle()`, replace the silent return when MSM is null:
+
 ```js
 // BEFORE (lines 46-49):
 if (!this.multiSessionManager) {
@@ -503,6 +553,7 @@ if (!this.multiSessionManager) {
 ```
 
 **b.** In `handleCreateSession()` catch, replace the non-limit `streamError` path:
+
 ```js
 // BEFORE:
 else {
@@ -569,6 +620,7 @@ cutoff = (datetime.now().astimezone() - timedelta(days=args.days)).isoformat()
 ```
 
 Patches needed in two locations each time the skill is reinstalled:
+
 - `~/.wibey/skills/usage-dashboard/scripts/wibey_usage_lib.py` (canonical)
 - `~/.wibey/skills/usage-dashboard/scripts/wibey-usage` (canonical)
 - `~/.wibey/usage/wibey_usage_lib.py` (installed copy)
@@ -581,6 +633,7 @@ After patching, existing DB rows with UTC `usage_date` values won't be retroacti
 The dashboard HTML at `~/.wibey/usage/dashboard.html` is static — baked at generation time. It must be regenerated to show new sessions. The `SessionEnd` hook in `~/.claude/settings.json` calls `session-end-usage.py`, which records to the DB and then spawns `wibey-usage dash --no-open` to regenerate the HTML automatically after each session.
 
 **Hook config** (`~/.claude/settings.json`):
+
 ```json
 {
   "type": "command",
@@ -589,13 +642,15 @@ The dashboard HTML at `~/.wibey/usage/dashboard.html` is static — baked at gen
   "statusMessage": "Recording usage metrics and refreshing dashboard..."
 }
 ```
+
 Timeout is 30s (not 10) to allow time for the dash regeneration subprocess.
 
-**`--no-open` flag** — `wibey-usage dash --no-open` generates the HTML without opening a browser tab. Supported in both installed (`~/.wibey/usage/wibey-usage`) and skill source (`~/.wibey/skills/usage-dashboard/scripts/wibey-usage`).
+`**--no-open` flag** — `wibey-usage dash --no-open` generates the HTML without opening a browser tab. Supported in both installed (`~/.wibey/usage/wibey-usage`) and skill source (`~/.wibey/skills/usage-dashboard/scripts/wibey-usage`).
 
 **If today's data is missing:** the HTML is stale — regenerate manually: `~/.wibey/usage/wibey-usage dash`
 
 Files that implement auto-regen (keep in sync):
+
 - `~/.claude/hooks/session-end-usage.py` (active hook)
 - `~/.wibey/skills/usage-dashboard/scripts/session-end-usage.py` (skill source)
 

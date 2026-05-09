@@ -34,3 +34,6 @@ HISTFILE=~/.zsh_history
 # --- Misc ---
 TIMEFMT=$'real=%*E\tuser=%*U\tsys=%*S'
 alias axbrew='arch -x86_64 /usr/local/homebrew/bin/brew'
+
+# Added by Wibey CLI installation
+export PATH="$HOME/.local/bin:$PATH"
