@@ -81,3 +81,55 @@ post-write-sha256: <hash of file after all writes complete>  ← written after r
 **"Pending review" as a write-coordination primitive** — novel at the machine level. GitHub PR review status and Wikipedia Pending Changes are semantic analogues but are human editorial workflows operating at coarser granularity.
 
 **Remote writer limitation** — tags in `/tmp` are invisible to agents on other hosts, the same failure mode that made POSIX flock unreliable on NFS. Deliberately out of scope: this protocol targets single-machine human-in-the-loop workflows only.
+
+## Reviewed Improvement Suggestions (2026.05.09)
+
+This section replaces an earlier conversational note with a decisioned review.
+Each item was checked against the current `fhold` implementation.
+
+### Accepted (high priority)
+
+- **Atomic tag writes for updates**: accepted.
+  Current `_write_tag` uses direct `write_text`, which can expose partially written JSON to concurrent readers.
+  Revision: write to a temp file in the same directory, then `os.replace()`.
+
+- **Proactive TTL enforcement in operational commands**: accepted.
+  Current stale cleanup depends on explicit `fhold gc`.
+  Revision: `review register`, `permit check`, and `status` should ignore or clear expired tags based on `--ttl` before deciding mode or contention.
+
+- **Narrow broad exception handling in tag reads**: accepted.
+  Current `_read_tag` catches all exceptions.
+  Revision: catch only expected file/parse errors (for example `OSError` and `json.JSONDecodeError`) so interrupts and fatal signals are not swallowed.
+
+### Accepted (medium priority)
+
+- **Deduplicate repeated tag-age logic**: accepted.
+  Revision: add a shared helper for mtime age computation and fallback behavior.
+
+- **Harden review-hold creation write path**: accepted.
+  Current atomic create path is correct (`O_CREAT|O_EXCL`), but error-safe file descriptor handling should be improved.
+  Revision: use `os.fdopen` context handling after `os.open` so failures do not leak descriptors.
+
+### Deferred (needs compatibility decision)
+
+- **Change default tag root from shared `/tmp/fhold.tags/` to user-scoped path**: deferred.
+  Benefit: better isolation on multi-user machines.
+  Risk: behavior drift for users/scripts expecting the existing global default.
+  Next step: decide whether to change default, add an opt-in mode, or support a migration window.
+
+- **Migrate manual CLI parsing to `argparse`**: deferred.
+  Benefit: less fragile flag handling.
+  Risk: command UX/help formatting and argument-position behavior may change.
+  Next step: keep current parser unless parser bugs become frequent.
+
+### Not Recommended Right Now
+
+- **Convert tag metadata to dataclasses**: not recommended currently.
+  The tag schema is small, and dict-based metadata keeps file I/O and backward compatibility straightforward.
+
+### Implementation Order
+
+1. Atomic `_write_tag` and safer fd handling.
+2. Proactive TTL checks in status/register/check paths.
+3. Exception narrowing and age-helper refactor.
+4. Optional tag-root and parser redesign decisions.
