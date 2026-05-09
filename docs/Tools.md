@@ -56,7 +56,7 @@ Score rubric
 ## Markdown Viewers/ Editors
 
 - VSCode md preview hangs for big files, but zaaack handles them
-  - zaaack lacks: string search; intra-doc link nav; outline view
+  - zaaack lacks: string search; intra-doc link nav; outline view. Wibey fixed them all!
 - typedown and zaaack work in both VS Code and Cursor
 
 
@@ -329,14 +329,14 @@ The ⚙️ rows in the comparison table — find in file, structure, internal li
   - Anchor: `window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();window.global=window;`
   - Insert between the two assignments: a wrapper that intercepts `vscode.postMessage({command:"open-link", href})` and, when the href is non-http and contains `#`, scrolls the matching heading via `window.__zaaackGotoAnchor(frag)` instead of forwarding the message.
   - Marker `/*__zk_postwrap__*/` for idempotency.
-  - **Why we need this and not just a click handler.** Vditor's bundled `G_()` registers `document.addEventListener("click", t => { if (t.target.tagName==="A") vscode.postMessage({command:"open-link",href:t.target.href}); })` — a *bubble*-phase listener that uses the resolved `a.href` (not `getAttribute('href')`). For `<a href="#section">` the resolved URL becomes `<webviewBaseHref>#section`, a non-http URL with a fragment. The extension's `open-link` handler in `out/extension.js` then `path.resolve()`s that into a directory path + URI fragment and opens it via `vscode.open`, producing the *"directories can't be viewed in the IDE"* error. Wrapping `postMessage` is the only chokepoint that catches every variant — capture-phase click handlers are not enough because the `<base href>` rewrite hides the original `#anchor` form by the time vditor reads `.href`.
+  - **Belt-and-suspenders, not the primary chokepoint.** In practice the capture-phase click handler in patch site #3 stops the click before vditor ever calls `window.open` / `postMessage`, so this wrap rarely fires. It exists as a fallback for any code path that bypasses the click listener (e.g. programmatic `vditor.api` calls, or a future vditor version that posts directly).
 
 **Enhancer responsibilities** (defined in the appended JS):
 
 - **Anchor link nav.** Two layers, defense in depth:
-  - *Primary*: the postMessage wrap (patch site #4) intercepts `{command:"open-link"}` for non-http hrefs containing `#` and reroutes to `window.__zaaackGotoAnchor(frag)`.
-  - *Secondary*: a capturing `click` listener on `document`. `closest('a')` then `isIntraDocHash(a)` returns the fragment when either `getAttribute('href').charAt(0) === '#'` OR the resolved `a.href` has a fragment AND its `origin+pathname` matches `location.origin+pathname` (same-document link).
-  - `__zaaackGotoAnchor(frag)` resolves headings: first `ed.querySelector('[id="' + CSS.escape(frag) + '"]')` (works when the markdown explicitly assigns ids), else slug-match every `h1..h6` via `text.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'')` (vditor doesn't auto-id headings, so the slug walk is the workhorse). On hit: `t.scrollIntoView({behavior:'smooth', block:'start'})`.
+  - *Primary*: a capturing `click` listener on `window`, `document`, and `documentElement`. Capture phase is critical so we fire **before** vditor's bubble-phase click handler on the editor element (at `main.js` byte ~388578: `var k=Object(H.d)(m.target,"data-type","a"); ...; window.open(k.querySelector(":scope > .vditor-ir__marker--link").textContent)`). The handler matches both `closest('a')` (preview-mode anchors) and `closest('[data-type="a"]')` (vditor's IR-mode link wrapper, which renders `[txt](url)` as `<span data-type="a"><span class="vditor-ir__marker--bracket">[</span><span class="vditor-ir__link">txt</span>...<span class="vditor-ir__marker--link">url</span>...</span>` — i.e. clicking the visible "txt" hits a SPAN, not an A, so a vanilla `closest('a')` walk returns null). For IR-mode hits the URL comes from `markerLink.textContent.trim()`. On any non-http URL: `e.preventDefault() + e.stopImmediatePropagation() + e.stopPropagation()`, then call `__zaaackGotoAnchor(frag)`.
+  - *Secondary*: the postMessage wrap (patch site #4). Belt-and-suspenders for any path that bypasses the click listener.
+  - `__zaaackGotoAnchor(frag)` resolves headings inside `.vditor-ir__content` / `.vditor-ir` / `.vditor-reset` / `#app` (first that exists). Lookup order: (a) `ed.querySelector('[id="' + CSS.escape(frag) + '"]')` (works when the markdown explicitly assigns ids), else (b) slug-match every `h1..h6`. The slug pipeline must use a `headingText()` walker that **skips child elements with class containing `vditor-ir__marker`** — vditor IR mode renders `## History` as `<h2><span class="vditor-ir__marker--heading">## </span>History</h2>`, so the naive `h.textContent` is `"## History"` and would slugify to `"-history"` (the `#` chars are stripped, replacing leading whitespace with `-`), which never matches the `#history` fragment. With marker spans excluded, the visible text is just `"History"` → slug `"history"` → match. The `slugify()` itself also strips leading `[#*\-_\s]+` as a second-line defense. On hit: `t.scrollIntoView({behavior:'smooth', block:'start'})`.
 - **Find-in-page (⌘F).** Capturing `keydown` on `document` matches `(metaKey||ctrlKey) && key==='f'/'F'`. Opens a fixed-position overlay (`#__zk-bar`) at top-right. Search algorithm:
   - Build a `TreeWalker` over `#app` `SHOW_TEXT`. Reject nodes inside `#__zk-bar` (own UI), `vditor-toolbar`, `vditor-outline`, `vditor-hint`, `vditor-panel` so toolbar tooltips and the find overlay itself don't pollute results.
   - For each accepted text node, run `new RegExp(escapedQuery, 'gi')` and replace matches in-place by splitting the node into a `DocumentFragment` of plain text + `<span class="__zk-hit">match</span>`.
@@ -659,4 +659,5 @@ Files that implement auto-regen (keep in sync):
 History of tool use practices, not of this doc.
 
 - 2026.03.26 Thu: Opus gets stuck in IDEA last few days, switching to Sonnet
+- 2026.05.09 Sat: Fixed the last three Zaaack gaps — Cmd+F find-in-page, outline view, and intra-doc anchor link nav — via `~/bin/patches/patch-zaaack.py` (4 idempotent patch sites in `media/dist/main.js`). Zaaack jumped from `🟡` to `✅✅` parity with IDEA's md preview, and (since the patch globs both `~/.vscode/extensions/` and `~/.cursor/extensions/`) Cursor now matches VS Code on markdown editing too. Upstream is MIT (`github.com/zaaack/vscode-markdown-editor`) but with low maintainer activity (108 open issues, 5+ stale PRs); the anchor-link-opens-directory bug appears unreported, so worth filing one issue. Find-in-page (#153) and outline (#24, #155) are already requested upstream.
 

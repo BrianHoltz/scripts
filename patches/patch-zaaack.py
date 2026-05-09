@@ -40,9 +40,7 @@ P4_NEW = (
           'if(m&&m.command==="open-link"&&typeof m.href==="string"&&!/^https?:/i.test(m.href)){'
             'var hi=m.href.indexOf("#");'
             'if(hi>=0){'
-              'var frag=m.href.slice(hi+1);'
-              'console.log("[zaaack-patch] dropped open-link for hash url; scrolling to:",frag);'
-              'if(window.__zaaackGotoAnchor)window.__zaaackGotoAnchor(frag);'
+              'if(window.__zaaackGotoAnchor)window.__zaaackGotoAnchor(m.href.slice(hi+1));'
               'return;'
             '}'
           '}'
@@ -50,7 +48,6 @@ P4_NEW = (
         'return __zk_origPost(m);'
       '};'
       'window.vscode.__zk_wrapped=true;'
-      'console.log("[zaaack-patch] vscode.postMessage wrapped");'
     '}'
     'window.global=window;'
 )
@@ -58,66 +55,133 @@ P4_NEW = (
 # ---- Patch 3: define window.__zaaackEnhance with anchor-nav + find-in-page ----
 ENHANCE_MARKER = '/*__zaaackEnhance__*/'
 ENHANCE_JS = ENHANCE_MARKER + r'''
-console.log("[zaaack-patch] module loaded; window.__zaaackEnhance about to be defined");
-
 // Heading lookup + scroll helper, exposed globally so the postMessage wrap
 // can also use it.
+//
+// Vditor IR mode renders headings with marker spans inside the <h*>:
+//   <h2 data-block="0">
+//     <span class="vditor-ir__marker vditor-ir__marker--heading">## </span>
+//     History
+//   </h2>
+// so .textContent includes "## History" — we have to skip marker spans
+// when slugifying. Headings also often have NO id attribute in IR mode.
+function slugify(s){
+  return decodeURIComponent(s||'')
+    .trim().toLowerCase()
+    .replace(/^[#*\-_\s]+/,'')           // strip leading markdown markers
+    .replace(/\s+/g,'-')
+    .replace(/[^\w\-]/g,'');
+}
+function headingText(h){
+  var out = '';
+  for (var i=0;i<h.childNodes.length;i++){
+    var n = h.childNodes[i];
+    if (n.nodeType === 3) { out += n.nodeValue || ''; continue; }
+    if (n.nodeType !== 1) continue;
+    var cls = n.className || '';
+    if (typeof cls === 'string' && /vditor-ir__marker/.test(cls)) continue;
+    out += n.textContent || '';
+  }
+  return out;
+}
 window.__zaaackGotoAnchor = function(frag){
   if (!frag) return false;
-  var ed = document.querySelector('#app');
+  // Vditor renders inside .vditor-ir or similar; #app contains the toolbar
+  // too. Try a few container selectors.
+  var ed = document.querySelector('.vditor-ir__content')
+        || document.querySelector('.vditor-ir')
+        || document.querySelector('.vditor-reset')
+        || document.querySelector('#app')
+        || document.body;
   if (!ed) return false;
   var t = null;
+  // 1) Direct id match
   try { t = ed.querySelector('[id="' + (window.CSS && CSS.escape ? CSS.escape(frag) : frag) + '"]'); } catch(_){}
+  // 2) Heading text-slug match (skipping vditor marker spans)
   if (!t) {
-    var want = decodeURIComponent(frag||'').trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'');
+    var want = slugify(frag);
     var hs = ed.querySelectorAll('h1,h2,h3,h4,h5,h6');
     for (var i=0;i<hs.length;i++){
-      var s = (hs[i].textContent||'').trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'');
+      var s = slugify(headingText(hs[i]));
       if (s === want){ t = hs[i]; break; }
     }
   }
-  if (!t) return false;
+  if (!t) {
+    console.warn('[zaaack-patch] no anchor match for', frag);
+    return false;
+  }
   t.scrollIntoView({behavior:'smooth', block:'start'});
   return true;
 };
 
 window.__zaaackEnhance=function(){
-  console.log("[zaaack-patch] __zaaackEnhance called");
   try {
     var ed = document.querySelector('#app');
-    console.log("[zaaack-patch] #app found:", !!ed, "already enhanced:", ed && ed.__zaaackEnhanced);
     if (!ed || ed.__zaaackEnhanced) return;
     ed.__zaaackEnhanced = true;
 
     // ---- Intra-doc anchor link navigation ----
-    // Capture-phase on document so we run BEFORE vditor's bubble-phase
-    // click handler (which posts open-link to the host).
-    function isIntraDocHash(a){
-      if (!a) return null;
-      var attr = a.getAttribute && a.getAttribute('href');
-      if (typeof attr === 'string' && attr.charAt(0) === '#') return attr.slice(1);
-      // Fallback: resolved URL has a fragment AND points at the same path
-      try {
-        if (a.href) {
-          var u = new URL(a.href, location.href);
-          if (u.hash) {
-            var samePath = (u.origin + u.pathname) === (location.origin + location.pathname);
-            if (samePath) return u.hash.slice(1);
-          }
-        }
-      } catch(_){}
-      return null;
-    }
-    document.addEventListener('click', function(e){
-      var a = e.target && e.target.closest && e.target.closest('a');
-      if (!a) return;
-      var frag = isIntraDocHash(a);
-      if (frag === null) return;
-      console.log("[zaaack-patch] intercepted intra-doc click, frag=", frag);
+    // VS Code webviews have a *built-in* link-click handler that fires
+    // `did-click-link` to the workbench when an iframe attempts to navigate
+    // to a non-http URL — that path lands in `openCodeEditor` and tries to
+    // open the resolved directory as a text editor (-> "directories can't
+    // be viewed in the IDE" error). The extension's `open-link` postMessage
+    // path is a *separate* path (caught by our P4 postMessage wrap). To
+    // stop the webview's built-in path we must call e.preventDefault() on
+    // the click event in the inner document, BEFORE the iframe nav fires.
+    function clickHandler(e){
+      var t = e.target;
+      if (!t) return;
+      // 1) Real <a> elements (preview mode and any standard anchor)
+      var a = t.closest && t.closest('a');
+      // 2) Vditor IR-mode renders `[txt](url)` as:
+      //      <span data-type="a">
+      //        <span class="vditor-ir__marker--bracket">[</span>
+      //        <span class="vditor-ir__link">txt</span>
+      //        <span class="vditor-ir__marker--bracket">]</span>
+      //        <span class="vditor-ir__marker--paren">(</span>
+      //        <span class="vditor-ir__marker--link">url</span>
+      //        <span class="vditor-ir__marker--paren">)</span>
+      //      </span>
+      // The actual URL lives in `.vditor-ir__marker--link`. Vditor's own
+      // click handler on the editor element finds the `[data-type="a"]`
+      // ancestor and calls `window.open(markerLink.textContent)`. We need
+      // to short-circuit that BEFORE it fires (capture phase) so the URL
+      // never reaches the webview's nav layer.
+      var dataA = t.closest && t.closest('[data-type="a"]');
+      var markerLink = dataA && dataA.querySelector(':scope > .vditor-ir__marker--link');
+      var url = '';
+      if (a) {
+        url = a.getAttribute('href') || a.href || '';
+      } else if (markerLink) {
+        url = (markerLink.textContent || '').trim();
+      }
+      if (!a && !dataA) return; // not a link click — let it through
+      var isHttp = /^https?:/i.test(url);
+      if (!url || isHttp) return; // external links: leave default behavior
+      // Non-http link click — block all downstream handlers so the webview
+      // never tries to navigate to the resolved directory.
       e.preventDefault();
       e.stopImmediatePropagation();
-      window.__zaaackGotoAnchor(frag);
-    }, true);
+      e.stopPropagation();
+      // Extract fragment for intra-doc scroll.
+      var frag = null;
+      if (url.charAt(0) === '#') frag = url.slice(1);
+      else {
+        try {
+          var u = new URL(url, location.href);
+          if (u.hash) frag = u.hash.slice(1);
+        } catch(_){}
+      }
+      if (frag) {
+        window.__zaaackGotoAnchor && window.__zaaackGotoAnchor(frag);
+      }
+    }
+    // Register in capture phase on window/document/documentElement so we
+    // fire before vditor's own bubble-phase listener on the editor element.
+    window.addEventListener('click', clickHandler, true);
+    document.addEventListener('click', clickHandler, true);
+    document.documentElement.addEventListener('click', clickHandler, true);
 
     // ---- Cmd+F find-in-page overlay ----
     var bar = null, hits = [], idx = -1, lastQ = '';
@@ -229,8 +293,7 @@ window.__zaaackEnhance=function(){
         openFind();
       }
     }, true);
-    console.log("[zaaack-patch] enhancer attached successfully");
-  } catch(err) { console.error('[zaaack patch]', err); }
+  } catch(err) { console.error('[zaaack-patch]', err); }
 };
 '''
 
