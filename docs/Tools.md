@@ -50,7 +50,7 @@ Score rubric
 - Editor score: each IDE gets the maximum score achievable by any editor available to it
   - IDEA: shuzijun only (3.5 pts)
   - VS Code: best of typedown / zaaack → zaaack patched (7 pts; +3 from `patch-zaaack.py`)
-  - Cursor: best of typedown / zaaack / Cursor native → zaaack (4 pts; not patched on this machine)
+  - Cursor: best of typedown / zaaack / Cursor native → zaaack patched (7 pts; same `patch-zaaack.py` covers both IDE extension dirs)
 - Final score = IDE row subtotal + best editor subtotal
 
 ## Markdown Viewers/ Editors
@@ -63,14 +63,14 @@ Score rubric
 | Behavior                 | IDEA viewer | IDEA shuzijun       | typedown    | zaaack | Cursor native |
 | ------------------------ | ----------- | ------------------- | ----------- | ------ | ------------- |
 | version                  | 2025.3.3    | 2.0.5               | 1.1.7       | 0.1.13 | 2.6.19        |
-| >1 tab at a time         | ✅           | ✅✅                  | ✅✅          | ❌      | ✅✅            |
+| >1 tab at a time         | ✅           | ✅✅                  | ✅✅          | ✅✅     | ✅✅            |
 | re-read changed file     | ?           | ?                   | ✅           | ?      | ?             |
 | wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅     | ❌ truncates   |
 | non-bloated side padding | ?           | ❌❌                  | ❌           | ✅      | ❌             |
 | shows images             | ?           | ?                   | ?           | ?      | ?             |
-| find in file             | ✅           | ✅                   | ❌           | ✅ ⚙️    | ❌             |
-| structure                | ✅           | ✅                   | ❌           | ✅ ⚙️    | ❌             |
-| internal links           | ?           | ?                   | ?           | ✅ ⚙️    | ?             |
+| find in file             | ✅           | ✅                   | ❌           | ✅ ⚙️   | ❌             |
+| structure                | ✅           | ✅                   | ❌           | ✅ ⚙️   | ❌             |
+| internal links           | ?           | ?                   | ?           | ✅ ⚙️   | ?             |
 | link editing             | ?           | ✔️                  | ❌           | ✔️     | ❌             |
 | toolbar                  | ?           | ✔️                  | ✔️          | ✔️     | ❌             |
 
@@ -307,56 +307,56 @@ Patch caveat: extension updates overwrite patched files; reapply after each Zaaa
 
 ### Zaaack Find / Outline / Anchor Nav (patched)
 
-The ⚙️ rows in the comparison table — find in file, structure, internal links — are added by `~/bin/patches/patch-zaaack.py` (canonical, lives in `~/bin/` repo and syncs across laptops via git). It patches `~/.vscode/extensions/zaaack.markdown-editor-<version>/media/dist/main.js`. **Pinned to Zaaack 0.1.13 + vditor 3.8.4** (the bundled lib version visible in `main.js`'s license footer). Update the version-pinned `PATH` constant inside the script when Zaaack updates.
+The ⚙️ rows in the comparison table — find in file, structure, internal links — are added by `~/bin/patches/patch-zaaack.py` (canonical, lives in `~/bin/` repo and syncs across laptops via git). It patches `main.js` in **both** `~/.vscode/extensions/zaaack.markdown-editor-<version>/media/dist/` and `~/.cursor/extensions/zaaack.markdown-editor-<version>/media/dist/` (each IDE has its own extensions dir). **Pinned to Zaaack 0.1.13 + vditor 3.8.4** (the bundled lib version visible in `main.js`'s license footer). The script globs all matching versioned dirs so a Zaaack version bump does not require editing the script.
 
 **Why patch instead of switching editors.** Every webview-based WYSIWYG competitor (typedown, IDEA shuzijun, Mark Sharp, Unotes, vscode-markdown-wysiwyg, Teddy Editor) shares the same Cmd+F gap — VS Code's find UI doesn't reach into webview content, and vditor doesn't expose a public search API. The only extension with native find is `remcohaszing.markdown-decorations`, but it's decoration-only and loses the rich WYSIWYG rendering that makes zaaack the best choice. So patching zaaack beats every alternative on the market as of 2026.05.
 
-**The three patch sites in `main.js`** — all are uniquely addressable single-line minified strings:
+**The four patch sites in `main.js`** — all are uniquely addressable single-line minified strings:
 
 1. **Outline view** — enable vditor's built-in outline panel:
-   - Anchor: `toolbarConfig:{pin:!0},`
-   - Insert after: `outline:{enable:!0,position:"left"},`
-   - Why this works: vditor 3.8.4 has full outline support built in (line 229 of `main.js`: `outline:{enable:!1` is the default). The user-options spread (`...i`) follows our insertion, so saved preferences can still override.
-
+  - Anchor: `toolbarConfig:{pin:!0},`
+  - Insert after: `outline:{enable:!0,position:"left"},`
+  - Why this works: vditor 3.8.4 has full outline support built in (line 229 of `main.js`: `outline:{enable:!1` is the default). The user-options spread (`...i`) follows our insertion, so saved preferences can still override.
 2. **after()-hook bridge** — call our enhancer once vditor finishes initializing:
-   - Anchor: `after(){V_(),Y_(),sB(),K_()}`
-   - Replace with: `after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}`
-   - Why this works: `after()` fires after vditor mounts the DOM — `window.vditor` is live and the editor `<div id="app">` is populated.
-
+  - Anchor: `after(){V_(),Y_(),sB(),K_()}`
+  - Replace with: `after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}`
+  - Why this works: `after()` fires after vditor mounts the DOM — `window.vditor` is live and the editor `<div id="app">` is populated.
 3. **Enhancer definition** — append `window.__zaaackEnhance` body just before the closing IIFE:
-   - Anchor: `vscode.postMessage({command:"ready"});})();`
-   - Insert before `})();`: the enhancer JS starting with marker `/*__zaaackEnhance__*/` (used as the idempotency check).
-   - Marker presence detection lets the script re-run safely without double-patching.
+  - Anchor: `vscode.postMessage({command:"ready"});})();`
+  - Insert before `})();`: the enhancer JS starting with marker `/*__zaaackEnhance__*/` (used as the idempotency check).
+  - Marker presence detection lets the script re-run safely without double-patching.
+4. **vscode.postMessage wrap** — drop intra-doc anchor `open-link` messages so VS Code does not try to open them as files:
+  - Anchor: `window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();window.global=window;`
+  - Insert between the two assignments: a wrapper that intercepts `vscode.postMessage({command:"open-link", href})` and, when the href is non-http and contains `#`, scrolls the matching heading via `window.__zaaackGotoAnchor(frag)` instead of forwarding the message.
+  - Marker `/*__zk_postwrap__*/` for idempotency.
+  - **Why we need this and not just a click handler.** Vditor's bundled `G_()` registers `document.addEventListener("click", t => { if (t.target.tagName==="A") vscode.postMessage({command:"open-link",href:t.target.href}); })` — a *bubble*-phase listener that uses the resolved `a.href` (not `getAttribute('href')`). For `<a href="#section">` the resolved URL becomes `<webviewBaseHref>#section`, a non-http URL with a fragment. The extension's `open-link` handler in `out/extension.js` then `path.resolve()`s that into a directory path + URI fragment and opens it via `vscode.open`, producing the *"directories can't be viewed in the IDE"* error. Wrapping `postMessage` is the only chokepoint that catches every variant — capture-phase click handlers are not enough because the `<base href>` rewrite hides the original `#anchor` form by the time vditor reads `.href`.
 
 **Enhancer responsibilities** (defined in the appended JS):
 
-- **Anchor link nav.** A capturing `click` listener on `#app`. Filters via `target.closest('a[href^="#"]')`. Resolution order:
-  - first try `ed.querySelector('[id="' + CSS.escape(id) + '"]')` (works when the markdown explicitly assigns ids)
-  - fall back to slug-matching every `h1..h6` (`text.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'')`) — vditor doesn't auto-id headings, so the slug walk is the workhorse.
-  - on hit: `e.preventDefault(); e.stopPropagation(); target.scrollIntoView({behavior:'smooth', block:'start'})`.
-
+- **Anchor link nav.** Two layers, defense in depth:
+  - *Primary*: the postMessage wrap (patch site #4) intercepts `{command:"open-link"}` for non-http hrefs containing `#` and reroutes to `window.__zaaackGotoAnchor(frag)`.
+  - *Secondary*: a capturing `click` listener on `document`. `closest('a')` then `isIntraDocHash(a)` returns the fragment when either `getAttribute('href').charAt(0) === '#'` OR the resolved `a.href` has a fragment AND its `origin+pathname` matches `location.origin+pathname` (same-document link).
+  - `__zaaackGotoAnchor(frag)` resolves headings: first `ed.querySelector('[id="' + CSS.escape(frag) + '"]')` (works when the markdown explicitly assigns ids), else slug-match every `h1..h6` via `text.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'')` (vditor doesn't auto-id headings, so the slug walk is the workhorse). On hit: `t.scrollIntoView({behavior:'smooth', block:'start'})`.
 - **Find-in-page (⌘F).** Capturing `keydown` on `document` matches `(metaKey||ctrlKey) && key==='f'/'F'`. Opens a fixed-position overlay (`#__zk-bar`) at top-right. Search algorithm:
   - Build a `TreeWalker` over `#app` `SHOW_TEXT`. Reject nodes inside `#__zk-bar` (own UI), `vditor-toolbar`, `vditor-outline`, `vditor-hint`, `vditor-panel` so toolbar tooltips and the find overlay itself don't pollute results.
   - For each accepted text node, run `new RegExp(escapedQuery, 'gi')` and replace matches in-place by splitting the node into a `DocumentFragment` of plain text + `<span class="__zk-hit">match</span>`.
   - Track all hit spans in a `hits[]` array. Current hit gets `background:#ff9800`, others `background:#ffd54f`, both `color:#000`. `scrollIntoView({behavior:'smooth', block:'center'})` on selection.
-  - Clearing replaces every span back with a text node before re-querying — prevents stacked highlights and keeps the markdown content unchanged for vditor's `getValue()`.
+  - Clearing replaces every span back with a text node, then calls `parent.normalize()` on every parent that lost a span — **critical**: without normalization, sibling text nodes left behind by `replaceChild` stay fragmented across span boundaries, so the next regex run can't find matches that span the boundary (e.g. typing "p" then "i": "Hello pillow" becomes `["Hello ","p","illow"]` after clearing the first hit, and `re.exec("p")`/`re.exec("illow")` separately never match `"pi"`). Bug symptom: 1-char queries highlight, 2+ char queries return 0/0. Fix: track unique parents in a `Set`, run `.normalize()` on each, then re-query.
   - Bindings: `⌘F` open, type to live-search (120 ms debounce), `Enter` / `Shift+Enter` next/prev, `Esc` close. Buttons in the bar do the same.
   - Styling uses VS Code CSS vars (`--vscode-editorWidget-background`, `--vscode-input-foreground`, `--vscode-widget-border`, etc.) so the bar matches the active theme.
-
 - **Idempotency guard:** sets `ed.__zaaackEnhanced = true` on the `#app` element so re-firing of `after()` (theme switch triggers a full vditor re-init via `extension.js`'s `onDidChangeActiveColorTheme`, which destroys+recreates vditor — the new `#app` is a fresh element so the guard doesn't block legitimate re-attaches).
 
 **CSP note.** The webview HTML in `extension.js`'s `_getHtmlForWebview()` sets no `Content-Security-Policy` meta tag, so inline scripts in `main.js` execute freely. If a future Zaaack version adds CSP, the enhancer needs to move to a separate file registered via `webview.asWebviewUri()`.
 
 **Reapply procedure** (after Zaaack extension update, OS migration, or fresh checkout):
 
-1. Confirm installed version: `ls ~/.vscode/extensions/ | grep zaaack`.
-2. If version differs from 0.1.13, edit the `PATH` constant in `~/bin/patches/patch-zaaack.py` to match.
-3. `python3 ~/bin/patches/patch-zaaack.py` — prints `[1/3]` … `[3/3]` and `done`. Re-running on already-patched files is a no-op.
-4. Sanity check: `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` should print no errors.
-5. Reload VS Code window (`Developer: Reload Window`).
-6. Open a markdown file with `^⌥⌘M` and verify: outline panel appears on the left, `[link](#some-heading)` jumps, `⌘F` opens the find bar.
+1. Confirm installed version(s): `ls ~/.vscode/extensions/ ~/.cursor/extensions/ 2>/dev/null | grep zaaack`. The script auto-globs every matching dir under both IDEs.
+2. `python3 ~/bin/patches/patch-zaaack.py` — for each target dir, prints `[1/4]` … `[4/4]` and `done`. Re-running on already-patched files is a no-op (each patch site has its own marker / `XXX_NEW in src` short-circuit).
+3. Sanity check: `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` should print no errors.
+4. Reload VS Code / Cursor window (`Developer: Reload Window`) for each affected window.
+5. Open a markdown file with `^⌥⌘M` and verify: outline panel appears on the left, `[link](#some-heading)` jumps in-place (no new tab opens), `⌘F` opens the find bar with multi-char search working.
 
-**Recreating the patch from scratch** (if `~/bin/patches/patch-zaaack.py` is ever lost): use the three anchor strings + the enhancer responsibilities described above. The complete enhancer is ~140 lines of plain ES5 — every behavior listed above is sufficient to rewrite it. Three Python `assert src.count(ANCHOR) == 1` checks plus marker-comment idempotency = the pattern.
+**Recreating the patch from scratch** (if `~/bin/patches/patch-zaaack.py` is ever lost): use the four anchor strings + the enhancer responsibilities described above. The complete enhancer is ~150 lines of plain ES5 — every behavior listed above is sufficient to rewrite it. Four Python `assert src.count(ANCHOR) == 1` checks plus marker-comment idempotency = the pattern.
 
 **Fallbacks if the patch ever breaks:**
 
@@ -377,7 +377,7 @@ Cursor parity status:
 - Applied matching Cursor keybindings in `~/Library/Application Support/Cursor/User/keybindings.json`:
   - `⇧⌘V -> workbench.action.markdown.openPreview` (built-in; preference over MPE in Cursor)
   - typedown / zaaack WYSIWYG shortcut swap parity with VS Code
-- Not patchable yet in Cursor on this machine: no installed `zaaack.markdown-editor-`* extension under `~/.cursor/extensions/`, so the singleton-to-multi-panel `out/extension.js` patch could not be applied there yet.
+- `patch-zaaack.py` now globs both `~/.vscode/extensions/` and `~/.cursor/extensions/` so a single run patches the same `main.js` in both IDEs. The `out/extension.js` multi-panel patch (singleton-to-`panelsByPath`-Map) is also expected in Cursor but is applied separately by hand (see *Zaaack Markdown Editor Patches* below).
 
 ### Markdown Preview Theme (auto-switch)
 

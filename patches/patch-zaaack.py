@@ -1,77 +1,136 @@
 #!/usr/bin/env python3
 """Patch zaaack markdown-editor main.js to add: outline view, intra-doc anchor
-nav, and Cmd+F find-in-page. Idempotent: re-running is safe."""
-import os, sys
+nav, and Cmd+F find-in-page. Idempotent: re-running is safe.
 
-PATH = os.path.expanduser(
-    '~/.vscode/extensions/zaaack.markdown-editor-0.1.13/media/dist/main.js'
-)
+Patches every installed copy under both ~/.vscode/extensions and
+~/.cursor/extensions automatically (each IDE has its own extensions dir).
+After running, reload each affected window (Developer: Reload Window).
+"""
+import os, sys, glob
 
-with open(PATH) as f:
-    src = f.read()
+CANDIDATE_GLOBS = [
+    '~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js',
+    '~/.cursor/extensions/zaaack.markdown-editor-*/media/dist/main.js',
+]
 
 # ---- Patch 1: enable vditor outline view (default left-side panel) ----
 P1_OLD = 'toolbarConfig:{pin:!0},'
 P1_NEW = 'toolbarConfig:{pin:!0},outline:{enable:!0,position:"left"},'
-if P1_NEW not in src:
-    assert src.count(P1_OLD) == 1, 'P1 anchor not found or not unique'
-    src = src.replace(P1_OLD, P1_NEW, 1)
-    print('[1/3] outline option inserted')
-else:
-    print('[1/3] outline already enabled')
 
 # ---- Patch 2: hook after() to call our enhancer ----
 P2_OLD = 'after(){V_(),Y_(),sB(),K_()}'
 P2_NEW = 'after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}'
-if P2_NEW not in src:
-    assert src.count(P2_OLD) == 1, 'P2 anchor not found or not unique'
-    src = src.replace(P2_OLD, P2_NEW, 1)
-    print('[2/3] after() hook installed')
-else:
-    print('[2/3] after() hook already installed')
+
+# ---- Patch 4: wrap vscode.postMessage to drop intra-doc open-link messages.
+# Vditor's G_() click handler sends {command:"open-link",href:a.href} for
+# any anchor click (using the *resolved* URL). For <a href="#section"> the
+# resolved URL becomes <baseHref>#section (a non-http URL with fragment).
+# The extension then path.resolve()s that to a directory + fragment and
+# opens it as a file -> "directory cannot be viewed" error. We intercept
+# postMessage and reroute hash-fragment opens to scroll the matching heading. ----
+P4_OLD = 'window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();window.global=window;'
+P4_MARKER = '/*__zk_postwrap__*/'
+P4_NEW = (
+    'window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();'
+    + P4_MARKER
+    + 'if(window.vscode&&!window.vscode.__zk_wrapped){'
+      'var __zk_origPost=window.vscode.postMessage.bind(window.vscode);'
+      'window.vscode.postMessage=function(m){'
+        'try{'
+          'if(m&&m.command==="open-link"&&typeof m.href==="string"&&!/^https?:/i.test(m.href)){'
+            'var hi=m.href.indexOf("#");'
+            'if(hi>=0){'
+              'var frag=m.href.slice(hi+1);'
+              'console.log("[zaaack-patch] dropped open-link for hash url; scrolling to:",frag);'
+              'if(window.__zaaackGotoAnchor)window.__zaaackGotoAnchor(frag);'
+              'return;'
+            '}'
+          '}'
+        '}catch(err){console.error("[zaaack-patch postMessage wrap]",err);}'
+        'return __zk_origPost(m);'
+      '};'
+      'window.vscode.__zk_wrapped=true;'
+      'console.log("[zaaack-patch] vscode.postMessage wrapped");'
+    '}'
+    'window.global=window;'
+)
 
 # ---- Patch 3: define window.__zaaackEnhance with anchor-nav + find-in-page ----
 ENHANCE_MARKER = '/*__zaaackEnhance__*/'
 ENHANCE_JS = ENHANCE_MARKER + r'''
+console.log("[zaaack-patch] module loaded; window.__zaaackEnhance about to be defined");
+
+// Heading lookup + scroll helper, exposed globally so the postMessage wrap
+// can also use it.
+window.__zaaackGotoAnchor = function(frag){
+  if (!frag) return false;
+  var ed = document.querySelector('#app');
+  if (!ed) return false;
+  var t = null;
+  try { t = ed.querySelector('[id="' + (window.CSS && CSS.escape ? CSS.escape(frag) : frag) + '"]'); } catch(_){}
+  if (!t) {
+    var want = decodeURIComponent(frag||'').trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'');
+    var hs = ed.querySelectorAll('h1,h2,h3,h4,h5,h6');
+    for (var i=0;i<hs.length;i++){
+      var s = (hs[i].textContent||'').trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,'');
+      if (s === want){ t = hs[i]; break; }
+    }
+  }
+  if (!t) return false;
+  t.scrollIntoView({behavior:'smooth', block:'start'});
+  return true;
+};
+
 window.__zaaackEnhance=function(){
+  console.log("[zaaack-patch] __zaaackEnhance called");
   try {
     var ed = document.querySelector('#app');
+    console.log("[zaaack-patch] #app found:", !!ed, "already enhanced:", ed && ed.__zaaackEnhanced);
     if (!ed || ed.__zaaackEnhanced) return;
     ed.__zaaackEnhanced = true;
 
     // ---- Intra-doc anchor link navigation ----
-    function slug(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,'-').replace(/[^\w\-]/g,''); }
-    function findHeading(id) {
+    // Capture-phase on document so we run BEFORE vditor's bubble-phase
+    // click handler (which posts open-link to the host).
+    function isIntraDocHash(a){
+      if (!a) return null;
+      var attr = a.getAttribute && a.getAttribute('href');
+      if (typeof attr === 'string' && attr.charAt(0) === '#') return attr.slice(1);
+      // Fallback: resolved URL has a fragment AND points at the same path
       try {
-        var byId = ed.querySelector('[id="' + CSS.escape(id) + '"]');
-        if (byId) return byId;
-      } catch(_) {}
-      var want = decodeURIComponent(id || '').toLowerCase();
-      var hs = ed.querySelectorAll('h1,h2,h3,h4,h5,h6');
-      for (var i = 0; i < hs.length; i++) {
-        if (slug(hs[i].textContent) === slug(want)) return hs[i];
-      }
+        if (a.href) {
+          var u = new URL(a.href, location.href);
+          if (u.hash) {
+            var samePath = (u.origin + u.pathname) === (location.origin + location.pathname);
+            if (samePath) return u.hash.slice(1);
+          }
+        }
+      } catch(_){}
       return null;
     }
-    ed.addEventListener('click', function(e){
-      var a = e.target && e.target.closest && e.target.closest('a[href^="#"]');
+    document.addEventListener('click', function(e){
+      var a = e.target && e.target.closest && e.target.closest('a');
       if (!a) return;
-      var href = a.getAttribute('href');
-      if (!href || href.length < 2) return;
-      var t = findHeading(href.slice(1));
-      if (!t) return;
+      var frag = isIntraDocHash(a);
+      if (frag === null) return;
+      console.log("[zaaack-patch] intercepted intra-doc click, frag=", frag);
       e.preventDefault();
-      e.stopPropagation();
-      t.scrollIntoView({behavior:'smooth', block:'start'});
+      e.stopImmediatePropagation();
+      window.__zaaackGotoAnchor(frag);
     }, true);
 
     // ---- Cmd+F find-in-page overlay ----
     var bar = null, hits = [], idx = -1, lastQ = '';
 
     function clearHits(){
+      var parents = new Set();
       hits.forEach(function(s){
-        if (s.parentNode) s.parentNode.replaceChild(document.createTextNode(s.textContent), s);
+        if (s.parentNode) {
+          parents.add(s.parentNode);
+          s.parentNode.replaceChild(document.createTextNode(s.textContent), s);
+        }
       });
+      parents.forEach(function(p){ try { p.normalize(); } catch(_) {} });
       hits = []; idx = -1;
     }
 
@@ -170,19 +229,91 @@ window.__zaaackEnhance=function(){
         openFind();
       }
     }, true);
+    console.log("[zaaack-patch] enhancer attached successfully");
   } catch(err) { console.error('[zaaack patch]', err); }
 };
 '''
 
 CLOSE = 'vscode.postMessage({command:"ready"});})();'
-if ENHANCE_MARKER not in src:
-    assert src.count(CLOSE) == 1, 'P3 anchor not found or not unique'
-    # Inject before the final })();
-    src = src.replace(CLOSE, 'vscode.postMessage({command:"ready"});' + ENHANCE_JS + '})();', 1)
-    print('[3/3] __zaaackEnhance defined')
-else:
-    print('[3/3] __zaaackEnhance already defined')
 
-with open(PATH, 'w') as f:
-    f.write(src)
-print('done')
+
+def patch_one(path):
+    print('=== patching', path, '===')
+    with open(path) as f:
+        src = f.read()
+
+    if P1_NEW in src:
+        print('[1/4] outline already enabled')
+    else:
+        assert src.count(P1_OLD) == 1, 'P1 anchor not found or not unique'
+        src = src.replace(P1_OLD, P1_NEW, 1)
+        print('[1/4] outline option inserted')
+
+    if P2_NEW in src:
+        print('[2/4] after() hook already installed')
+    else:
+        assert src.count(P2_OLD) == 1, 'P2 anchor not found or not unique'
+        src = src.replace(P2_OLD, P2_NEW, 1)
+        print('[2/4] after() hook installed')
+
+    # P4: postMessage wrap. Idempotent: re-inject by stripping old wrap block.
+    if P4_MARKER in src:
+        # Strip from marker through to the trailing 'window.global=window;'
+        i = src.find(P4_MARKER)
+        # Walk backward to start of the marker insertion site (after acquireVsCodeApi line)
+        # The reinjection target is 'acquireVsCodeApi();' followed by marker.
+        # We replace from marker through 'window.global=window;' (inclusive).
+        anchor_end = 'window.global=window;'
+        j = src.find(anchor_end, i)
+        assert j != -1, 'cannot find window.global=window; after P4 marker'
+        j_end = j + len(anchor_end)
+        # Drop the entire wrapped block, leaving the bare anchor needing P4_NEW.
+        src = src[:i] + 'window.global=window;' + src[j_end:]
+        print('[4/4] removed prior postMessage wrap block')
+
+    if P4_OLD in src:
+        assert src.count(P4_OLD) == 1, 'P4 anchor not found or not unique'
+        src = src.replace(P4_OLD, P4_NEW, 1)
+        print('[4/4] postMessage wrap installed')
+    else:
+        # Already wrapped (P4_MARKER block present without bare anchor) — skip.
+        print('[4/4] postMessage wrap already installed')
+
+    if ENHANCE_MARKER in src:
+        # Re-injecting an updated enhancer: remove old block and re-add.
+        # Old block is from `/*__zaaackEnhance__*/` to the next `})();`.
+        i = src.find(ENHANCE_MARKER)
+        j = src.find('})();', i)
+        assert j != -1, 'cannot find IIFE close after marker'
+        # Remove old enhancer text but keep the trailing `})();`
+        src = src[:i] + src[j:]
+        print('[3/4] removed prior enhancer block')
+
+    assert src.count(CLOSE) == 1, 'P3 anchor not found or not unique'
+    src = src.replace(CLOSE,
+                      'vscode.postMessage({command:"ready"});' + ENHANCE_JS + '})();',
+                      1)
+    print('[3/4] __zaaackEnhance defined')
+
+    with open(path, 'w') as f:
+        f.write(src)
+    print('done\n')
+
+
+def main():
+    paths = []
+    for g in CANDIDATE_GLOBS:
+        paths.extend(glob.glob(os.path.expanduser(g)))
+    if not paths:
+        print('No zaaack main.js found in any extensions dir', file=sys.stderr)
+        sys.exit(1)
+    print('Targets:')
+    for p in paths:
+        print(' -', p)
+    print()
+    for p in paths:
+        patch_one(p)
+
+
+if __name__ == '__main__':
+    main()
