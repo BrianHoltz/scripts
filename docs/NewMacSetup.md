@@ -112,9 +112,9 @@ brew install \
 - `parallel` — GNU parallel (used in scripts)
 
 ```sh
-# ~/bin/ script deps (agent_browse requires these)
-pip3 install playwright requests
-playwright install chromium
+# Optional: CDP browser automation deps (if using a browser automation script)
+# pip3 install playwright requests
+# playwright install chromium
 ```
 
 ## Copilot: VS Code Extensions
