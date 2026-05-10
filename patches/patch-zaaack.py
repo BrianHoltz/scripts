@@ -114,48 +114,8 @@ window.__zaaackGotoAnchor = function(frag){
   return true;
 };
 
-// CSS injected at runtime so we don't depend on the markdown-editor.customCss
-// setting being read fresh by every panel — same rules, but guaranteed to be
-// in the cascade after main.css and any user customCss.
-function __zaaackInjectStyle(){
-  if (document.getElementById('__zk-style')) return;
-  var s = document.createElement('style');
-  s.id = '__zk-style';
-  s.textContent = [
-    // Sans-serif + tighter line height across the whole vditor surface
-    '.vditor .vditor-reset, .vditor-ir pre.vditor-reset, .vditor-sv {',
-    '  font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", system-ui, "Ubuntu", "Droid Sans", sans-serif !important;',
-    '  font-size: 13px !important;',
-    '  line-height: 1.4 !important;',
-    '}',
-    // Inherit through the table chain — IR-mode cells otherwise reset to UA defaults
-    '.vditor-reset table, .vditor-reset table td, .vditor-reset table th {',
-    '  font-family: inherit !important;',
-    '  font-size: inherit !important;',
-    '  line-height: 1.4 !important;',
-    '}',
-    // Tight cell padding (vditor default is 6px 13px)
-    '.vditor-reset table td, .vditor-reset table th {',
-    '  padding: 3px 7px !important;',
-    '  vertical-align: top !important;',
-    '}',
-    // <p> margins inside cells: vditor IR wraps cell content in <p> with 1em
-    // browser-default margins; this is the main reason cells render so tall.
-    '.vditor-reset table td > p, .vditor-reset table th > p { margin: 0 !important; }',
-    '.vditor-reset table td ul, .vditor-reset table td ol { margin: 0 !important; padding-left: 1.2em !important; }',
-    '.vditor-reset table td li > p { margin: 0 !important; }',
-    // Inline code: smaller and tighter so backticks dont blow out cell heights
-    '.vditor-reset code:not(.hljs):not(.highlight-chroma) {',
-    '  font-size: 0.92em !important;',
-    '  padding: 0.05em 0.35em !important;',
-    '}'
-  ].join('\n');
-  document.head.appendChild(s);
-}
-
 window.__zaaackEnhance=function(){
   try {
-    __zaaackInjectStyle();
     var ed = document.querySelector('#app');
     if (!ed || ed.__zaaackEnhanced) return;
     ed.__zaaackEnhanced = true;
