@@ -120,6 +120,25 @@ window.__zaaackEnhance=function(){
     if (!ed || ed.__zaaackEnhanced) return;
     ed.__zaaackEnhanced = true;
 
+    // ---- Fix: outline "More" menu item invisible when outline is showing ----
+    // Root cause: dark vditor sets --toolbar-icon-hover-color:#fff; but
+    // data-use-vscode-theme-color overrides --panel-background-color to
+    // --vscode-editor-background which can be white on dark-chrome themes.
+    // Result: white text on white background = invisible vditor-menu--current item.
+    // Fix: remap --toolbar-icon-hover-color to a VS Code-aware color so it
+    // always contrasts with the editor background.
+    (function injectCssFixes(){
+      if (document.getElementById('__zk-css-fixes')) return;
+      var s = document.createElement('style');
+      s.id = '__zk-css-fixes';
+      s.textContent = [
+        'body[data-use-vscode-theme-color="1"] .vditor{',
+        '  --toolbar-icon-hover-color:var(--vscode-textLink-foreground,var(--vscode-editor-foreground));',
+        '}',
+      ].join('');
+      document.head.appendChild(s);
+    })();
+
     // ---- Intra-doc anchor link navigation ----
     // VS Code webviews have a *built-in* link-click handler that fires
     // `did-click-link` to the workbench when an iframe attempts to navigate
@@ -293,6 +312,70 @@ window.__zaaackEnhance=function(){
         openFind();
       }
     }, true);
+
+    // ---- Resizable outline panel ----
+    // .vditor-content is display:flex; .vditor-outline is width:250px on the
+    // left; the editor (.vditor-ir etc.) has flex:1. We inject a 5px drag
+    // handle between them so the user can widen or narrow the outline.
+    function installOutlineResizer(){
+      var content = document.querySelector('.vditor-content');
+      var outline = content && content.querySelector('.vditor-outline');
+      if (!outline || content.__zkResizerInstalled) return;
+      content.__zkResizerInstalled = true;
+      var handle = document.createElement('div');
+      handle.id = '__zk-outline-resize';
+      handle.style.cssText = [
+        'width:5px',
+        'cursor:col-resize',
+        'flex-shrink:0',
+        'background:transparent',
+        'position:relative',
+        'z-index:5',
+        '-webkit-user-select:none',
+        'user-select:none',
+        'transition:background 0.12s',
+      ].join(';');
+      handle.addEventListener('mouseenter', function(){
+        if (!handle._drag) handle.style.background = 'var(--vscode-panel-border,rgba(128,128,128,0.45))';
+      });
+      handle.addEventListener('mouseleave', function(){
+        if (!handle._drag) handle.style.background = 'transparent';
+      });
+      // Insert handle immediately after outline in the flex row
+      var nextEl = outline.nextSibling;
+      nextEl ? content.insertBefore(handle, nextEl) : content.appendChild(handle);
+      handle.addEventListener('mousedown', function(e){
+        e.preventDefault();
+        handle._drag = true;
+        var startX = e.clientX;
+        var startW = outline.getBoundingClientRect().width;
+        handle.style.background = 'var(--vscode-focusBorder,var(--vscode-panel-border,rgba(100,140,200,0.7)))';
+        document.body.style.userSelect = 'none';
+        function onMove(ev){
+          var newW = Math.max(60, Math.min(800, startW + (ev.clientX - startX)));
+          outline.style.width = newW + 'px';
+        }
+        function onUp(){
+          handle._drag = false;
+          handle.style.background = 'transparent';
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove, true);
+          document.removeEventListener('mouseup', onUp, true);
+        }
+        document.addEventListener('mousemove', onMove, true);
+        document.addEventListener('mouseup', onUp, true);
+      });
+    }
+    // Retry — outline element may not be in DOM at the exact moment after() fires
+    (function tryResizer(n){
+      var content = document.querySelector('.vditor-content');
+      if (content && content.querySelector('.vditor-outline')){
+        installOutlineResizer();
+      } else if (n > 0) {
+        setTimeout(function(){ tryResizer(n - 1); }, 150);
+      }
+    })(15);
+
   } catch(err) { console.error('[zaaack-patch]', err); }
 };
 '''
