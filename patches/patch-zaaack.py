@@ -1,33 +1,59 @@
 #!/usr/bin/env python3
-"""Patch zaaack markdown-editor main.js to add: outline view, intra-doc anchor
-nav, and Cmd+F find-in-page. Idempotent: re-running is safe.
+"""Patch zaaack markdown-editor to add: VS Code sidebar outline (TreeView),
+intra-doc anchor nav, and Cmd+F find-in-page. Idempotent: re-running is safe.
 
-Patches every installed copy under both ~/.vscode/extensions and
-~/.cursor/extensions automatically (each IDE has its own extensions dir).
-After running, reload each affected window (Developer: Reload Window).
+Patches main.js, extension.js, and package.json under every installed copy
+in both ~/.vscode/extensions and ~/.cursor/extensions.
+After running, reload each affected IDE window (Developer: Reload Window).
 """
-import os, sys, glob
+import os, sys, glob, shutil, time
 
-CANDIDATE_GLOBS = [
-    '~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js',
-    '~/.cursor/extensions/zaaack.markdown-editor-*/media/dist/main.js',
+ROOT_GLOBS = [
+    os.path.expanduser('~/.vscode/extensions/zaaack.markdown-editor-*/'),
+    os.path.expanduser('~/.cursor/extensions/zaaack.markdown-editor-*/'),
 ]
 
-# ---- Patch 1: enable vditor outline view (default left-side panel) ----
-P1_OLD = 'toolbarConfig:{pin:!0},'
-P1_NEW = 'toolbarConfig:{pin:!0},outline:{enable:!0,position:"left"},'
 
-# ---- Patch 2: hook after() to call our enhancer ----
+def backup(path):
+    bak = f"{path}.bak.{int(time.time())}"
+    shutil.copy2(path, bak)
+    return bak
+
+
+def strip_block(src, start_marker, end_marker):
+    """Remove text from start_marker through end_marker (inclusive), plus
+    leading indentation on the marker line and trailing newline."""
+    i = src.find(start_marker)
+    if i == -1:
+        return src, False
+    j = src.find(end_marker, i)
+    assert j != -1, f'Found {start_marker} but no matching {end_marker}'
+    j += len(end_marker)
+    # Eat trailing newline
+    if j < len(src) and src[j] == '\n':
+        j += 1
+    # Eat leading whitespace on the marker's line back to the preceding \n
+    k = i
+    while k > 0 and src[k - 1] in ' \t':
+        k -= 1
+    if k > 0 and src[k - 1] == '\n':
+        i = k  # keep the preceding \n (it terminates the previous line)
+    return src[:i] + src[j:], True
+
+
+# ====================================================================
+# main.js patches
+# ====================================================================
+
+# Patch 1 REMOVAL: undo vditor built-in outline (now using VS Code TreeView)
+P1_PATCHED = 'toolbarConfig:{pin:!0},outline:{enable:!0,position:"left"},'
+P1_ORIGINAL = 'toolbarConfig:{pin:!0},'
+
+# Patch 2: hook after() to call our enhancer
 P2_OLD = 'after(){V_(),Y_(),sB(),K_()}'
 P2_NEW = 'after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}'
 
-# ---- Patch 4: wrap vscode.postMessage to drop intra-doc open-link messages.
-# Vditor's G_() click handler sends {command:"open-link",href:a.href} for
-# any anchor click (using the *resolved* URL). For <a href="#section"> the
-# resolved URL becomes <baseHref>#section (a non-http URL with fragment).
-# The extension then path.resolve()s that to a directory + fragment and
-# opens it as a file -> "directory cannot be viewed" error. We intercept
-# postMessage and reroute hash-fragment opens to scroll the matching heading. ----
+# Patch 4: wrap vscode.postMessage to drop intra-doc open-link messages
 P4_OLD = 'window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();window.global=window;'
 P4_MARKER = '/*__zk_postwrap__*/'
 P4_NEW = (
@@ -52,23 +78,17 @@ P4_NEW = (
     'window.global=window;'
 )
 
-# ---- Patch 3: define window.__zaaackEnhance with anchor-nav + find-in-page ----
+# Patch 3: enhancer — anchor nav + find-in-page + scroll-to-heading listener
+# (vditor outline + resizer REMOVED; scroll-to-heading for VS Code TreeView ADDED)
 ENHANCE_MARKER = '/*__zaaackEnhance__*/'
+ENHANCE_END_MARKER = '/*__zaaackEnhance_end__*/'
 ENHANCE_JS = ENHANCE_MARKER + r'''
 // Heading lookup + scroll helper, exposed globally so the postMessage wrap
-// can also use it.
-//
-// Vditor IR mode renders headings with marker spans inside the <h*>:
-//   <h2 data-block="0">
-//     <span class="vditor-ir__marker vditor-ir__marker--heading">## </span>
-//     History
-//   </h2>
-// so .textContent includes "## History" — we have to skip marker spans
-// when slugifying. Headings also often have NO id attribute in IR mode.
+// and the VS Code sidebar outline TreeView can use it.
 function slugify(s){
   return decodeURIComponent(s||'')
     .trim().toLowerCase()
-    .replace(/^[#*\-_\s]+/,'')           // strip leading markdown markers
+    .replace(/^[#*\-_\s]+/,'')
     .replace(/\s+/g,'-')
     .replace(/[^\w\-]/g,'');
 }
@@ -86,8 +106,6 @@ function headingText(h){
 }
 window.__zaaackGotoAnchor = function(frag){
   if (!frag) return false;
-  // Vditor renders inside .vditor-ir or similar; #app contains the toolbar
-  // too. Try a few container selectors.
   var ed = document.querySelector('.vditor-ir__content')
         || document.querySelector('.vditor-ir')
         || document.querySelector('.vditor-reset')
@@ -95,9 +113,7 @@ window.__zaaackGotoAnchor = function(frag){
         || document.body;
   if (!ed) return false;
   var t = null;
-  // 1) Direct id match
   try { t = ed.querySelector('[id="' + (window.CSS && CSS.escape ? CSS.escape(frag) : frag) + '"]'); } catch(_){}
-  // 2) Heading text-slug match (skipping vditor marker spans)
   if (!t) {
     var want = slugify(frag);
     var hs = ed.querySelectorAll('h1,h2,h3,h4,h5,h6');
@@ -120,13 +136,7 @@ window.__zaaackEnhance=function(){
     if (!ed || ed.__zaaackEnhanced) return;
     ed.__zaaackEnhanced = true;
 
-    // ---- Fix: outline "More" menu item invisible when outline is showing ----
-    // Root cause: dark vditor sets --toolbar-icon-hover-color:#fff; but
-    // data-use-vscode-theme-color overrides --panel-background-color to
-    // --vscode-editor-background which can be white on dark-chrome themes.
-    // Result: white text on white background = invisible vditor-menu--current item.
-    // Fix: remap --toolbar-icon-hover-color to a VS Code-aware color so it
-    // always contrasts with the editor background.
+    // ---- Fix: outline "More" menu item invisible ----
     (function injectCssFixes(){
       if (document.getElementById('__zk-css-fixes')) return;
       var s = document.createElement('style');
@@ -140,33 +150,10 @@ window.__zaaackEnhance=function(){
     })();
 
     // ---- Intra-doc anchor link navigation ----
-    // VS Code webviews have a *built-in* link-click handler that fires
-    // `did-click-link` to the workbench when an iframe attempts to navigate
-    // to a non-http URL — that path lands in `openCodeEditor` and tries to
-    // open the resolved directory as a text editor (-> "directories can't
-    // be viewed in the IDE" error). The extension's `open-link` postMessage
-    // path is a *separate* path (caught by our P4 postMessage wrap). To
-    // stop the webview's built-in path we must call e.preventDefault() on
-    // the click event in the inner document, BEFORE the iframe nav fires.
     function clickHandler(e){
       var t = e.target;
       if (!t) return;
-      // 1) Real <a> elements (preview mode and any standard anchor)
       var a = t.closest && t.closest('a');
-      // 2) Vditor IR-mode renders `[txt](url)` as:
-      //      <span data-type="a">
-      //        <span class="vditor-ir__marker--bracket">[</span>
-      //        <span class="vditor-ir__link">txt</span>
-      //        <span class="vditor-ir__marker--bracket">]</span>
-      //        <span class="vditor-ir__marker--paren">(</span>
-      //        <span class="vditor-ir__marker--link">url</span>
-      //        <span class="vditor-ir__marker--paren">)</span>
-      //      </span>
-      // The actual URL lives in `.vditor-ir__marker--link`. Vditor's own
-      // click handler on the editor element finds the `[data-type="a"]`
-      // ancestor and calls `window.open(markerLink.textContent)`. We need
-      // to short-circuit that BEFORE it fires (capture phase) so the URL
-      // never reaches the webview's nav layer.
       var dataA = t.closest && t.closest('[data-type="a"]');
       var markerLink = dataA && dataA.querySelector(':scope > .vditor-ir__marker--link');
       var url = '';
@@ -175,15 +162,12 @@ window.__zaaackEnhance=function(){
       } else if (markerLink) {
         url = (markerLink.textContent || '').trim();
       }
-      if (!a && !dataA) return; // not a link click — let it through
+      if (!a && !dataA) return;
       var isHttp = /^https?:/i.test(url);
-      if (!url || isHttp) return; // external links: leave default behavior
-      // Non-http link click — block all downstream handlers so the webview
-      // never tries to navigate to the resolved directory.
+      if (!url || isHttp) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       e.stopPropagation();
-      // Extract fragment for intra-doc scroll.
       var frag = null;
       if (url.charAt(0) === '#') frag = url.slice(1);
       else {
@@ -196,8 +180,6 @@ window.__zaaackEnhance=function(){
         window.__zaaackGotoAnchor && window.__zaaackGotoAnchor(frag);
       }
     }
-    // Register in capture phase on window/document/documentElement so we
-    // fire before vditor's own bubble-phase listener on the editor element.
     window.addEventListener('click', clickHandler, true);
     document.addEventListener('click', clickHandler, true);
     document.documentElement.addEventListener('click', clickHandler, true);
@@ -282,9 +264,9 @@ window.__zaaackEnhance=function(){
       bar.style.cssText = 'position:fixed;top:6px;right:14px;z-index:99999;background:var(--vscode-editorWidget-background,#252526);color:var(--vscode-editorWidget-foreground,#ccc);border:1px solid var(--vscode-widget-border,var(--vscode-panel-border,#454545));padding:5px 7px;display:flex;gap:5px;align-items:center;font:12px -apple-system,system-ui,sans-serif;border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,0.4);';
       bar.innerHTML = '<input id="__zk-q" type="text" placeholder="Find" style="background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#cccccc);border:1px solid var(--vscode-input-border,#3c3c3c);padding:2px 6px;width:200px;outline:none;font:inherit;"/>'
         + '<span id="__zk-count" style="opacity:0.7;min-width:38px;text-align:center;"></span>'
-        + '<button id="__zk-prev" title="Previous (Shift+Enter)" style="cursor:pointer;background:transparent;color:inherit;border:1px solid var(--vscode-widget-border,#454545);padding:1px 7px;font:inherit;">↑</button>'
-        + '<button id="__zk-next" title="Next (Enter)" style="cursor:pointer;background:transparent;color:inherit;border:1px solid var(--vscode-widget-border,#454545);padding:1px 7px;font:inherit;">↓</button>'
-        + '<button id="__zk-close" title="Close (Esc)" style="cursor:pointer;background:transparent;color:inherit;border:1px solid var(--vscode-widget-border,#454545);padding:1px 7px;font:inherit;">×</button>';
+        + '<button id="__zk-prev" title="Previous (Shift+Enter)" style="cursor:pointer;background:transparent;color:inherit;border:1px solid var(--vscode-widget-border,#454545);padding:1px 7px;font:inherit;">&#x2191;</button>'
+        + '<button id="__zk-next" title="Next (Enter)" style="cursor:pointer;background:transparent;color:inherit;border:1px solid var(--vscode-widget-border,#454545);padding:1px 7px;font:inherit;">&#x2193;</button>'
+        + '<button id="__zk-close" title="Close (Esc)" style="cursor:pointer;background:transparent;color:inherit;border:1px solid var(--vscode-widget-border,#454545);padding:1px 7px;font:inherit;">&#xd7;</button>';
       document.body.appendChild(bar);
       var q = bar.querySelector('#__zk-q');
       bar.querySelector('#__zk-close').onclick = function(){ clearHits(); bar.style.display='none'; };
@@ -313,152 +295,418 @@ window.__zaaackEnhance=function(){
       }
     }, true);
 
-    // ---- Resizable outline panel ----
-    // .vditor-content is display:flex; .vditor-outline is width:250px on the
-    // left; the editor (.vditor-ir etc.) has flex:1. We inject a 5px drag
-    // handle between them so the user can widen or narrow the outline.
-    function installOutlineResizer(){
-      var content = document.querySelector('.vditor-content');
-      var outline = content && content.querySelector('.vditor-outline');
-      if (!outline || content.__zkResizerInstalled) return;
-      content.__zkResizerInstalled = true;
-      var handle = document.createElement('div');
-      handle.id = '__zk-outline-resize';
-      handle.style.cssText = [
-        'width:5px',
-        'cursor:col-resize',
-        'flex-shrink:0',
-        'background:transparent',
-        'position:relative',
-        'z-index:5',
-        '-webkit-user-select:none',
-        'user-select:none',
-        'transition:background 0.12s',
-      ].join(';');
-      handle.addEventListener('mouseenter', function(){
-        if (!handle._drag) handle.style.background = 'var(--vscode-panel-border,rgba(128,128,128,0.45))';
-      });
-      handle.addEventListener('mouseleave', function(){
-        if (!handle._drag) handle.style.background = 'transparent';
-      });
-      // Insert handle immediately after outline in the flex row
-      var nextEl = outline.nextSibling;
-      nextEl ? content.insertBefore(handle, nextEl) : content.appendChild(handle);
-      handle.addEventListener('mousedown', function(e){
-        e.preventDefault();
-        handle._drag = true;
-        var startX = e.clientX;
-        var startW = outline.getBoundingClientRect().width;
-        handle.style.background = 'var(--vscode-focusBorder,var(--vscode-panel-border,rgba(100,140,200,0.7)))';
-        document.body.style.userSelect = 'none';
-        function onMove(ev){
-          var newW = Math.max(60, Math.min(800, startW + (ev.clientX - startX)));
-          outline.style.width = newW + 'px';
-        }
-        function onUp(){
-          handle._drag = false;
-          handle.style.background = 'transparent';
-          document.body.style.userSelect = '';
-          document.removeEventListener('mousemove', onMove, true);
-          document.removeEventListener('mouseup', onUp, true);
-        }
-        document.addEventListener('mousemove', onMove, true);
-        document.addEventListener('mouseup', onUp, true);
-      });
-    }
-    // Retry — outline element may not be in DOM at the exact moment after() fires
-    (function tryResizer(n){
-      var content = document.querySelector('.vditor-content');
-      if (content && content.querySelector('.vditor-outline')){
-        installOutlineResizer();
-      } else if (n > 0) {
-        setTimeout(function(){ tryResizer(n - 1); }, 150);
+    // ---- Listen for scroll-to-heading from extension (VS Code sidebar outline) ----
+    window.addEventListener('message', function(e) {
+      var d = e.data;
+      if (d && d.command === 'scroll-to-heading' && d.slug) {
+        window.__zaaackGotoAnchor && window.__zaaackGotoAnchor(d.slug);
       }
-    })(15);
+    });
 
   } catch(err) { console.error('[zaaack-patch]', err); }
 };
-'''
+''' + ENHANCE_END_MARKER
 
 CLOSE = 'vscode.postMessage({command:"ready"});})();'
 
 
-def patch_one(path):
-    print('=== patching', path, '===')
+def patch_main_js(path):
+    print(f'  main.js: {path}')
     with open(path) as f:
         src = f.read()
 
-    if P1_NEW in src:
-        print('[1/4] outline already enabled')
+    # P1 removal: undo vditor built-in outline (now using VS Code sidebar)
+    if P1_PATCHED in src:
+        src = src.replace(P1_PATCHED, P1_ORIGINAL, 1)
+        print('    [1/4] vditor outline removed (now using VS Code sidebar)')
     else:
-        assert src.count(P1_OLD) == 1, 'P1 anchor not found or not unique'
-        src = src.replace(P1_OLD, P1_NEW, 1)
-        print('[1/4] outline option inserted')
+        print('    [1/4] vditor outline already absent')
 
+    # P2: after() hook
     if P2_NEW in src:
-        print('[2/4] after() hook already installed')
+        print('    [2/4] after() hook already installed')
     else:
         assert src.count(P2_OLD) == 1, 'P2 anchor not found or not unique'
         src = src.replace(P2_OLD, P2_NEW, 1)
-        print('[2/4] after() hook installed')
+        print('    [2/4] after() hook installed')
 
-    # P4: postMessage wrap. Idempotent: re-inject by stripping old wrap block.
+    # P4: postMessage wrap (strip old, re-inject)
     if P4_MARKER in src:
-        # Strip from marker through to the trailing 'window.global=window;'
         i = src.find(P4_MARKER)
-        # Walk backward to start of the marker insertion site (after acquireVsCodeApi line)
-        # The reinjection target is 'acquireVsCodeApi();' followed by marker.
-        # We replace from marker through 'window.global=window;' (inclusive).
         anchor_end = 'window.global=window;'
         j = src.find(anchor_end, i)
         assert j != -1, 'cannot find window.global=window; after P4 marker'
         j_end = j + len(anchor_end)
-        # Drop the entire wrapped block, leaving the bare anchor needing P4_NEW.
         src = src[:i] + 'window.global=window;' + src[j_end:]
-        print('[4/4] removed prior postMessage wrap block')
+        print('    [4/4] removed prior postMessage wrap')
 
     if P4_OLD in src:
         assert src.count(P4_OLD) == 1, 'P4 anchor not found or not unique'
         src = src.replace(P4_OLD, P4_NEW, 1)
-        print('[4/4] postMessage wrap installed')
+        print('    [4/4] postMessage wrap installed')
     else:
-        # Already wrapped (P4_MARKER block present without bare anchor) — skip.
-        print('[4/4] postMessage wrap already installed')
+        print('    [4/4] postMessage wrap already installed')
 
+    # P3: enhancer (strip old, re-inject)
     if ENHANCE_MARKER in src:
-        # Re-injecting an updated enhancer: remove old block and re-add.
-        # Old block is from `/*__zaaackEnhance__*/` to the next `})();`.
         i = src.find(ENHANCE_MARKER)
-        j = src.find('})();', i)
-        assert j != -1, 'cannot find IIFE close after marker'
-        # Remove old enhancer text but keep the trailing `})();`
+        # Use end marker if present; fall back to scanning for IIFE close
+        if ENHANCE_END_MARKER in src:
+            j = src.find(ENHANCE_END_MARKER, i)
+            assert j != -1
+            j += len(ENHANCE_END_MARKER)
+        else:
+            # Legacy enhancer without end marker: find the IIFE close.
+            # Must skip past internal })(); patterns (e.g. injectCssFixes IIFE).
+            # The file's IIFE close is the LAST })(); in the file.
+            j = src.rfind('})();')
+            assert j != -1, 'cannot find IIFE close'
         src = src[:i] + src[j:]
-        print('[3/4] removed prior enhancer block')
+        print('    [3/4] removed prior enhancer')
 
     assert src.count(CLOSE) == 1, 'P3 anchor not found or not unique'
     src = src.replace(CLOSE,
                       'vscode.postMessage({command:"ready"});' + ENHANCE_JS + '})();',
                       1)
-    print('[3/4] __zaaackEnhance defined')
+    print('    [3/4] enhancer installed')
 
     with open(path, 'w') as f:
         f.write(src)
-    print('done\n')
 
+
+# ====================================================================
+# extension.js patches — VS Code sidebar outline TreeView
+# ====================================================================
+
+# Marker pairs for stripping on re-run
+EXT_MARKERS = [
+    ('/*__zk_outline__*/',            '/*__zk_outline_end__*/'),
+    ('/*__zk_outline_activate__*/',   '/*__zk_outline_activate_end__*/'),
+    ('/*__zk_outline_viewstate__*/',  '/*__zk_outline_viewstate_end__*/'),
+    ('/*__zk_outline_docchange__*/',  '/*__zk_outline_docchange_end__*/'),
+    ('/*__zk_outline_dispose__*/',    '/*__zk_outline_dispose_end__*/'),
+    ('/*__zk_outline_create__*/',     '/*__zk_outline_create_end__*/'),
+]
+
+# E_CLASS: MarkdownOutlineProvider + helpers, inserted before `class EditorPanel {`
+EXT_CLASS = '''\
+/*__zk_outline__*/
+function _zkSlugify(s) {
+    return (s || '').trim().toLowerCase()
+        .replace(/^[#*\\-_\\s]+/, '')
+        .replace(/\\s+/g, '-')
+        .replace(/[^\\w\\-]/g, '');
+}
+class _ZkHeading {
+    constructor(label, level, line, slug) {
+        this.label = label;
+        this.level = level;
+        this.line = line;
+        this.slug = slug;
+        this.children = [];
+    }
+}
+class MarkdownOutlineProvider {
+    constructor() {
+        this._onDidChange = new vscode.EventEmitter();
+        this.onDidChangeTreeData = this._onDidChange.event;
+        this._roots = [];
+    }
+    refresh(doc) {
+        this._roots = doc ? this._buildTree(this._parse(doc.getText())) : [];
+        this._onDidChange.fire();
+    }
+    _parse(text) {
+        const result = [];
+        const lines = text.split('\\n');
+        let inCodeBlock = false;
+        let inFrontmatter = false;
+        for (let i = 0; i < lines.length; i++) {
+            if (i === 0 && lines[0].trim() === '---') { inFrontmatter = true; continue; }
+            if (inFrontmatter) { if (lines[i].trim() === '---') inFrontmatter = false; continue; }
+            if (/^(`{3,}|~{3,})/.test(lines[i])) { inCodeBlock = !inCodeBlock; continue; }
+            if (inCodeBlock) continue;
+            const m = lines[i].match(/^(#{1,6})\\s+(.+)/);
+            if (m) {
+                const level = m[1].length;
+                const label = m[2].replace(/\\s*#+\\s*$/, '').trim();
+                const slug = _zkSlugify(label);
+                result.push({ label, level, line: i, slug });
+            }
+        }
+        return result;
+    }
+    _buildTree(headings) {
+        const roots = [];
+        const stack = [];
+        for (const h of headings) {
+            const node = new _ZkHeading(h.label, h.level, h.line, h.slug);
+            while (stack.length > 0 && stack[stack.length - 1].level >= h.level) stack.pop();
+            if (stack.length === 0) roots.push(node);
+            else stack[stack.length - 1].children.push(node);
+            stack.push(node);
+        }
+        return roots;
+    }
+    getTreeItem(el) {
+        const item = new vscode.TreeItem(
+            el.label,
+            el.children.length > 0
+                ? vscode.TreeItemCollapsibleState.Expanded
+                : vscode.TreeItemCollapsibleState.None
+        );
+        item.command = { command: 'markdownEditorOutline.scrollTo', title: '', arguments: [el.slug] };
+        item.tooltip = '#'.repeat(el.level) + ' ' + el.label;
+        return item;
+    }
+    getChildren(el) {
+        return el ? el.children : this._roots;
+    }
+}
+/*__zk_outline_end__*/
+'''
+
+# E_ACTIVATE: tree view registration inside activate()
+EXT_ACTIVATE = '''
+    /*__zk_outline_activate__*/
+    // Clear stale vditor outline preference (outline now lives in VS Code sidebar).
+    // Previous patch injected outline:{enable:true} into vditor config; vditor saved
+    // that to globalState via 'save-options'. Without this cleanup the vditor outline
+    // reappears from saved state even after the config injection is removed.
+    const _zkStored = context.globalState.get('vditor.options');
+    if (_zkStored && _zkStored.outline && _zkStored.outline.enable) {
+        _zkStored.outline = { enable: false };
+        context.globalState.update('vditor.options', _zkStored);
+    }
+    const _zkOutline = new MarkdownOutlineProvider();
+    EditorPanel._outlineProvider = _zkOutline;
+    vscode.window.createTreeView('markdownEditorOutline', {
+        treeDataProvider: _zkOutline,
+        showCollapseAll: true,
+    });
+    context.subscriptions.push(
+        vscode.commands.registerCommand('markdownEditorOutline.scrollTo', (slug) => {
+            for (const p of EditorPanel.panelsByPath.values()) {
+                if (p._panel.active) {
+                    p._panel.webview.postMessage({ command: 'scroll-to-heading', slug });
+                    break;
+                }
+            }
+        })
+    );
+    /*__zk_outline_activate_end__*/'''
+
+# E_VIEWSTATE: track panel focus to show/hide outline
+EXT_VIEWSTATE = '''
+        /*__zk_outline_viewstate__*/
+        this._panel.onDidChangeViewState((e) => {
+            if (e.webviewPanel.active) {
+                vscode.commands.executeCommand('setContext', 'markdownEditorActive', true);
+                if (EditorPanel._outlineProvider) EditorPanel._outlineProvider.refresh(this._document);
+            } else {
+                setTimeout(() => {
+                    let any = false;
+                    for (const p of EditorPanel.panelsByPath.values()) {
+                        if (p._panel.active) { any = true; break; }
+                    }
+                    if (!any) {
+                        vscode.commands.executeCommand('setContext', 'markdownEditorActive', false);
+                        if (EditorPanel._outlineProvider) EditorPanel._outlineProvider.refresh(null);
+                    }
+                }, 50);
+            }
+        }, null, this._disposables);
+        /*__zk_outline_viewstate_end__*/'''
+
+# E_DOCCHANGE: refresh outline on document changes (even when webview is active)
+EXT_DOCCHANGE = '''\
+            /*__zk_outline_docchange__*/
+            if (EditorPanel._outlineProvider && this._panel.active) {
+                clearTimeout(EditorPanel._outlineRefreshTimer);
+                EditorPanel._outlineRefreshTimer = setTimeout(() => {
+                    EditorPanel._outlineProvider.refresh(this._document);
+                }, 500);
+            }
+            /*__zk_outline_docchange_end__*/
+'''
+
+# E_DISPOSE: clear outline when last panel closes
+EXT_DISPOSE = '''
+        /*__zk_outline_dispose__*/
+        if (EditorPanel.panelsByPath.size === 0) {
+            vscode.commands.executeCommand('setContext', 'markdownEditorActive', false);
+            if (EditorPanel._outlineProvider) EditorPanel._outlineProvider.refresh(null);
+        }
+        /*__zk_outline_dispose_end__*/'''
+
+# E_CREATE: populate outline immediately when a panel opens
+EXT_CREATE = '''
+        /*__zk_outline_create__*/
+        vscode.commands.executeCommand('setContext', 'markdownEditorActive', true);
+        if (EditorPanel._outlineProvider) EditorPanel._outlineProvider.refresh(doc);
+        /*__zk_outline_create_end__*/'''
+
+# Anchors in extension.js (must match the PATCHED file with multi-file editor + theme patches)
+EA_CLASS     = 'class EditorPanel {'
+EA_ACTIVATE  = "context.globalState.setKeysForSync([KeyVditorOptions]);"
+EA_VIEWSTATE = "this._init();"
+EA_DOCCHANGE = "            // don't change webview panel when webview panel is focus"
+EA_DISPOSE   = "EditorPanel.panelsByPath.delete(this._fsPath);"
+EA_CREATE    = "EditorPanel.panelsByPath.set(fsPath, newPanel);"
+
+
+def patch_extension_js(path):
+    print(f'  extension.js: {path}')
+    with open(path) as f:
+        src = f.read()
+
+    # Safety check: multi-file editor patch must be present
+    if 'EditorPanel.panelsByPath' not in src:
+        print('    WARNING: multi-file editor patch not found — skipping outline patches')
+        print('    (Apply the panelsByPath patch to extension.js first)')
+        return
+
+    # Strip any existing outline blocks (idempotent re-injection)
+    stripped_any = False
+    for start_m, end_m in EXT_MARKERS:
+        src, did = strip_block(src, start_m, end_m)
+        stripped_any = stripped_any or did
+    if stripped_any:
+        print('    stripped prior outline patches')
+
+    # E_CLASS: insert before class EditorPanel
+    assert src.count(EA_CLASS) == 1, f'anchor not found or not unique: {EA_CLASS}'
+    src = src.replace(EA_CLASS, EXT_CLASS + EA_CLASS, 1)
+    print('    [E1] MarkdownOutlineProvider class inserted')
+
+    # E_ACTIVATE: insert after setKeysForSync
+    assert src.count(EA_ACTIVATE) == 1, f'anchor not found or not unique: {EA_ACTIVATE}'
+    src = src.replace(EA_ACTIVATE, EA_ACTIVATE + EXT_ACTIVATE, 1)
+    print('    [E2] TreeView registration inserted in activate()')
+
+    # E_VIEWSTATE: insert after this._init()
+    assert src.count(EA_VIEWSTATE) == 1, f'anchor not found or not unique: {EA_VIEWSTATE}'
+    src = src.replace(EA_VIEWSTATE, EA_VIEWSTATE + EXT_VIEWSTATE, 1)
+    print('    [E3] onDidChangeViewState handler inserted')
+
+    # E_DOCCHANGE: insert before the "don't change webview" comment
+    assert src.count(EA_DOCCHANGE) == 1, f'anchor not found or not unique: {EA_DOCCHANGE}'
+    src = src.replace(EA_DOCCHANGE, EXT_DOCCHANGE + EA_DOCCHANGE, 1)
+    print('    [E4] outline refresh on doc change inserted')
+
+    # E_DISPOSE: insert after panelsByPath.delete
+    assert src.count(EA_DISPOSE) == 1, f'anchor not found or not unique: {EA_DISPOSE}'
+    src = src.replace(EA_DISPOSE, EA_DISPOSE + EXT_DISPOSE, 1)
+    print('    [E5] dispose cleanup inserted')
+
+    # E_CREATE: insert after panelsByPath.set
+    assert src.count(EA_CREATE) == 1, f'anchor not found or not unique: {EA_CREATE}'
+    src = src.replace(EA_CREATE, EA_CREATE + EXT_CREATE, 1)
+    print('    [E6] initial outline refresh inserted in createOrShow()')
+
+    with open(path, 'w') as f:
+        f.write(src)
+
+
+# ====================================================================
+# package.json patches — declare the TreeView + activation event
+# ====================================================================
+
+PKG_MARKER = '"markdownEditorOutline"'
+
+# Add activation event for the outline view
+PKG_AE_OLD = '"onLanguage:markdown"\n\t],'
+PKG_AE_NEW = '"onLanguage:markdown",\n\t\t"onView:markdownEditorOutline"\n\t],'
+
+# Add views contribution (insert between keybindings close and contributes close)
+PKG_VIEWS_OLD = '\t\t]\n\t},\n\t"scripts": {'
+PKG_VIEWS_NEW = (
+    '\t\t],\n'
+    '\t\t"views": {\n'
+    '\t\t\t"explorer": [\n'
+    '\t\t\t\t{\n'
+    '\t\t\t\t\t"id": "markdownEditorOutline",\n'
+    '\t\t\t\t\t"name": "Markdown Outline",\n'
+    '\t\t\t\t\t"when": "markdownEditorActive"\n'
+    '\t\t\t\t}\n'
+    '\t\t\t]\n'
+    '\t\t}\n'
+    '\t},\n'
+    '\t"scripts": {'
+)
+
+
+def patch_package_json(path):
+    print(f'  package.json: {path}')
+    with open(path) as f:
+        src = f.read()
+
+    if PKG_MARKER in src:
+        print('    outline view already declared')
+        return
+
+    # Add activationEvent
+    assert src.count(PKG_AE_OLD) == 1, f'activationEvents anchor not found:\n  {PKG_AE_OLD!r}'
+    src = src.replace(PKG_AE_OLD, PKG_AE_NEW, 1)
+    print('    activationEvent added')
+
+    # Add views declaration
+    assert src.count(PKG_VIEWS_OLD) == 1, f'contributes views anchor not found:\n  {PKG_VIEWS_OLD!r}'
+    src = src.replace(PKG_VIEWS_OLD, PKG_VIEWS_NEW, 1)
+    print('    views declaration added')
+
+    with open(path, 'w') as f:
+        f.write(src)
+
+
+# ====================================================================
+# main
+# ====================================================================
 
 def main():
-    paths = []
-    for g in CANDIDATE_GLOBS:
-        paths.extend(glob.glob(os.path.expanduser(g)))
-    if not paths:
-        print('No zaaack main.js found in any extensions dir', file=sys.stderr)
+    roots = []
+    for g in ROOT_GLOBS:
+        roots.extend(sorted(glob.glob(g)))
+    if not roots:
+        print('No zaaack extension found in any extensions dir', file=sys.stderr)
         sys.exit(1)
-    print('Targets:')
-    for p in paths:
-        print(' -', p)
+
+    print(f'Found {len(roots)} extension(s):')
+    for r in roots:
+        print(f'  {r}')
     print()
-    for p in paths:
-        patch_one(p)
+
+    for root in roots:
+        print(f'=== {root} ===')
+        main_js  = os.path.join(root, 'media', 'dist', 'main.js')
+        ext_js   = os.path.join(root, 'out', 'extension.js')
+        pkg_json = os.path.join(root, 'package.json')
+
+        # Backup all files before patching
+        for f in [main_js, ext_js, pkg_json]:
+            if os.path.exists(f):
+                backup(f)
+
+        if os.path.exists(main_js):
+            patch_main_js(main_js)
+        else:
+            print(f'  main.js: NOT FOUND at {main_js}')
+
+        if os.path.exists(ext_js):
+            patch_extension_js(ext_js)
+        else:
+            print(f'  extension.js: NOT FOUND at {ext_js}')
+
+        if os.path.exists(pkg_json):
+            patch_package_json(pkg_json)
+        else:
+            print(f'  package.json: NOT FOUND at {pkg_json}')
+
+        print()
+
+    print('Done. Reload each IDE window (Developer: Reload Window).')
+    print('Verify: node -c <extension-root>/media/dist/main.js')
+    print('Verify: node -c <extension-root>/out/extension.js')
 
 
 if __name__ == '__main__':
