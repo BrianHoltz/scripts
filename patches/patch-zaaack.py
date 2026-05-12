@@ -17,11 +17,14 @@ ROOT_GLOBS = [
 ]
 
 CSS_MARKER = '/*__zaaackCssPatch__*/'
+CSS_END_MARKER = '/*__zaaackCssPatch_end__*/'
 CSS_PATCH = CSS_MARKER + (
-    '.vditor--dark .vditor-reset table tr{background-color:var(--textarea-background-color);border-top:1px solid var(--border-color);}'
-    '.vditor--dark .vditor-reset table tbody tr:nth-child(2n){background-color:var(--panel-background-color);}'
-    '.vditor--dark .vditor-reset table td,.vditor--dark .vditor-reset table th{border:1px solid var(--border-color);}'
+  '.vditor-reset table tr{background-color:var(--textarea-background-color)!important;border-top:1px solid var(--border-color)!important;}'
+  '.vditor-reset table tbody tr:nth-child(2n){background-color:var(--panel-background-color)!important;}'
+  '.vditor-reset table td,.vditor-reset table th{background-color:var(--textarea-background-color)!important;border:1px solid var(--border-color)!important;}'
+  '.vditor-reset table tbody tr:nth-child(2n) td,.vditor-reset table tbody tr:nth-child(2n) th{background-color:var(--panel-background-color)!important;}'
     '.vditor-outline{width:var(--zaaack-outline-width,250px);resize:horizontal;min-width:160px;max-width:70vw;}'
+  + CSS_END_MARKER
 )
 
 def backup(path):
@@ -394,7 +397,17 @@ def patch_css(path):
         src = f.read()
 
     if CSS_MARKER in src:
-        print('    [css] style patch already installed')
+        # Upgrade old patch blocks in place so new selectors take effect.
+        if CSS_END_MARKER in src:
+            src, _ = strip_block(src, CSS_MARKER, CSS_END_MARKER)
+        else:
+            # Old format had only a start marker and was appended at EOF.
+            i = src.find(CSS_MARKER)
+            src = src[:i]
+        src = src.rstrip('\n') + CSS_PATCH
+        with open(path, 'w') as f:
+            f.write(src)
+        print('    [css] style patch upgraded')
         return
 
     src = src + CSS_PATCH
@@ -660,7 +673,7 @@ PKG_VIEWS_OLD = '\t\t]\n\t},\n\t"scripts": {'
 PKG_VIEWS_NEW = (
     '\t\t],\n'
     '\t\t"views": {\n'
-    '\t\t\t"explorer": [\n'
+  '\t\t\t"outline": [\n'
     '\t\t\t\t{\n'
     '\t\t\t\t\t"id": "markdownEditorOutline",\n'
     '\t\t\t\t\t"name": "Markdown Outline",\n'
@@ -679,7 +692,32 @@ def patch_package_json(path):
         src = f.read()
 
     if PKG_MARKER in src:
-        print('    outline view already declared')
+        # Migrate older patches from explorer container to real outline container.
+        old_views_block = (
+            '\t\t\t"explorer": [\n'
+            '\t\t\t\t{\n'
+            '\t\t\t\t\t"id": "markdownEditorOutline",\n'
+            '\t\t\t\t\t"name": "Markdown Outline",\n'
+            '\t\t\t\t\t"when": "markdownEditorActive"\n'
+            '\t\t\t\t}\n'
+            '\t\t\t]\n'
+        )
+        new_views_block = (
+            '\t\t\t"outline": [\n'
+            '\t\t\t\t{\n'
+            '\t\t\t\t\t"id": "markdownEditorOutline",\n'
+            '\t\t\t\t\t"name": "Markdown Outline",\n'
+            '\t\t\t\t\t"when": "markdownEditorActive"\n'
+            '\t\t\t\t}\n'
+            '\t\t\t]\n'
+        )
+        if old_views_block in src:
+            src = src.replace(old_views_block, new_views_block, 1)
+            with open(path, 'w') as f:
+                f.write(src)
+            print('    outline view migrated: explorer -> outline')
+        else:
+            print('    outline view already declared')
         return
 
     # Add activationEvent
