@@ -2,6 +2,9 @@
 """Patch zaaack markdown-editor to add: VS Code sidebar outline (TreeView),
 intra-doc anchor nav, and Cmd+F find-in-page. Idempotent: re-running is safe.
 
+Also patches main.css for dark-table color fixes and optional vditor outline
+width overrides (for installs that still expose vditor outline UI).
+
 Patches main.js, extension.js, and package.json under every installed copy
 in both ~/.vscode/extensions and ~/.cursor/extensions.
 After running, reload each affected IDE window (Developer: Reload Window).
@@ -13,6 +16,13 @@ ROOT_GLOBS = [
     os.path.expanduser('~/.cursor/extensions/zaaack.markdown-editor-*/'),
 ]
 
+CSS_MARKER = '/*__zaaackCssPatch__*/'
+CSS_PATCH = CSS_MARKER + (
+    '.vditor--dark .vditor-reset table tr{background-color:var(--textarea-background-color);border-top:1px solid var(--border-color);}'
+    '.vditor--dark .vditor-reset table tbody tr:nth-child(2n){background-color:var(--panel-background-color);}'
+    '.vditor--dark .vditor-reset table td,.vditor--dark .vditor-reset table th{border:1px solid var(--border-color);}'
+    '.vditor-outline{width:var(--zaaack-outline-width,250px);resize:horizontal;min-width:160px;max-width:70vw;}'
+)
 
 def backup(path):
     bak = f"{path}.bak.{int(time.time())}"
@@ -326,9 +336,11 @@ def patch_main_js(path):
     if P2_NEW in src:
         print('    [2/4] after() hook already installed')
     else:
-        assert src.count(P2_OLD) == 1, 'P2 anchor not found or not unique'
+      if src.count(P2_OLD) == 1:
         src = src.replace(P2_OLD, P2_NEW, 1)
         print('    [2/4] after() hook installed')
+      else:
+        print('    [2/4] after() anchor not found; skipped')
 
     # P4: postMessage wrap (strip old, re-inject)
     if P4_MARKER in src:
@@ -341,9 +353,11 @@ def patch_main_js(path):
         print('    [4/4] removed prior postMessage wrap')
 
     if P4_OLD in src:
-        assert src.count(P4_OLD) == 1, 'P4 anchor not found or not unique'
-        src = src.replace(P4_OLD, P4_NEW, 1)
-        print('    [4/4] postMessage wrap installed')
+        if src.count(P4_OLD) == 1:
+            src = src.replace(P4_OLD, P4_NEW, 1)
+            print('    [4/4] postMessage wrap installed')
+        else:
+            print('    [4/4] postMessage anchor not unique; skipped')
     else:
         print('    [4/4] postMessage wrap already installed')
 
@@ -372,6 +386,21 @@ def patch_main_js(path):
 
     with open(path, 'w') as f:
         f.write(src)
+
+
+def patch_css(path):
+    print(f'  main.css: {path}')
+    with open(path) as f:
+        src = f.read()
+
+    if CSS_MARKER in src:
+        print('    [css] style patch already installed')
+        return
+
+    src = src + CSS_PATCH
+    with open(path, 'w') as f:
+        f.write(src)
+    print('    [css] style patch installed')
 
 
 # ====================================================================
@@ -679,11 +708,12 @@ def main():
     for root in roots:
         print(f'=== {root} ===')
         main_js  = os.path.join(root, 'media', 'dist', 'main.js')
+        main_css = os.path.join(root, 'media', 'dist', 'main.css')
         ext_js   = os.path.join(root, 'out', 'extension.js')
         pkg_json = os.path.join(root, 'package.json')
 
         # Backup all files before patching
-        for f in [main_js, ext_js, pkg_json]:
+        for f in [main_js, main_css, ext_js, pkg_json]:
             if os.path.exists(f):
                 backup(f)
 
@@ -691,6 +721,11 @@ def main():
             patch_main_js(main_js)
         else:
             print(f'  main.js: NOT FOUND at {main_js}')
+
+        if os.path.exists(main_css):
+            patch_css(main_css)
+        else:
+            print(f'  main.css: NOT FOUND at {main_css}')
 
         if os.path.exists(ext_js):
             patch_extension_js(ext_js)

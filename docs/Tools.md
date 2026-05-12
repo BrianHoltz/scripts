@@ -307,11 +307,11 @@ Patch caveat: extension updates overwrite patched files; reapply after each Zaaa
 
 ### Zaaack Find / Outline / Anchor Nav (patched)
 
-The ⚙️ rows in the comparison table — find in file, structure, internal links — are added by `~/bin/patches/patch-zaaack.py` (canonical, lives in `~/bin/` repo and syncs across laptops via git). It patches three files — `media/dist/main.js`, `out/extension.js`, and `package.json` — in **both** `~/.vscode/extensions/zaaack.markdown-editor-<version>/` and `~/.cursor/extensions/zaaack.markdown-editor-<version>/` (each IDE has its own extensions dir). **Pinned to Zaaack 0.1.13 + vditor 3.8.4** (the bundled lib version visible in `main.js`'s license footer). The script globs all matching versioned dirs so a Zaaack version bump does not require editing the script.
+The ⚙️ rows in the comparison table — find in file, structure, internal links — are added by `~/bin/patches/patch-zaaack.py` (canonical, lives in `~/bin/` repo and syncs across laptops via git). It patches four files — `media/dist/main.js`, `media/dist/main.css`, `out/extension.js`, and `package.json` — in **both** `~/.vscode/extensions/zaaack.markdown-editor-<version>/` and `~/.cursor/extensions/zaaack.markdown-editor-<version>/` (each IDE has its own extensions dir). **Pinned to Zaaack 0.1.13 + vditor 3.8.4** (the bundled lib version visible in `main.js`'s license footer). The script globs all matching versioned dirs so a Zaaack version bump does not require editing the script.
 
 **Why patch instead of switching editors.** Every webview-based WYSIWYG competitor (typedown, IDEA shuzijun, Mark Sharp, Unotes, vscode-markdown-wysiwyg, Teddy Editor) shares the same Cmd+F gap — VS Code's find UI doesn't reach into webview content, and vditor doesn't expose a public search API. The only extension with native find is `remcohaszing.markdown-decorations`, but it's decoration-only and loses the rich WYSIWYG rendering that makes zaaack the best choice. So patching zaaack beats every alternative on the market as of 2026.05.
 
-**The three `main.js` patch sites** — all are uniquely addressable single-line minified strings:
+**The `main.js` + `main.css` patch sites** — all are uniquely addressable and idempotent:
 
 1. **after()-hook bridge** — call our enhancer once vditor finishes initializing:
   - Anchor: `after(){V_(),Y_(),sB(),K_()}`
@@ -326,6 +326,10 @@ The ⚙️ rows in the comparison table — find in file, structure, internal li
   - Insert between the two assignments: a wrapper that intercepts `vscode.postMessage({command:"open-link", href})` and, when the href is non-http and contains `#`, scrolls the matching heading via `window.__zaaackGotoAnchor(frag)` instead of forwarding the message.
   - Marker `/*__zk_postwrap__*/` for idempotency.
   - **Belt-and-suspenders, not the primary chokepoint.** In practice the capture-phase click handler in patch site #2 stops the click before vditor ever calls `window.open` / `postMessage`, so this wrap rarely fires. It exists as a fallback for any code path that bypasses the click listener (e.g. programmatic `vditor.api` calls, or a future vditor version that posts directly).
+4. **Dark-table + optional vditor outline-width CSS block** — append one idempotent style patch to `main.css`:
+  - Marker: `/*__zaaackCssPatch__*/`
+  - Fixes dark-theme tables by overriding hardcoded light row/cell styles under `.vditor--dark .vditor-reset table ...` with vditor variables.
+  - Adds `.vditor-outline{width:var(--zaaack-outline-width,250px);resize:horizontal;...}` for installs that still expose vditor outline UI.
 
 **The `extension.js` patch sites** (6 blocks, each bracketed by `/*__zk_outline_*__*/` markers):
 
@@ -364,14 +368,16 @@ The ⚙️ rows in the comparison table — find in file, structure, internal li
 **Reapply procedure** (after Zaaack extension update, OS migration, or fresh checkout):
 
 1. Confirm installed version(s): `ls ~/.vscode/extensions/ ~/.cursor/extensions/ 2>/dev/null | grep zaaack`. The script auto-globs every matching dir under both IDEs.
-2. `python3 ~/bin/patches/patch-zaaack.py` — for each target dir, patches `main.js` (3 sites), `extension.js` (6 sites), and `package.json` (2 sites). Re-running strips + re-injects (each patch site has marker pairs for idempotent re-injection). Creates `.bak.<unix-ts>` backups of all files before patching.
-3. Sanity check: `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` and `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/out/extension.js` should print no errors.
+2. `python3 ~/bin/patches/patch-zaaack.py` — for each target dir, patches `main.js` (3 sites), `main.css` (1 site), `extension.js` (6 sites), and `package.json` (2 sites). Re-running strips + re-injects where applicable (marker-based idempotency) and creates `.bak.<unix-ts>` backups of all files before patching.
+3. Sanity check:
+  - `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` and `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/out/extension.js` should print no errors.
+  - `rg -n "__zaaackCssPatch__" ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.css ~/.cursor/extensions/zaaack.markdown-editor-*/media/dist/main.css` should find the marker.
 4. Reload VS Code / Cursor window (`Developer: Reload Window`) for each affected window.
-5. Open a markdown file with `^⌥⌘M` and verify: "Markdown Outline" tree view appears in the Explorer sidebar showing heading hierarchy, clicking a heading scrolls the webview, `[link](#some-heading)` jumps in-place (no new tab opens), `⌘F` opens the find bar with multi-char search working. When switching to a non-Zaaack editor, the Markdown Outline view hides and the standard Outline view reappears.
+5. Open a markdown file with `^⌥⌘M` and verify: "Markdown Outline" tree view appears in the Explorer sidebar showing heading hierarchy, clicking a heading scrolls the webview, dark-theme table rows are no longer white, `[link](#some-heading)` jumps in-place (no new tab opens), and `⌘F` opens the find bar with multi-char search working. When switching to a non-Zaaack editor, the Markdown Outline view hides and the standard Outline view reappears.
 
 **Prerequisite: multi-file editor patch.** The extension.js outline patches depend on `EditorPanel.panelsByPath` (the multi-file editor patch described in *Zaaack Markdown Editor Patches* below). The script checks for this and skips outline patches if not found.
 
-**Recreating the patch from scratch** (if `~/bin/patches/patch-zaaack.py` is ever lost): use the anchor strings + enhancer/TreeView responsibilities described above. The enhancer is ~160 lines of ES5 in `main.js`; the `MarkdownOutlineProvider` is ~70 lines of Node.js in `extension.js`; `package.json` adds a `views` entry + an activation event. All patch sites use `assert src.count(ANCHOR) == 1` checks plus marker-comment idempotency.
+**Recreating the patch from scratch** (if `~/bin/patches/patch-zaaack.py` is ever lost): use the main.js anchor strings + enhancer/TreeView responsibilities described above, add one marker-guarded CSS block in `main.css` for dark tables/outline width, and add the `extension.js` + `package.json` TreeView patches. All patch sites use anchor checks plus marker-comment idempotency.
 
 **Fallbacks if the patch ever breaks:**
 
