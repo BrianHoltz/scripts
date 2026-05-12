@@ -581,7 +581,10 @@ EA_ACTIVATE  = "context.globalState.setKeysForSync([KeyVditorOptions]);"
 EA_VIEWSTATE = "this._init();"
 EA_DOCCHANGE = "            // don't change webview panel when webview panel is focus"
 EA_DISPOSE   = "EditorPanel.panelsByPath.delete(this._fsPath);"
-EA_CREATE    = "EditorPanel.panelsByPath.set(fsPath, newPanel);"
+EA_CREATE_CANDIDATES = [
+  "EditorPanel.panelsByPath.set(fsPath, newPanel);",
+  "EditorPanel.panelsByPath.set(editorPanel._fsPath, editorPanel);",
+]
 
 
 def patch_extension_js(path):
@@ -629,8 +632,13 @@ def patch_extension_js(path):
     print('    [E5] dispose cleanup inserted')
 
     # E_CREATE: insert after panelsByPath.set
-    assert src.count(EA_CREATE) == 1, f'anchor not found or not unique: {EA_CREATE}'
-    src = src.replace(EA_CREATE, EA_CREATE + EXT_CREATE, 1)
+    create_anchor = None
+    for a in EA_CREATE_CANDIDATES:
+      if src.count(a) == 1:
+        create_anchor = a
+        break
+    assert create_anchor, f'anchor not found or not unique: {EA_CREATE_CANDIDATES}'
+    src = src.replace(create_anchor, create_anchor + EXT_CREATE, 1)
     print('    [E6] initial outline refresh inserted in createOrShow()')
 
     with open(path, 'w') as f:
