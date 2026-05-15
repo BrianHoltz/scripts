@@ -37,6 +37,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 
 - Be terse: from chapters to words, omit or condense until meaning changes.
 - Every file write must follow the [Write Rules](#write-rules).
+- Do not give up on the best tool for the job: if it is missing or broken, diagnose and repair/install it first; only fall back when repair is impossible, and state the fallback + reason.
 - Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing git or Confluence operations.
 
 ## ~/bin/ structure

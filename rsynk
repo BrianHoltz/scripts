@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Brian Holtz
+# SPDX-License-Identifier: MIT
+
+usage_msg = """\
+
+NAME
+    rsynk - wrapper for rsync with standard defaults and timing
+
+SYNOPSIS
+    rsynk [OPTIONS] SRC DEST
+
+DESCRIPTION
+    rsynk runs rsync with standard flags, an exclude list, and tracks
+    execution time. It defaults to a dry run for safety.
+
+    Nesting detection: if SRC lacks a trailing slash and basename(SRC) ==
+    basename(DEST), rsynk blocks execution (would create DEST/DEST/...).
+    Add trailing slash to SRC, or use --run to override.
+
+    Repeat-to-run: repeat the same default (dry-run) command to execute
+    for real. Auto-promotion is disabled if nesting is detected.
+
+    Stderr output:
+      - First line: "rsynk running: rsync ..."
+      - Last line: "rsynk ran for Nh Mm Ks: rsync ..."
+
+    Standard flags applied:
+      -a   archive mode (equivalent to -rlptgoD)
+      -P   keep partial files and show progress
+      -v   verbose output
+      -O   omit directory times
+      --delete-after                    delete extra files, at end of transfer
+      --modify-window=60                allow 60s mtime skew
+      --exclude-from rsync_excludes     read exclude patterns from rsynk directory
+
+OPTIONS
+    --run             Execute immediately (skip dry-run). Overrides safety checks.
+    -H, --raw-help    Show this raw usage text and exit.
+    -h, --help        Show colorized usage and exit.
+
+EXIT CODES
+    0  success
+    1  usage error (bad arguments)
+    *  rsync exit codes
+
+FILES
+    rsync_excludes                 exclude patterns, same directory as rsynk
+    /tmp/rsynk_last_$UID.json      repeat-to-run state file; keyed by SRC+DEST
+
+SEE ALSO
+    rsync(1), time(1)
+
+AUTHOR
+    Brian Holtz (brian@holtz.org)
+
+EXAMPLES
+    # Make DEST be a mirror of SRC. Thus "SRC/" is like "SRC/*" but smarter.
+    $ rsynk /Volumes/Archive/Family/ ~/Backups/Family
+    $ rsynk /Volumes/Archive/Family/ ~/Backups/Family  # repeat to run for real
+
+    # Make DEST contain SRC as a subdirectory mirror
+    $ rsynk /Volumes/Archive/Family ~/Backups
+
+    # Nesting risk: no trailing slash, same basename → blocks.
+    $ rsynk /Volumes/Archive/Family ~/Backups/Family
+    rsynk: WARNING: would create nested Family/Family/
+    Maybe run: rsynk /Volumes/Archive/Family ~/Backups
+    Or use --run if you actually want nesting
+"""
+
+import os
+import json
+import re
+import subprocess
+import sys
+import tempfile
+from datetime import datetime
+
+def show_usage() -> None:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    ITALIC = "\033[3m"
+    CMD = "\033[1;34m"
+    FLAG = "\033[1;36m"
+    FS_VAR = "\033[32m"
+    FS_LIT = "\033[1;32m"
+    ARG_VAR = "\033[33m"
+    ARG_LIT = "\033[1;33m"
+    FF_VAR = "\033[35m"
+
+    section_titles = {
+        "NAME",
+        "SYNOPSIS",
+        "DESCRIPTION",
+        "OPTIONS",
+        "EXIT CODES",
+        "EXAMPLES",
+    }
+
+    def cmd(s: str) -> str:
+        return f"{CMD}{s}{RESET}"
+
+    def flag(s: str) -> str:
+        return f"{FLAG}{s}{RESET}"
+
+    def fs_var(s: str) -> str:
+        return f"{FS_VAR}{UNDERLINE}{ITALIC}{s}{RESET}"
+
+    def fs_lit(s: str) -> str:
+        return f"{FS_LIT}{UNDERLINE}{s}{RESET}"
+
+    def arg_var(s: str) -> str:
+        return f"{ARG_VAR}{ITALIC}{s}{RESET}"
+
+    def arg_lit(s: str) -> str:
+        return f"{ARG_LIT}{s}{RESET}"
+
+    command_words = ("rsynk", "rsync")
+    fs_var_words = ("SRC", "DEST")
+    fs_lits = ("~/bin/rsync_excludes",)
+
+    def _style_line(line: str) -> str:
+        if line.strip() in section_titles:
+            return f"{BOLD}{UNDERLINE}{line}{RESET}"
+
+        styled = line
+
+        literal_placeholders: dict[str, str] = {}
+        for idx, lit in enumerate(fs_lits):
+            placeholder = f"__FS_LIT_{idx}__"
+            if lit in styled:
+                styled = styled.replace(lit, placeholder)
+                literal_placeholders[placeholder] = fs_lit(lit)
+
+        for w in command_words:
+            styled = re.sub(rf"\b{re.escape(w)}\b", cmd(w), styled)
+
+        styled = re.sub(r"--[a-zA-Z0-9-]+", lambda m: flag(m.group(0)), styled)
+        styled = re.sub(r"(?<!\S)-[A-Za-z]+(?=[,\s]|$)", lambda m: flag(m.group(0)), styled)
+
+        for w in fs_var_words:
+            styled = re.sub(rf"\b{re.escape(w)}\b", fs_var(w), styled)
+
+        styled = re.sub(r"(?<=\s)([0-9])(?=\s{2,})", lambda m: arg_lit(m.group(1)), styled)
+
+        for placeholder, rendered in literal_placeholders.items():
+            styled = styled.replace(placeholder, rendered)
+        return styled
+
+    for line in usage_msg.splitlines(keepends=True):
+        newline = ""
+        body = line
+        if line.endswith("\n"):
+            newline = "\n"
+            body = line[:-1]
+        sys.stdout.write(_style_line(body) + newline)
+
+
+def main() -> int:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    if len(sys.argv) > 1 and sys.argv[1] in ("-H", "--raw-help"):
+        sys.stdout.write(usage_msg)
+        return 0
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        show_usage()
+        return 0
+
+    args = sys.argv[1:]
+    if not args:
+        print("usage: rsynk [OPTIONS] SRC DEST", file=sys.stderr)
+        print("Run 'rsynk -h' for help.", file=sys.stderr)
+        return 1
+
+    dry_run = True
+    explicit_run = False
+    src = None
+    dest = None
+
+    positional = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--run":
+            dry_run = False
+            explicit_run = True
+            i += 1
+        else:
+            positional.append(args[i])
+            i += 1
+
+    if len(positional) != 2:
+        print("rsynk: requires exactly two positional arguments: SRC and DEST", file=sys.stderr)
+        return 1
+
+    src, dest = positional
+
+    # If the user repeats an identical default dry-run command, promote it to --run.
+    state_path = os.path.join(tempfile.gettempdir(), f"rsynk_last_{os.getuid()}.json")
+    invocation_key = json.dumps({"src": src, "dest": dest}, sort_keys=True)
+    auto_promoted_run = False
+    if dry_run and not explicit_run:
+        try:
+            with open(state_path, "r", encoding="utf-8") as f:
+                prev = json.load(f)
+            if (
+                prev.get("invocation_key") == invocation_key
+                and prev.get("mode") == "dry-default"
+            ):
+                dry_run = False
+                auto_promoted_run = True
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    if auto_promoted_run:
+        print("rsynk: repeated command detected; running for real (as if --run)")
+
+    base_cmd = ["rsync", "-aPvO"]
+    if dry_run:
+        base_cmd[1] = "-naPvO"
+    
+    base_cmd.extend([
+        "--delete-after",
+        "--modify-window=60",
+        "--exclude-from", os.path.join(script_dir, "rsync_excludes"),
+        src,
+        dest
+    ])
+
+    cmd_display = " ".join(base_cmd)
+    print(f"rsynk running: {cmd_display}", file=sys.stderr)
+    
+    try:
+        start_time = datetime.now()
+        result = subprocess.run(base_cmd)
+        end_time = datetime.now()
+        
+        elapsed = end_time - start_time
+        total_seconds = int(elapsed.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        
+        time_str = ""
+        if hours > 0:
+            time_str += f"{hours}h "
+        if minutes > 0 or hours > 0:
+            time_str += f"{minutes}m "
+        time_str += f"{seconds}s"
+        
+        print(f"rsynk ran for {time_str}: {cmd_display}", file=sys.stderr)
+
+        try:
+            mode = "dry-default" if dry_run and not explicit_run else "other"
+            with open(state_path, "w", encoding="utf-8") as f:
+                json.dump({"invocation_key": invocation_key, "mode": mode}, f)
+        except OSError:
+            pass
+        
+        return result.returncode
+    except KeyboardInterrupt:
+        print("\nrsynk: interrupted", file=sys.stderr)
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())

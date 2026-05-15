@@ -23,6 +23,8 @@ CSS_PATCH = CSS_MARKER + (
   '.vditor-reset table tbody tr:nth-child(2n){background-color:var(--panel-background-color)!important;}'
   '.vditor-reset table td,.vditor-reset table th{background-color:var(--textarea-background-color)!important;border:1px solid var(--border-color)!important;}'
   '.vditor-reset table tbody tr:nth-child(2n) td,.vditor-reset table tbody tr:nth-child(2n) th{background-color:var(--panel-background-color)!important;}'
+  '.vditor-reset a,.vditor-reset a:visited,.vditor-ir__link{color:var(--vscode-textLink-foreground,var(--vscode-textPreformat-foreground,var(--vscode-editor-foreground)))!important;}'
+  '.vditor-reset a:hover,.vditor-reset a:active,.vditor-ir__link:hover{color:var(--vscode-textLink-activeForeground,var(--vscode-textLink-foreground,var(--vscode-editor-foreground)))!important;}'
     '.vditor-outline{width:var(--zaaack-outline-width,250px);resize:horizontal;min-width:160px;max-width:70vw;}'
   + CSS_END_MARKER
 )
