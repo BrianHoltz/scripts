@@ -22,15 +22,15 @@ DESCRIPTION
     for real. Auto-promotion is disabled if nesting is detected.
 
     Stderr output (dry-run):
-      rsynk dry-running: rsync -naPvO ... SRC DEST
+      rsynk dry-running: rsync -naPvO [other standard flags] SRC DEST
       [rsync output]
-      rsynk dry-ran for Nh Mm Ks: rsync -naPvO ... SRC DEST
+      rsynk dry-ran for Nh Mm Ks: rsync -naPvO [other standard flags] SRC DEST
       rsynk hint: to run for real, repeat exact same command or use --run
 
     Stderr output (real run):
-      rsynk running: rsync -aPvO ... SRC DEST
+      rsynk running: rsync -aPvO [other standard flags] SRC DEST
       [rsync output]
-      rsynk ran for Nh Mm Ks: rsync -aPvO ... SRC DEST
+      rsynk ran for Nh Mm Ks: rsync -aPvO [other standard flags] SRC DEST
 
     Standard flags applied:
       -a   archive mode (equivalent to -rlptgoD)
