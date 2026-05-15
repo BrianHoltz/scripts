@@ -22,13 +22,13 @@ DESCRIPTION
     for real. Auto-promotion is disabled if nesting is detected.
 
     Stderr output (dry-run):
-      - First line: "rsynk dry-running: rsync ..."
-      - Last line: "rsynk dry-ran for Nh Mm Ks: rsync ..."
-      - Following: "rsynk hint: to run for real, repeat exact same command or use --run"
+      rsynk dry-running: rsync ...
+      rsynk dry-ran for Nh Mm Ks: rsync ...
+      rsynk hint: to run for real, repeat exact same command or use --run
 
     Stderr output (real run):
-      - First line: "rsynk running: rsync ..."
-      - Last line: "rsynk ran for Nh Mm Ks: rsync ..."
+      rsynk running: rsync ...
+      rsynk ran for Nh Mm Ks: rsync ...
 
     Standard flags applied:
       -a   archive mode (equivalent to -rlptgoD)
