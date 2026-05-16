@@ -91,7 +91,7 @@ Skills useful on both laptops live canonically in relationship-shared (team owns
 
 **Re-read immediately before each write.** The file may have changed. In permit mode, `safewrite` exit 3 enforces this. In reviewed mode, re-read right before each Edit/Write call.
 
-Think about whether a change you encounter might be intentional and recent.
+Think about whether a change you encounter might be intentional and recent. When a file has a small change of unknown origin, assume the human user made it deliberately and considers it important — do not silently revert or overwrite it.
 
 Three rules for how to write:
 
@@ -151,6 +151,7 @@ Run `~/bin/safewrite -h` for full options. Run `~/bin/fhold -h` for the fhold ME
 
 - **Getting the user's attention:** use the `ailerts` skill (if available) when blocked and the user has likely switched away. Not for routine status — only when stopped and user likely doesn't know.
 - **No horizontal scrolling in chat.** Never use tables, wide code fences, or any other element that causes horizontal scroll in the conversation pane. Use prose, bullet lists, or definition-style (`**term** — explanation`) instead. Sole exception: code or preformatted text that must be quoted verbatim and cannot reasonably be reformatted.
+- **Links beat font effects.** Never apply code formatting, bold, italics, or other font effects to text that could instead be a hyperlink. If text is linkable, make it a link — font effects are for semantic/syntactic markup only. When both apply (e.g. a channel name that is also code), the link wins. Remove bare IDs (commit hashes, Slack channel codes, UUIDs) from visible text; they belong only inside URLs.
 
 ## Browser Automation
 
