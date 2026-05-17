@@ -2,14 +2,18 @@
 # SPDX-FileCopyrightText: 2026 Brian Holtz
 # SPDX-License-Identifier: MIT
 
-import sys
+import importlib.util
+from importlib.machinery import SourceFileLoader
 import tempfile
 from pathlib import Path
 import pytest
 
-# Import fakepath module
-sys.path.insert(0, str(Path(__file__).parent))
-from fakepath import fakepath
+FAKEPATH_PATH = Path(__file__).parent.parent / "fakepath"
+SPEC = importlib.util.spec_from_loader("fakepath", SourceFileLoader("fakepath", str(FAKEPATH_PATH)))
+FAKEPATH_MODULE = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(FAKEPATH_MODULE)
+fakepath = FAKEPATH_MODULE.fakepath
 
 
 class TestFakepathBasic:
@@ -201,10 +205,11 @@ class TestFakepathCollisionResistance:
 class TestFakepathErrors:
     """Error handling tests."""
 
-    def test_nonexistent_path_raises_error(self):
-        """Nonexistent path raises ValueError."""
-        with pytest.raises(ValueError):
-            fakepath("/nonexistent/path/file.txt")
+    def test_nonexistent_path_is_supported(self):
+        """Nonexistent path still produces a deterministic key."""
+        result = fakepath("/nonexistent/path/file.txt")
+        assert "file.txt" in result
+        assert len(result) < 255
 
     def test_empty_path_raises_error(self):
         """Empty path raises ValueError."""

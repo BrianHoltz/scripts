@@ -114,7 +114,7 @@ def fakepath(path: str, parent_chars: int = 60, basename_chars: int = 120, hash_
 
     # Resolve to canonical absolute path
     try:
-        resolved = Path(path).resolve(strict=True)
+        resolved = Path(path).resolve(strict=False)
     except (OSError, RuntimeError, FileNotFoundError) as e:
         raise ValueError(f"Cannot resolve path '{path}': {e}")
 
