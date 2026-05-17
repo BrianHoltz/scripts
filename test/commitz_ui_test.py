@@ -55,24 +55,24 @@ def write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def test_script_exists() -> tuple[bool, str]:
+def check_script_exists() -> tuple[bool, str]:
     ok = SCRIPT.exists()
     return ok, f"exists={ok} path={SCRIPT}"
 
 
-def test_raw_help_exits_0() -> tuple[bool, str]:
+def check_raw_help_exits_0() -> tuple[bool, str]:
     r = run(["-H"])
     ok = r.returncode == 0 and len(r.stdout) > 0
     return ok, f"rc={r.returncode} out_len={len(r.stdout)} err={r.stderr!r}"
 
 
-def test_help_exits_0() -> tuple[bool, str]:
+def check_help_exits_0() -> tuple[bool, str]:
     r = run(["-h"])
     ok = r.returncode == 0 and len(r.stdout) > 0
     return ok, f"rc={r.returncode} out_len={len(r.stdout)} err={r.stderr!r}"
 
 
-def test_raw_matches_color_stripped_help() -> tuple[bool, str]:
+def check_raw_matches_color_stripped_help() -> tuple[bool, str]:
     raw = run(["-H"])
     help_out = run(["-h"])
     if raw.returncode != 0 or help_out.returncode != 0:
@@ -81,7 +81,7 @@ def test_raw_matches_color_stripped_help() -> tuple[bool, str]:
     return ok, f"raw_len={len(raw.stdout)} help_len={len(help_out.stdout)}"
 
 
-def test_dirty_repo_renders_pending_menu() -> tuple[bool, str]:
+def check_dirty_repo_renders_pending_menu() -> tuple[bool, str]:
     repo = init_repo()
     try:
         a = repo / "alpha.txt"
@@ -119,7 +119,7 @@ def test_dirty_repo_renders_pending_menu() -> tuple[bool, str]:
         subprocess.run(["rm", "-rf", str(repo)], check=False)
 
 
-def test_unpushed_only_mode() -> tuple[bool, str]:
+def check_unpushed_only_mode() -> tuple[bool, str]:
     repo = init_repo()
     remote = Path(tempfile.mkdtemp(prefix="commitz_ui_remote_"))
     try:
@@ -152,7 +152,7 @@ def test_unpushed_only_mode() -> tuple[bool, str]:
         subprocess.run(["rm", "-rf", str(remote)], check=False)
 
 
-def test_cta_is_flush_left() -> tuple[bool, str]:
+def check_cta_is_flush_left() -> tuple[bool, str]:
     repo = init_repo()
     try:
         f = repo / "a.txt"
@@ -171,7 +171,7 @@ def test_cta_is_flush_left() -> tuple[bool, str]:
         subprocess.run(["rm", "-rf", str(repo)], check=False)
 
 
-def test_single_pending_commit_omits_select_hint() -> tuple[bool, str]:
+def check_single_pending_commit_omits_select_hint() -> tuple[bool, str]:
     repo = init_repo()
     try:
         f = repo / "single.txt"
@@ -194,14 +194,14 @@ def test_single_pending_commit_omits_select_hint() -> tuple[bool, str]:
 
 def run_all(verbose: bool = False) -> int:
     tests = [
-        ("script exists", test_script_exists),
-        ("-H exits 0", test_raw_help_exits_0),
-        ("-h exits 0", test_help_exits_0),
-        ("-H matches color-stripped -h", test_raw_matches_color_stripped_help),
-        ("dirty repo renders pending menu", test_dirty_repo_renders_pending_menu),
-        ("unpushed-only mode", test_unpushed_only_mode),
-        ("single pending omits select hint", test_single_pending_commit_omits_select_hint),
-        ("CTA lines are flush-left", test_cta_is_flush_left),
+        ("script exists", check_script_exists),
+        ("-H exits 0", check_raw_help_exits_0),
+        ("-h exits 0", check_help_exits_0),
+        ("-H matches color-stripped -h", check_raw_matches_color_stripped_help),
+        ("dirty repo renders pending menu", check_dirty_repo_renders_pending_menu),
+        ("unpushed-only mode", check_unpushed_only_mode),
+        ("single pending omits select hint", check_single_pending_commit_omits_select_hint),
+        ("CTA lines are flush-left", check_cta_is_flush_left),
     ]
 
     passed = 0

@@ -143,7 +143,7 @@ def make_stale_tag(tag_root: Path, target: Path, suffix: str, age_s: float = 360
 # Test case harness
 # ---------------------------------------------------------------------------
 
-def test_case(desc: str, fn) -> None:
+def run_case(desc: str, fn) -> None:
     global passed, failed, current_test_num
     current_test_num += 1
     test_descriptions.append(f"Test {current_test_num}: {desc}")
@@ -1155,7 +1155,7 @@ def main() -> int:
         return 0
 
     for desc, fn in TESTS:
-        test_case(desc, fn)
+        run_case(desc, fn)
 
     print()
     total = passed + failed
