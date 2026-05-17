@@ -198,10 +198,14 @@ def main() -> int:
             i += 1
 
     if len(positional) != 2:
-        print("rsynk: requires exactly two positional arguments: SRC and DEST", file=sys.stderr)
+        print("usage: rsynk [OPTIONS] SRC DEST", file=sys.stderr)
+        print("Run 'rsynk -h' for help.", file=sys.stderr)
         return 1
 
     src, dest = positional
+
+    if dry_run and '--help' not in args:
+        print(f"rsynk dry-running: {' '.join(base_cmd)}", file=sys.stderr)
 
     # If the user repeats an identical default dry-run command, promote it to --run.
     state_path = os.path.join(tempfile.gettempdir(), f"rsynk_last_{os.getuid()}.json")
