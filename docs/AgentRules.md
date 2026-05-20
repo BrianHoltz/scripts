@@ -76,14 +76,14 @@ Two completely separate repos serve different scopes:
 
 **Skills by laptop:**
 
-- **Work laptop**: team skills from `shared/.wibey/skills/` (relationship-shared); personal skills from `~/bin/wibey/skills/`
-- **Personal laptop**: only `~/bin/wibey/skills/`, exposed per-workspace via `.wibey/skills/` symlinks
+- **Work laptop**: team skills from `shared/.wibey/skills/` (relationship-shared); personal skills from `~/bin/wibey/skills/`. The Wibey VS Code extension is Walmart-internal and only present on the work laptop, never on the personal laptop.
+- **Personal laptop**: only `~/bin/wibey/skills/`, exposed per-workspace via `.wibey/skills/` symlinks. The Wibey extension is not available or expected here.
 
 Skills useful on both laptops live canonically in relationship-shared (team owns them) and are manually copied to `~/bin/wibey/skills/` + committed when updated.
 
-**When resolving a skill on personal laptop**: look in `~/bin/wibey/skills/<name>/SKILL.md`. Do not attempt to read `shared/` — the symlink doesn't exist.
+**When resolving a skill on personal laptop**: look in `~/bin/wibey/skills/<name>/SKILL.md`. Do not attempt to read `shared/` — the symlink doesn't exist. Do not expect the Wibey extension to be present.
 
-**When resolving a skill on work laptop**: check `shared/.wibey/skills/` first (team version may be newer than `~/bin/` copy).
+**When resolving a skill on work laptop**: check `shared/.wibey/skills/` first (team version may be newer than `~/bin/` copy). The Wibey extension is available and should be used if needed.
 
 ## Write Rules
 
