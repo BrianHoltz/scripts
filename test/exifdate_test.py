@@ -74,7 +74,7 @@ class TestDateParsing:
         assert result is not None
         date_pattern, exif_datetime = result
         assert date_pattern == "2024"
-        assert exif_datetime == "2024:07:15 12:00:00"
+        assert exif_datetime == "2024:07:01 12:00:00"
 
     def test_no_date_pattern(self):
         """Files with no date pattern return None."""
@@ -466,7 +466,7 @@ class TestCommandLineInterface:
         filepath = temp_jpeg("test_2024-03-15.jpg")
         result = subprocess.run([str(EXIFDATE_PATH), "--from-name", str(filepath)], capture_output=True, text=True)
         assert result.returncode == 0
-        assert "DRY RUN" not in result.stderr
+        assert "writing EXIF dates from filenames" in result.stderr
         assert "Set EXIF dates" in result.stdout
         assert "processed 1 file(s)" in result.stderr
 
@@ -564,6 +564,7 @@ class TestIntegration:
         # Actual run
         result_run = subprocess.run([str(EXIFDATE_PATH), "--from-name", str(filepath)], capture_output=True, text=True)
         assert result_run.returncode == 0
+        assert "writing EXIF dates from filenames" in result_run.stderr
         assert "Set EXIF dates" in result_run.stdout
 
     def test_end_to_end_multiple_files_mixed_results(self, temp_jpeg, tmp_path):

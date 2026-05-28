@@ -19,7 +19,7 @@ DESCRIPTION
       YYYYMMDD    (e.g., "20240315")   → sets date to 2024-03-15 12:00
       YYYY-MM     (e.g., "2024-03")    → sets date to 2024-03-01 12:00
       YYYYMM      (e.g., "202403")     → sets date to 2024-03-01 12:00
-      YYYY        (e.g., "2024")       → sets date to 2024-07-15 12:00
+        YYYY        (e.g., "2024")       → sets date to 2024-07-01 12:00
 
     Sets all EXIF date fields: DateTimeOriginal, DateTime, DateTimeDigitized.
 
@@ -61,7 +61,7 @@ DATE EXTRACTION
       "IMG_20240315_123456.jpg"        → 2024-03-15 12:00:00
       "IMG_2024-03_spring.jpg"         → 2024-03-01 12:00:00
       "photo_202403_spring.jpg"        → 2024-03-01 12:00:00
-      "photo_2024_summer.jpg"          → 2024-07-15 12:00:00
+        "photo_2024_summer.jpg"          → 2024-07-01 12:00:00
 
 REQUIREMENTS
     Requires piexif library: pip install piexif
@@ -148,7 +148,7 @@ def extract_date_from_filename(filename: str) -> Optional[Tuple[str, str]]:
         year = match.group(1)
         # Validate it's a reasonable year (1900-2100)
         if 1900 <= int(year) <= 2100:
-            return (year, f"{year}:07:15 12:00:00")
+            return (year, f"{year}:07:01 12:00:00")
     
     return None
 
@@ -304,7 +304,7 @@ def show_usage() -> None:
     W(f"      {arg_lit('YYYYMMDD')}    (e.g., {example2})   → sets date to {arg_lit('2024-03-15 12:00')}{NL}")
     W(f"      {arg_lit('YYYY-MM')}     (e.g., {example3})    → sets date to {arg_lit('2024-03-01 12:00')}{NL}")
     W(f"      {arg_lit('YYYYMM')}      (e.g., {example4})     → sets date to {arg_lit('2024-03-01 12:00')}{NL}")
-    W(f"      {arg_lit('YYYY')}        (e.g., {example5})       → sets date to {arg_lit('2024-07-15 12:00')}{NL}")
+    W(f"      {arg_lit('YYYY')}        (e.g., {example5})       → sets date to {arg_lit('2024-07-01 12:00')}{NL}")
     W(NL)
     W(f"    Sets all EXIF date fields: DateTimeOriginal, DateTime, DateTimeDigitized.{NL}")
     W(NL)
@@ -456,6 +456,8 @@ def main() -> int:
         if dry_run:
             print("exifdate: DRY RUN (remove -n to actually modify files)", file=sys.stderr)
             print()
+        else:
+            print("exifdate: writing EXIF dates from filenames", file=sys.stderr)
         
         success_count = 0
         error_count = 0
