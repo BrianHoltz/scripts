@@ -1,0 +1,515 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Brian Holtz
+# SPDX-License-Identifier: MIT
+
+usage_msg = """\
+NAME
+    exifdate - read or set EXIF dates from filename date patterns
+
+SYNOPSIS
+    exifdate [OPTIONS] FILE [FILE ...]
+
+DESCRIPTION
+    By default, reads and displays EXIF date information from image files.
+    --from-name extracts dates from filenames and writes in-place to EXIF fields.
+
+    Supports five date formats in filenames:
+
+      YYYY-MM-DD  (e.g., "2024-03-15") → sets date to 2024-03-15 12:00
+      YYYYMMDD    (e.g., "20240315")   → sets date to 2024-03-15 12:00
+      YYYY-MM     (e.g., "2024-03")    → sets date to 2024-03-01 12:00
+      YYYYMM      (e.g., "202403")     → sets date to 2024-03-01 12:00
+      YYYY        (e.g., "2024")       → sets date to 2024-07-15 12:00
+
+    Sets all EXIF date fields: DateTimeOriginal, DateTime, DateTimeDigitized.
+
+ARGUMENTS
+    FILE                  One or more image files to process.
+
+OPTIONS
+    --from-name           Extract date from filename and write to EXIF fields.
+    -n, --dryrun          Show what would be written without modifying files
+                          (only valid with --from-name).
+    -H, --raw-help        Show this raw usage text and exit.
+    -h, --help            Show colorized usage and exit.
+
+EXIT CODES
+    0  success
+    1  usage error (bad arguments)
+    2  processing error (file not found, no date in filename, EXIF error)
+
+EXAMPLES
+    # Read and display EXIF dates
+    exifdate IMG_2024-03-15_vacation.jpg
+
+    # Show what would be written (dry-run)
+    exifdate --from-name -n photo_2024-03-15.jpg
+
+    # Write EXIF dates from filename
+    exifdate --from-name photo_2024-03-15.jpg image_2024-03.jpg pic_2024.jpg
+
+    # Process all JPEGs in current directory
+    exifdate --from-name *.jpg
+
+DATE EXTRACTION
+    The tool searches for date patterns in the filename (not the full path).
+    It tries patterns in order from most specific to least specific:
+    YYYY-MM-DD, YYYYMMDD, YYYY-MM, YYYYMM, YYYY. First match wins.
+
+    Examples:
+      "vacation_2024-03-15_beach.jpg"  → 2024-03-15 12:00:00
+      "IMG_20240315_123456.jpg"        → 2024-03-15 12:00:00
+      "IMG_2024-03_spring.jpg"         → 2024-03-01 12:00:00
+      "photo_202403_spring.jpg"        → 2024-03-01 12:00:00
+      "photo_2024_summer.jpg"          → 2024-07-15 12:00:00
+
+REQUIREMENTS
+    Requires piexif library: pip install piexif
+
+AUTHOR
+    Brian Holtz (brian@holtz.org)
+"""
+
+# usage_msg is intentionally placed at the very top for human readers and future agents.
+# usage_msg formatting and content ALWAYS trumps show_usage(). If you change usage_msg,
+# you MUST update show_usage() to match it EXACTLY, including newlines and spacing.
+
+import re
+import sys
+from pathlib import Path
+from typing import Optional, Tuple
+
+try:
+    import piexif
+    PIEXIF_AVAILABLE = True
+except ImportError:
+    PIEXIF_AVAILABLE = False
+    piexif = None  # type: ignore
+
+
+def extract_date_from_filename(filename: str) -> Optional[Tuple[str, str]]:
+    """
+    Extract date from filename and return (date_string, exif_datetime).
+    
+    Args:
+        filename: The filename (not full path) to extract date from
+        
+    Returns:
+        Tuple of (original_date_pattern, exif_datetime_string) or None if no match
+        
+    Date formats:
+        YYYY-MM-DD → "YYYY:MM:DD 12:00:00"
+        YYYYMMDD   → "YYYY:MM:DD 12:00:00"
+        YYYY-MM    → "YYYY:MM:01 12:00:00"
+        YYYYMM     → "YYYY:MM:01 12:00:00"
+        YYYY       → "YYYY:07:15 12:00:00"
+    """
+    # Try YYYY-MM-DD first (with dashes)
+    match = re.search(r'(\d{4})-(\d{2})-(\d{2})', filename)
+    if match:
+        year, month, day = match.groups()
+        return (f"{year}-{month}-{day}", f"{year}:{month}:{day} 12:00:00")
+    
+    # Try YYYYMMDD (8 consecutive digits, no dashes)
+    match = re.search(r'(?<!\d)(\d{8})(?!\d)', filename)
+    if match:
+        date_str = match.group(1)
+        year = date_str[0:4]
+        month = date_str[4:6]
+        day = date_str[6:8]
+        # Validate year, month, and day
+        year_int = int(year)
+        month_int = int(month)
+        day_int = int(day)
+        if 1900 <= year_int <= 2100 and 1 <= month_int <= 12 and 1 <= day_int <= 31:
+            return (date_str, f"{year}:{month}:{day} 12:00:00")
+    
+    # Try YYYY-MM (with dashes)
+    match = re.search(r'(\d{4})-(\d{2})', filename)
+    if match:
+        year, month = match.groups()
+        return (f"{year}-{month}", f"{year}:{month}:01 12:00:00")
+    
+    # Try YYYYMM (6 consecutive digits, no dashes)
+    match = re.search(r'(?<!\d)(\d{6})(?!\d)', filename)
+    if match:
+        date_str = match.group(1)
+        year = date_str[0:4]
+        month = date_str[4:6]
+        # Validate year and month
+        year_int = int(year)
+        month_int = int(month)
+        if 1900 <= year_int <= 2100 and 1 <= month_int <= 12:
+            return (date_str, f"{year}:{month}:01 12:00:00")
+    
+    # Try YYYY (with non-digit boundaries to avoid matching parts of longer numbers)
+    match = re.search(r'(?<!\d)(\d{4})(?!\d)', filename)
+    if match:
+        year = match.group(1)
+        # Validate it's a reasonable year (1900-2100)
+        if 1900 <= int(year) <= 2100:
+            return (year, f"{year}:07:15 12:00:00")
+    
+    return None
+
+
+def read_exif_dates(filepath: Path) -> bool:
+    """
+    Read and display EXIF date fields from an image file.
+    
+    Args:
+        filepath: Path to the image file
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    if not PIEXIF_AVAILABLE:
+        print("Error: piexif library not found. Install with: pip install piexif", file=sys.stderr)
+        sys.exit(2)
+    
+    try:
+        # Read existing EXIF data
+        exif_dict = piexif.load(str(filepath))  # type: ignore
+    except Exception as e:
+        print(f"Error reading EXIF from {filepath}: {e}", file=sys.stderr)
+        return False
+    
+    # Extract date fields
+    date_time_original = None
+    date_time = None
+    date_time_digitized = None
+    
+    if "Exif" in exif_dict:
+        if piexif.ExifIFD.DateTimeOriginal in exif_dict["Exif"]:  # type: ignore
+            date_time_original = exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal].decode('ascii')  # type: ignore
+        if piexif.ExifIFD.DateTimeDigitized in exif_dict["Exif"]:  # type: ignore
+            date_time_digitized = exif_dict["Exif"][piexif.ExifIFD.DateTimeDigitized].decode('ascii')  # type: ignore
+    
+    if "0th" in exif_dict:
+        if piexif.ImageIFD.DateTime in exif_dict["0th"]:  # type: ignore
+            date_time = exif_dict["0th"][piexif.ImageIFD.DateTime].decode('ascii')  # type: ignore
+    
+    # Display results
+    print(f"{filepath.name}:")
+    print(f"  DateTimeOriginal:  {date_time_original if date_time_original else '(not set)'}")
+    print(f"  DateTime:          {date_time if date_time else '(not set)'}")
+    print(f"  DateTimeDigitized: {date_time_digitized if date_time_digitized else '(not set)'}")
+    
+    return True
+
+
+def set_exif_dates(filepath: Path, exif_datetime: str, dry_run: bool = False) -> bool:
+    """
+    Set EXIF date fields in an image file.
+    
+    Args:
+        filepath: Path to the image file
+        exif_datetime: Date string in EXIF format "YYYY:MM:DD HH:MM:SS"
+        dry_run: If True, don't actually modify the file
+        
+    Returns:
+        True if successful (or would be successful in dry-run), False otherwise
+    """
+    if not PIEXIF_AVAILABLE:
+        print("Error: piexif library not found. Install with: pip install piexif", file=sys.stderr)
+        sys.exit(2)
+    
+    try:
+        # Read existing EXIF data
+        exif_dict = piexif.load(str(filepath))  # type: ignore
+    except Exception as e:
+        print(f"Error reading EXIF from {filepath}: {e}", file=sys.stderr)
+        return False
+    
+    # Prepare date bytes
+    date_bytes = exif_datetime.encode('ascii')
+    
+    # Set all date fields
+    if "0th" not in exif_dict:
+        exif_dict["0th"] = {}
+    if "Exif" not in exif_dict:
+        exif_dict["Exif"] = {}
+    
+    exif_dict["0th"][piexif.ImageIFD.DateTime] = date_bytes  # type: ignore
+    exif_dict["Exif"][piexif.ExifIFD.DateTimeOriginal] = date_bytes  # type: ignore
+    exif_dict["Exif"][piexif.ExifIFD.DateTimeDigitized] = date_bytes  # type: ignore
+    
+    if not dry_run:
+        try:
+            # Write EXIF data back to file
+            exif_bytes = piexif.dump(exif_dict)  # type: ignore
+            piexif.insert(exif_bytes, str(filepath))  # type: ignore
+        except Exception as e:
+            print(f"Error writing EXIF to {filepath}: {e}", file=sys.stderr)
+            return False
+    
+    return True
+
+
+def show_usage() -> None:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    ITALIC = "\033[3m"
+    CMD = "\033[1;38;5;33m"        # DodgerBlue #1E90FF
+    FLAG = "\033[38;5;51m"         # DeepSkyBlue #00BFFF
+    FS_VAR = "\033[38;5;78m"       # MediumSeaGreen #3CB371
+    FS_LIT = "\033[1;38;5;46m"     # Lime #00FF00
+    ARG_VAR = "\033[38;5;214m"     # Orange #FFA500
+    ARG_LIT = "\033[38;5;208m"     # DarkOrange #FF8C00
+    W = sys.stdout.write
+    NL = "\n"
+
+    def section(title: str) -> None:
+        W(f"{BOLD}{UNDERLINE}{title}{RESET}{NL}")
+
+    def cmd(s: str) -> str:
+        return f"{CMD}{s}{RESET}"
+
+    def flag(s: str) -> str:
+        return f"{FLAG}{s}{RESET}"
+
+    def fs_var(s: str) -> str:
+        return f"{FS_VAR}{UNDERLINE}{ITALIC}{s}{RESET}"
+
+    def fs_lit(s: str) -> str:
+        return f"{FS_LIT}{UNDERLINE}{s}{RESET}"
+
+    def arg_var(s: str) -> str:
+        return f"{ARG_VAR}{ITALIC}{s}{RESET}"
+
+    def arg_lit(s: str) -> str:
+        return f"{ARG_LIT}{s}{RESET}"
+
+    section("NAME")
+    W(f"    {cmd('exifdate')} - read or set EXIF dates from filename date patterns{NL}")
+    W(NL)
+
+    section("SYNOPSIS")
+    W(f"    {cmd('exifdate')} [{flag('OPTIONS')}] {fs_var('FILE')} [{fs_var('FILE')} ...]{NL}")
+    W(NL)
+
+    section("DESCRIPTION")
+    W(f"    By default, reads and displays EXIF date information from image files.{NL}")
+    W(f"    With {flag('--from-name')}, extracts dates from filenames and writes to EXIF fields.{NL}")
+    W(NL)
+    W(f"    Supports five date formats in filenames:{NL}")
+    W(NL)
+    example1 = arg_lit('"2024-03-15"')
+    example2 = arg_lit('"20240315"')
+    example3 = arg_lit('"2024-03"')
+    example4 = arg_lit('"202403"')
+    example5 = arg_lit('"2024"')
+    W(f"      {arg_lit('YYYY-MM-DD')}  (e.g., {example1}) → sets date to {arg_lit('2024-03-15 12:00')}{NL}")
+    W(f"      {arg_lit('YYYYMMDD')}    (e.g., {example2})   → sets date to {arg_lit('2024-03-15 12:00')}{NL}")
+    W(f"      {arg_lit('YYYY-MM')}     (e.g., {example3})    → sets date to {arg_lit('2024-03-01 12:00')}{NL}")
+    W(f"      {arg_lit('YYYYMM')}      (e.g., {example4})     → sets date to {arg_lit('2024-03-01 12:00')}{NL}")
+    W(f"      {arg_lit('YYYY')}        (e.g., {example5})       → sets date to {arg_lit('2024-07-15 12:00')}{NL}")
+    W(NL)
+    W(f"    Sets all EXIF date fields: DateTimeOriginal, DateTime, DateTimeDigitized.{NL}")
+    W(NL)
+
+    section("ARGUMENTS")
+    W(f"    {fs_var('FILE')}                  One or more image files to process.{NL}")
+    W(NL)
+
+    section("OPTIONS")
+    W(f"    {flag('--from-name')}           Extract date from filename and write to EXIF fields.{NL}")
+    W(f"    {flag('-n')}, {flag('--dryrun')}          Show what would be written without modifying files{NL}")
+    W(f"                          (only valid with {flag('--from-name')}).{NL}")
+    W(f"    {flag('-H')}, {flag('--raw-help')}        Show this raw usage text and exit.{NL}")
+    W(f"    {flag('-h')}, {flag('--help')}            Show colorized usage and exit.{NL}")
+    W(NL)
+
+    section("EXIT CODES")
+    W(f"    {arg_lit('0')}  success{NL}")
+    W(f"    {arg_lit('1')}  usage error (bad arguments){NL}")
+    W(f"    {arg_lit('2')}  processing error (file not found, no date in filename, EXIF error){NL}")
+    W(NL)
+
+    section("EXAMPLES")
+    W(f"    # Read and display EXIF dates{NL}")
+    W(f"    {cmd('exifdate')} {fs_lit('IMG_2024-03-15_vacation.jpg')}{NL}")
+    W(NL)
+    W(f"    # Show what would be written (dry-run){NL}")
+    W(f"    {cmd('exifdate')} {flag('--from-name')} {flag('-n')} {fs_lit('photo_2024-03-15.jpg')}{NL}")
+    W(NL)
+    W(f"    # Write EXIF dates from filename{NL}")
+    W(f"    {cmd('exifdate')} {flag('--from-name')} {fs_lit('photo_2024-03-15.jpg')} {fs_lit('image_2024-03.jpg')} {fs_lit('pic_2024.jpg')}{NL}")
+    W(NL)
+    W(f"    # Process all JPEGs in current directory{NL}")
+    W(f"    {cmd('exifdate')} {flag('--from-name')} {fs_lit('*.jpg')}{NL}")
+    W(NL)
+
+    section("DATE EXTRACTION")
+    W(f"    The tool searches for date patterns in the filename (not the full path).{NL}")
+    W(f"    It tries patterns in order from most specific to least specific:{NL}")
+    W(f"    YYYY-MM-DD, YYYYMMDD, YYYY-MM, YYYYMM, YYYY. First match wins.{NL}")
+    W(NL)
+    W(f"    Examples:{NL}")
+    ex1 = arg_lit('"vacation_2024-03-15_beach.jpg"')
+    ex2 = arg_lit('"IMG_20240315_123456.jpg"')
+    ex3 = arg_lit('"IMG_2024-03_spring.jpg"')
+    ex4 = arg_lit('"photo_202403_spring.jpg"')
+    ex5 = arg_lit('"photo_2024_summer.jpg"')
+    W(f"      {ex1}  → {arg_lit('2024-03-15 12:00:00')}{NL}")
+    W(f"      {ex2}        → {arg_lit('2024-03-15 12:00:00')}{NL}")
+    W(f"      {ex3}         → {arg_lit('2024-03-01 12:00:00')}{NL}")
+    W(f"      {ex4}        → {arg_lit('2024-03-01 12:00:00')}{NL}")
+    W(f"      {ex5}          → {arg_lit('2024-07-15 12:00:00')}{NL}")
+    W(NL)
+
+    section("REQUIREMENTS")
+    W(f"    Requires piexif library: {cmd('pip install piexif')}{NL}")
+    W(NL)
+
+    section("AUTHOR")
+    W(f"    Brian Holtz (brian@holtz.org){NL}")
+
+
+def main() -> int:
+    # Pre-scan for help flags only in the first argument position
+    if len(sys.argv) > 1 and sys.argv[1] in ("-H", "--raw-help"):
+        sys.stdout.write(usage_msg)
+        return 0
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        show_usage()
+        return 0
+
+    # Check for piexif availability after help flags
+    if not PIEXIF_AVAILABLE:
+        print("Error: piexif library not found. Install with: pip install piexif", file=sys.stderr)
+        return 2
+
+    # Parse arguments
+    args = sys.argv[1:]
+    if not args:
+        print("usage: exifdate [OPTIONS] FILE [FILE ...]", file=sys.stderr)
+        print("Run 'exifdate -h' for help.", file=sys.stderr)
+        return 1
+
+    from_name = False
+    dry_run = False
+    files = []
+    
+    for arg in args:
+        if arg == "--from-name":
+            from_name = True
+        elif arg in ("-n", "--dryrun"):
+            dry_run = True
+        elif arg.startswith("-"):
+            print(f"Error: unknown option '{arg}'", file=sys.stderr)
+            print("Run 'exifdate -h' for help.", file=sys.stderr)
+            return 1
+        else:
+            files.append(arg)
+    
+    if not files:
+        print("Error: no files specified", file=sys.stderr)
+        print("Run 'exifdate -h' for help.", file=sys.stderr)
+        return 1
+    
+    # Validate flag combinations
+    if dry_run and not from_name:
+        print("Error: -n/--dryrun can only be used with --from-name", file=sys.stderr)
+        print("Run 'exifdate -h' for help.", file=sys.stderr)
+        return 1
+
+    # Process files based on mode
+    if not from_name:
+        # Default mode: read and display EXIF dates
+        success_count = 0
+        error_count = 0
+        
+        for filepath_str in files:
+            filepath = Path(filepath_str)
+            
+            # Check if file exists
+            if not filepath.exists():
+                print(f"Error: file not found: {filepath}", file=sys.stderr)
+                error_count += 1
+                continue
+            
+            # Check if it's a file
+            if not filepath.is_file():
+                print(f"Error: not a file: {filepath}", file=sys.stderr)
+                error_count += 1
+                continue
+            
+            # Read and display EXIF dates
+            if read_exif_dates(filepath):
+                success_count += 1
+            else:
+                error_count += 1
+            
+            # Add blank line between files
+            if filepath_str != files[-1]:
+                print()
+        
+        # Return appropriate exit code
+        if error_count > 0 and success_count == 0:
+            return 2
+        return 0
+    
+    else:
+        # --from-name mode: extract from filename and write to EXIF
+        if dry_run:
+            print("exifdate: DRY RUN (remove -n to actually modify files)", file=sys.stderr)
+            print()
+        
+        success_count = 0
+        error_count = 0
+        
+        for filepath_str in files:
+            filepath = Path(filepath_str)
+            
+            # Check if file exists
+            if not filepath.exists():
+                print(f"Error: file not found: {filepath}", file=sys.stderr)
+                error_count += 1
+                continue
+            
+            # Check if it's a file
+            if not filepath.is_file():
+                print(f"Error: not a file: {filepath}", file=sys.stderr)
+                error_count += 1
+                continue
+            
+            # Extract date from filename
+            filename = filepath.name
+            date_result = extract_date_from_filename(filename)
+            
+            if date_result is None:
+                print(f"Error: no date pattern found in filename: {filename}", file=sys.stderr)
+                error_count += 1
+                continue
+            
+            date_pattern, exif_datetime = date_result
+            
+            # Set EXIF dates
+            if set_exif_dates(filepath, exif_datetime, dry_run=dry_run):
+                action = "Would set" if dry_run else "Set"
+                print(f"{action} EXIF dates for {filepath.name}: {date_pattern} → {exif_datetime}")
+                success_count += 1
+            else:
+                error_count += 1
+        
+        # Summary
+        print()
+        if dry_run:
+            print(f"exifdate: would process {success_count} file(s), {error_count} error(s)", file=sys.stderr)
+            if success_count > 0:
+                print("exifdate: remove -n to actually modify files", file=sys.stderr)
+        else:
+            print(f"exifdate: processed {success_count} file(s), {error_count} error(s)", file=sys.stderr)
+        
+        # Return appropriate exit code
+        if error_count > 0 and success_count == 0:
+            return 2
+        return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+# Made with Bob
