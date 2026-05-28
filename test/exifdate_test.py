@@ -209,6 +209,34 @@ class TestDateParsing:
         result = extract_date_from_filename("photo_21010101.jpg")
         assert result is None
 
+    @pytest.mark.parametrize(
+        "filename, expected_pattern, expected_datetime",
+        [
+            ("IMG_20260508_vacation.jpg", "20260508", "2026:05:08 12:00:00"),
+            ("photo_202605_spring.jpg", "202605", "2026:05:01 12:00:00"),
+        ],
+    )
+    def test_additional_compact_date_formats(self, filename, expected_pattern, expected_datetime):
+        """Extract additional compact date formats."""
+        result = extract_date_from_filename(filename)
+        assert result is not None
+        date_pattern, exif_datetime = result
+        assert date_pattern == expected_pattern
+        assert exif_datetime == expected_datetime
+
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "IMG_20261301_invalid.jpg",
+            "IMG_20260532_invalid.jpg",
+            "IMG_189912_old.jpg",
+            "IMG_210101_future.jpg",
+        ],
+    )
+    def test_additional_compact_date_rejections(self, filename):
+        """Reject invalid compact date patterns."""
+        assert extract_date_from_filename(filename) is None
+
     def test_yyyymm_year_boundary_1900(self):
         """YYYYMM with year 1900 is accepted."""
         result = extract_date_from_filename("photo_190001.jpg")
@@ -391,7 +419,7 @@ class TestCommandLineInterface:
         assert result.returncode == 0
         assert "\033[" not in result.stdout  # No ANSI codes
         assert "NAME" in result.stdout
-        assert "exifdate - set EXIF dates from filename date patterns" in result.stdout
+        assert "exifdate - read or set EXIF dates from filename date patterns" in result.stdout
 
     def test_raw_help_flag_long(self):
         """Test --raw-help flag shows raw help without colors."""
@@ -414,29 +442,63 @@ class TestCommandLineInterface:
         assert "Error: unknown option '--invalid'" in result.stderr
         assert "Run 'exifdate -h' for help" in result.stderr
 
-    def test_dry_run_default_behavior(self, temp_jpeg):
-        """Test default behavior is dry-run mode."""
+    def test_default_behavior_reads_dates(self, temp_jpeg):
+        """Test default behavior reads and displays EXIF dates."""
         filepath = temp_jpeg("test_2024-03-15.jpg")
         result = subprocess.run([str(EXIFDATE_PATH), str(filepath)], capture_output=True, text=True)
         assert result.returncode == 0
-        assert "DRY RUN" in result.stderr
-        assert "Would set EXIF dates" in result.stdout
-        assert "use --run to actually modify files" in result.stderr
+        assert "DateTimeOriginal:" in result.stdout
+        assert "DateTime:" in result.stdout
+        assert "DateTimeDigitized:" in result.stdout
+        assert filepath.name in result.stdout
 
-    def test_run_flag_executes_modifications(self, temp_jpeg):
-        """Test --run flag executes actual modifications."""
+    def test_from_name_flag_with_dryrun(self, temp_jpeg):
+        """Test --from-name with -n flag does dry-run."""
         filepath = temp_jpeg("test_2024-03-15.jpg")
-        result = subprocess.run([str(EXIFDATE_PATH), "--run", str(filepath)], capture_output=True, text=True)
+        result = subprocess.run([str(EXIFDATE_PATH), "--from-name", "-n", str(filepath)], capture_output=True, text=True)
+        assert result.returncode == 0
+        assert "DRY RUN (remove -n to actually modify files)" in result.stderr
+        assert "Would set EXIF dates" in result.stdout
+        assert "remove -n to actually modify files" in result.stderr
+
+    def test_from_name_flag_executes_modifications(self, temp_jpeg):
+        """Test --from-name flag executes actual modifications."""
+        filepath = temp_jpeg("test_2024-03-15.jpg")
+        result = subprocess.run([str(EXIFDATE_PATH), "--from-name", str(filepath)], capture_output=True, text=True)
         assert result.returncode == 0
         assert "DRY RUN" not in result.stderr
         assert "Set EXIF dates" in result.stdout
         assert "processed 1 file(s)" in result.stderr
 
-    def test_multiple_file_arguments(self, temp_jpeg):
-        """Test processing multiple files."""
+    def test_dryrun_requires_from_name(self, temp_jpeg):
+        """Test that -n flag requires --from-name."""
+        filepath = temp_jpeg("test_2024-03-15.jpg")
+        result = subprocess.run([str(EXIFDATE_PATH), "-n", str(filepath)], capture_output=True, text=True)
+        assert result.returncode == 1
+        assert "Error: -n/--dryrun can only be used with --from-name" in result.stderr
+
+    def test_old_run_flag_rejected(self, temp_jpeg):
+        """Test that old --run flag is rejected."""
+        filepath = temp_jpeg("test_2024-03-15.jpg")
+        result = subprocess.run([str(EXIFDATE_PATH), "--run", str(filepath)], capture_output=True, text=True)
+        assert result.returncode == 1
+        assert "Error: unknown option '--run'" in result.stderr
+
+    def test_multiple_file_arguments_read_mode(self, temp_jpeg):
+        """Test reading multiple files in default mode."""
         file1 = temp_jpeg("test1_2024-03-15.jpg")
         file2 = temp_jpeg("test2_2024-04-20.jpg")
         result = subprocess.run([str(EXIFDATE_PATH), str(file1), str(file2)], capture_output=True, text=True)
+        assert result.returncode == 0
+        assert file1.name in result.stdout
+        assert file2.name in result.stdout
+        assert "DateTimeOriginal:" in result.stdout
+
+    def test_multiple_file_arguments_write_mode(self, temp_jpeg):
+        """Test processing multiple files with --from-name."""
+        file1 = temp_jpeg("test1_2024-03-15.jpg")
+        file2 = temp_jpeg("test2_2024-04-20.jpg")
+        result = subprocess.run([str(EXIFDATE_PATH), "--from-name", "-n", str(file1), str(file2)], capture_output=True, text=True)
         assert result.returncode == 0
         assert "would process 2 file(s)" in result.stderr
 
@@ -446,12 +508,12 @@ class TestCommandLineInterface:
         assert result.returncode == 2
         assert "Error: file not found" in result.stderr
 
-    def test_no_date_in_filename_error(self, temp_jpeg):
-        """Test error when filename has no date pattern."""
+    def test_no_date_in_filename_error_write_mode(self, temp_jpeg):
+        """Test error when filename has no date pattern in write mode."""
         filepath = temp_jpeg("vacation_beach.jpg")
-        result = subprocess.run([str(EXIFDATE_PATH), str(filepath)], capture_output=True, text=True)
+        result = subprocess.run([str(EXIFDATE_PATH), "--from-name", str(filepath)], capture_output=True, text=True)
         assert result.returncode == 2
-        assert "Warning: no date pattern found in filename" in result.stderr
+        assert "Error: no date pattern found in filename" in result.stderr
 
     def test_exit_code_0_on_success(self, temp_jpeg):
         """Test exit code 0 on successful processing."""
@@ -470,8 +532,8 @@ class TestCommandLineInterface:
         assert result.returncode == 2
 
     def test_no_files_specified_error(self):
-        """Test error when --run is provided but no files."""
-        result = subprocess.run([str(EXIFDATE_PATH), "--run"], capture_output=True, text=True)
+        """Test error when no files are provided."""
+        result = subprocess.run([str(EXIFDATE_PATH), "--from-name"], capture_output=True, text=True)
         assert result.returncode == 1
         assert "Error: no files specified" in result.stderr
 
@@ -479,18 +541,28 @@ class TestCommandLineInterface:
 class TestIntegration:
     """Integration tests for end-to-end workflows."""
 
-    def test_end_to_end_single_file(self, temp_jpeg):
-        """Test complete workflow with a single file."""
+    def test_end_to_end_read_mode(self, temp_jpeg):
+        """Test complete workflow in read mode (default)."""
+        filepath = temp_jpeg("vacation_2024-03-15.jpg")
+        
+        # Read mode (default)
+        result = subprocess.run([str(EXIFDATE_PATH), str(filepath)], capture_output=True, text=True)
+        assert result.returncode == 0
+        assert "DateTimeOriginal:" in result.stdout
+        assert filepath.name in result.stdout
+
+    def test_end_to_end_write_mode(self, temp_jpeg):
+        """Test complete workflow with --from-name."""
         filepath = temp_jpeg("vacation_2024-03-15.jpg")
         
         # Dry-run first
-        result_dry = subprocess.run([str(EXIFDATE_PATH), str(filepath)], capture_output=True, text=True)
+        result_dry = subprocess.run([str(EXIFDATE_PATH), "--from-name", "-n", str(filepath)], capture_output=True, text=True)
         assert result_dry.returncode == 0
         assert "Would set EXIF dates" in result_dry.stdout
         assert "2024-03-15" in result_dry.stdout
         
         # Actual run
-        result_run = subprocess.run([str(EXIFDATE_PATH), "--run", str(filepath)], capture_output=True, text=True)
+        result_run = subprocess.run([str(EXIFDATE_PATH), "--from-name", str(filepath)], capture_output=True, text=True)
         assert result_run.returncode == 0
         assert "Set EXIF dates" in result_run.stdout
 
@@ -501,7 +573,7 @@ class TestIntegration:
         file3 = temp_jpeg("image_2024-04.jpg")
         
         result = subprocess.run(
-            [str(EXIFDATE_PATH), str(file1), str(file2), str(file3)],
+            [str(EXIFDATE_PATH), "--from-name", "-n", str(file1), str(file2), str(file3)],
             capture_output=True, text=True
         )
         assert result.returncode == 0  # Some succeeded
@@ -514,10 +586,10 @@ class TestIntegration:
         filepath = temp_jpeg("test_2024-03-15.jpg")
         
         # Dry-run
-        result_dry = subprocess.run([str(EXIFDATE_PATH), str(filepath)], capture_output=True, text=True)
+        result_dry = subprocess.run([str(EXIFDATE_PATH), "--from-name", "-n", str(filepath)], capture_output=True, text=True)
         
         # Actual run
-        result_run = subprocess.run([str(EXIFDATE_PATH), "--run", str(filepath)], capture_output=True, text=True)
+        result_run = subprocess.run([str(EXIFDATE_PATH), "--from-name", str(filepath)], capture_output=True, text=True)
         
         # Both should succeed
         assert result_dry.returncode == 0
@@ -534,7 +606,7 @@ class TestIntegration:
         file3 = temp_jpeg("photo3_2024-05-10.jpg")
         
         result = subprocess.run(
-            [str(EXIFDATE_PATH), str(file1), str(file2), str(file3)],
+            [str(EXIFDATE_PATH), "--from-name", "-n", str(file1), str(file2), str(file3)],
             capture_output=True, text=True
         )
         assert result.returncode == 0
@@ -547,7 +619,7 @@ class TestIntegration:
         file3 = temp_jpeg("pic_2024.jpg")          # YYYY
         
         result = subprocess.run(
-            [str(EXIFDATE_PATH), str(file1), str(file2), str(file3)],
+            [str(EXIFDATE_PATH), "--from-name", "-n", str(file1), str(file2), str(file3)],
             capture_output=True, text=True
         )
         assert result.returncode == 0
@@ -556,12 +628,21 @@ class TestIntegration:
         assert "2024" in result.stdout
         assert "would process 3 file(s), 0 error(s)" in result.stderr
 
-    def test_non_jpeg_file_handling(self, tmp_path):
-        """Test handling of non-JPEG files."""
+    def test_non_jpeg_file_handling_read_mode(self, tmp_path):
+        """Test handling of non-JPEG files in read mode."""
         filepath = tmp_path / "test_2024-03-15.txt"
         filepath.write_text("not an image")
         
         result = subprocess.run([str(EXIFDATE_PATH), str(filepath)], capture_output=True, text=True)
+        assert result.returncode == 2
+        assert "Error reading EXIF" in result.stderr
+
+    def test_non_jpeg_file_handling_write_mode(self, tmp_path):
+        """Test handling of non-JPEG files in write mode."""
+        filepath = tmp_path / "test_2024-03-15.txt"
+        filepath.write_text("not an image")
+        
+        result = subprocess.run([str(EXIFDATE_PATH), "--from-name", str(filepath)], capture_output=True, text=True)
         assert result.returncode == 2
         assert "Error reading EXIF" in result.stderr
 
@@ -573,6 +654,29 @@ class TestIntegration:
         result = subprocess.run([str(EXIFDATE_PATH), str(dirpath)], capture_output=True, text=True)
         assert result.returncode == 2
         assert "Error: not a file" in result.stderr
+
+    def test_read_mode_multiple_files(self, temp_jpeg):
+        """Test reading EXIF dates from multiple files."""
+        file1 = temp_jpeg("photo1_2024-03-15.jpg")
+        file2 = temp_jpeg("photo2_2024-04-20.jpg")
+        
+        result = subprocess.run([str(EXIFDATE_PATH), str(file1), str(file2)], capture_output=True, text=True)
+        assert result.returncode == 0
+        assert file1.name in result.stdout
+        assert file2.name in result.stdout
+        assert result.stdout.count("DateTimeOriginal:") == 2
+
+    def test_read_mode_output_format(self, temp_jpeg):
+        """Test that read mode output format is correct."""
+        filepath = temp_jpeg("test_2024-03-15.jpg")
+        
+        result = subprocess.run([str(EXIFDATE_PATH), str(filepath)], capture_output=True, text=True)
+        assert result.returncode == 0
+        assert f"{filepath.name}:" in result.stdout
+        assert "DateTimeOriginal:" in result.stdout
+        assert "DateTime:" in result.stdout
+        assert "DateTimeDigitized:" in result.stdout
+        assert "(not set)" in result.stdout  # Fields should be unset initially
 
 
 class TestEdgeCases:
