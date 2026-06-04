@@ -5,9 +5,9 @@
 | Feature                        | IDEA         | VS Code      | Cursor                  |
 |--------------------------------|--------------|--------------|-------------------------|
 | Score                          | 21.5         | 21.5 ⚙️      | 12.5                    |
-| IDE                            | 2025.3.3     | 1.119        | 3.3.27                  |
+| IDE                            | 2025.3.3     | 1.120        | 3.3.27                  |
 | VSCode engine                  | —            | —            | 1.105.1                 |
-| Wibey                          | 1.0.7        | 1.10         | 1.10                    |
+| Wibey                          | 1.0.7        | 1.0.15       | 1.10                    |
 | └ parallel agents              | ❌            | ✅            | ?                       |
 | └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌                      |
 | └ context += @ file            | ✅            | 🟡<100KB     | 🟡<100KB                |
@@ -188,6 +188,16 @@ This is useful for repositioning panels between left and right sidebars as neede
   - **Remote development (SSH, containers, WSL)**
   - *Chat panel context limited vs dedicated AI IDEs*
 - *Accept All in diff review simply accepts what's on disk and ends the review — safe even if the user made local edits during review.*
+
+### Human-vs-Agent Conflict Diff
+
+When an agent writes to a file while you have unsaved edits in your buffer, VS Code opens a `(in file) ↔ (in Visual Studio Code)` diff. The green `+` lines are your buffer; the red `-` lines are what's on disk. Options:
+
+- **Edit the green lines** — make any adjustments you want right in the diff view, then ⌘S to save your version to disk.
+- **Toolbar ✓ (Accept)** — writes your entire buffer to disk as-is.
+- **Toolbar ↩ (Revert)** — discards your buffer and reverts to the disk version.
+
+There are no per-hunk accept buttons in this diff type (those only appear in the 3-way merge editor).
 
 ### Proxy / GitHub Copilot off VPN
 
@@ -682,4 +692,5 @@ History of tool use practices, not of this doc.
 - 2026.05.09 Sat: Fixed the last three Zaaack gaps — Cmd+F find-in-page, outline view, and intra-doc anchor link nav — via `~/bin/patches/patch-zaaack.py` (4 idempotent patch sites in `media/dist/main.js`). Zaaack jumped from `🟡` to `✅✅` parity with IDEA's md preview, and (since the patch globs both `~/.vscode/extensions/` and `~/.cursor/extensions/`) Cursor now matches VS Code on markdown editing too. Upstream is MIT (`github.com/zaaack/vscode-markdown-editor`) but with low maintainer activity (108 open issues, 5+ stale PRs); the anchor-link-opens-directory bug appears unreported, so worth filing one issue. Find-in-page (#153) and outline (#24, #155) are already requested upstream. Added draggable resize handle between outline and editor: 5px `#__zk-outline-resize` div injected after `.vditor-outline` in the flex row; highlights on hover/drag; clamps 60–800px.
 - 2026.05.11 Mon: Moved Zaaack outline from vditor's built-in webview panel to a VS Code sidebar TreeView (`markdownEditorOutline`). The vditor outline consumed horizontal editor space and couldn't integrate with VS Code's sidebar; now the outline appears in the Explorer sidebar only when a Zaaack editor is focused, showing a hierarchical heading tree with click-to-scroll. Patch script expanded from 1 file (`main.js`) to 3 (`main.js`, `extension.js`, `package.json`). Fixed a strip-and-re-inject bug: old enhancer strip logic used `src.find('})();')` which matched the `injectCssFixes` IIFE inside the enhancer instead of the file's IIFE close; fixed by adding `/*__zaaackEnhance_end__*/` bracket marker. Removed the draggable outline resizer (no longer needed — sidebar resize is built into VS Code).
 - 2026.05.12 Tue: Updated `~/bin/patches/patch-zaaack.py` CSS patch to force link colors to VS Code Markdown Preview theme tokens (`--vscode-textLink-foreground` and `--vscode-textLink-activeForeground`) for both anchor tags and vditor IR link spans (`.vditor-ir__link`). Re-ran patch script across both extension roots (`~/.vscode/extensions/zaaack.markdown-editor-*` and `~/.cursor/extensions/zaaack.markdown-editor-*`).
+- 2026.05.18 Sun: Investigated "intra-doc links and outline click-to-scroll not working." Verified all three patch files (`main.js`, `extension.js`, `package.json`) are correctly applied in both VS Code and Cursor; JS syntax valid; all anchors present. Root cause: stale webview running pre-patch `main.js`. The `?v=${Date.now()}` cache-buster (E7) ensures fresh `main.js` load, but only takes effect after a window reload triggers the updated `extension.js`. Fix: **`Developer: Reload Window`** in each IDE. Re-ran `patch-zaaack.py` to freshen the patch timestamp; confirmed idempotent. No patch logic changes needed.
 
