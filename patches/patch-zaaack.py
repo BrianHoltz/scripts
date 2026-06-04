@@ -97,7 +97,8 @@ P4_NEW = (
 # (vditor outline + resizer REMOVED; scroll-to-heading for VS Code TreeView ADDED)
 ENHANCE_MARKER = '/*__zaaackEnhance__*/'
 ENHANCE_END_MARKER = '/*__zaaackEnhance_end__*/'
-ENHANCE_JS = ENHANCE_MARKER + r'''
+ENHANCE_JS = ENHANCE_MARKER + '\nvar __ZK_PATCH_TS=' + str(int(time.time())) + ';\n' + r'''
+console.log('[zaaack-patch] enhancer block loaded, ts=' + __ZK_PATCH_TS);
 // Heading lookup + scroll helper, exposed globally so the postMessage wrap
 // and the VS Code sidebar outline TreeView can use it.
 function slugify(s){
@@ -120,6 +121,7 @@ function headingText(h){
   return out;
 }
 window.__zaaackGotoAnchor = function(frag){
+  console.log('[zaaack-patch] gotoAnchor called, frag=', frag);
   if (!frag) return false;
   var ed = document.querySelector('.vditor-ir__content')
         || document.querySelector('.vditor-ir')
@@ -142,13 +144,21 @@ window.__zaaackGotoAnchor = function(frag){
     return false;
   }
   t.scrollIntoView({behavior:'smooth', block:'start'});
+  // Brief highlight flash so the user sees where we landed
+  var origBg = t.style.background;
+  t.style.background = 'var(--vscode-editor-findMatchHighlightBackground, rgba(255,200,0,0.3))';
+  setTimeout(function(){ t.style.background = origBg; }, 1200);
   return true;
 };
 
 window.__zaaackEnhance=function(){
   try {
+    console.log('[zaaack-patch] __zaaackEnhance called');
     var ed = document.querySelector('#app');
-    if (!ed || ed.__zaaackEnhanced) return;
+    if (!ed || ed.__zaaackEnhanced) {
+      console.log('[zaaack-patch] enhance skipped, ed=', !!ed, 'enhanced=', ed && ed.__zaaackEnhanced);
+      return;
+    }
     ed.__zaaackEnhanced = true;
 
     // ---- Fix: outline "More" menu item invisible ----
@@ -179,6 +189,7 @@ window.__zaaackEnhance=function(){
       }
       if (!a && !dataA) return;
       var isHttp = /^https?:/i.test(url);
+      console.log('[zaaack-patch] clickHandler: url=', url, 'isHttp=', isHttp, 'a=', !!a, 'dataA=', !!dataA);
       if (!url || isHttp) return;
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -314,11 +325,13 @@ window.__zaaackEnhance=function(){
     window.addEventListener('message', function(e) {
       var d = e.data;
       if (d && d.command === 'scroll-to-heading' && d.slug) {
+        console.log('[zaaack-patch] scroll-to-heading received, slug=', d.slug);
         window.__zaaackGotoAnchor && window.__zaaackGotoAnchor(d.slug);
       }
     });
 
-  } catch(err) { console.error('[zaaack-patch]', err); }
+    console.log('[zaaack-patch] enhance complete: click handler + message listener installed');
+  } catch(err) { console.error('[zaaack-patch] enhance error:', err); }
 };
 ''' + ENHANCE_END_MARKER
 
@@ -514,9 +527,6 @@ class MarkdownOutlineProvider {
 EXT_ACTIVATE = '''
     /*__zk_outline_activate__*/
     // Clear stale vditor outline preference (outline now lives in VS Code sidebar).
-    // Previous patch injected outline:{enable:true} into vditor config; vditor saved
-    // that to globalState via 'save-options'. Without this cleanup the vditor outline
-    // reappears from saved state even after the config injection is removed.
     const _zkStored = context.globalState.get('vditor.options');
     if (_zkStored && _zkStored.outline && _zkStored.outline.enable) {
         _zkStored.outline = { enable: false };
@@ -530,11 +540,12 @@ EXT_ACTIVATE = '''
     });
     context.subscriptions.push(
         vscode.commands.registerCommand('markdownEditorOutline.scrollTo', (slug) => {
-            for (const p of EditorPanel.panelsByPath.values()) {
-                if (p._panel.active) {
-                    p._panel.webview.postMessage({ command: 'scroll-to-heading', slug });
-                    break;
-                }
+            // Clicking a TreeView item shifts focus to the sidebar, making all
+            // webview panels non-active. Use _lastActivePanel as primary target.
+            const target = EditorPanel._lastActivePanel
+                || [...EditorPanel.panelsByPath.values()].find(p => p._panel.visible);
+            if (target) {
+                target._panel.webview.postMessage({ command: 'scroll-to-heading', slug });
             }
         })
     );
@@ -545,6 +556,7 @@ EXT_VIEWSTATE = '''
         /*__zk_outline_viewstate__*/
         this._panel.onDidChangeViewState((e) => {
             if (e.webviewPanel.active) {
+                EditorPanel._lastActivePanel = this;
                 vscode.commands.executeCommand('setContext', 'markdownEditorActive', true);
                 if (EditorPanel._outlineProvider) EditorPanel._outlineProvider.refresh(this._document);
             } else {
@@ -577,6 +589,9 @@ EXT_DOCCHANGE = '''\
 # E_DISPOSE: clear outline when last panel closes
 EXT_DISPOSE = '''
         /*__zk_outline_dispose__*/
+        if (EditorPanel._lastActivePanel === this) {
+            EditorPanel._lastActivePanel = null;
+        }
         if (EditorPanel.panelsByPath.size === 0) {
             vscode.commands.executeCommand('setContext', 'markdownEditorActive', false);
             if (EditorPanel._outlineProvider) EditorPanel._outlineProvider.refresh(null);
@@ -586,6 +601,7 @@ EXT_DISPOSE = '''
 # E_CREATE: populate outline immediately when a panel opens
 EXT_CREATE = '''
         /*__zk_outline_create__*/
+        EditorPanel._lastActivePanel = newPanel;
         vscode.commands.executeCommand('setContext', 'markdownEditorActive', true);
         if (EditorPanel._outlineProvider) EditorPanel._outlineProvider.refresh(doc);
         /*__zk_outline_create_end__*/'''
@@ -655,6 +671,17 @@ def patch_extension_js(path):
     assert create_anchor, f'anchor not found or not unique: {EA_CREATE_CANDIDATES}'
     src = src.replace(create_anchor, create_anchor + EXT_CREATE, 1)
     print('    [E6] initial outline refresh inserted in createOrShow()')
+
+    # E_CACHE: bust webview script cache so patched main.js is always loaded
+    CACHE_OLD = '`<script src="${f}"></script>`'
+    CACHE_NEW = '`<script src="${f}?v=${Date.now()}"></script>`'
+    if CACHE_NEW in src:
+        print('    [E7] cache-buster already present')
+    elif CACHE_OLD in src:
+        src = src.replace(CACHE_OLD, CACHE_NEW, 1)
+        print('    [E7] cache-buster added to script URL')
+    else:
+        print('    [E7] script tag anchor not found — skipping cache-buster')
 
     with open(path, 'w') as f:
         f.write(src)
