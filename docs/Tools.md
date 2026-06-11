@@ -7,7 +7,7 @@
 | Score                          | 21.5         | 21.5 ⚙️      | 12.5                    |
 | IDE                            | 2025.3.3     | 1.120        | 3.3.27                  |
 | VSCode engine                  | —            | —            | 1.105.1                 |
-| Wibey                          | 1.0.7        | 1.0.15       | 1.10                    |
+| Wibey                          | 1.0.7        | 1.0.16       | 1.10                    |
 | └ parallel agents              | ❌            | ✅            | ?                       |
 | └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌                      |
 | └ context += @ file            | ✅            | 🟡<100KB     | 🟡<100KB                |
@@ -421,7 +421,7 @@ This makes the preview follow the active VS Code editor theme (and thus `window.
 
 ### Cmd+Shift+V → Markdown Preview
 
-**VS Code:** `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` — MPE handles intra-doc anchor links correctly where the built-in sometimes breaks them.
+**VS Code:** `keybindings.json` unbinds `⇧⌘V` from the built-in and rebinds it to `markdown-preview-enhanced.openPreview` (NOT `openPreviewToTheSide`) — MPE handles intra-doc anchor links correctly where the built-in sometimes breaks them. Using `openPreview` keeps the preview in the same editor column without splitting.
 
 **Cursor:** `⇧⌘V` uses the built-in `workbench.action.markdown.openPreview` (preference). MPE's default binding is unbound via `-markdown-preview-enhanced.openPreview` in Cursor's `keybindings.json`.
 
