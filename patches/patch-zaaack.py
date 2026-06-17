@@ -64,9 +64,11 @@ def strip_block(src, start_marker, end_marker):
 P1_PATCHED = 'toolbarConfig:{pin:!0},outline:{enable:!0,position:"left"},'
 P1_ORIGINAL = 'toolbarConfig:{pin:!0},'
 
-# Patch 2: hook after() to call our enhancer
-P2_OLD = 'after(){V_(),Y_(),sB(),K_()}'
-P2_NEW = 'after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}'
+# Patch 2: hook after() to call our enhancer (version-specific function names)
+P2_VARIANTS = [
+    ('after(){V_(),Y_(),sB(),K_()}',  'after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}'),  # vditor 3.8.4 (Zaaack 0.1.13)
+    ('after(){vE(),wE(),VH(),bE()}',  'after(){vE(),wE(),VH(),bE(),window.__zaaackEnhance&&window.__zaaackEnhance()}'),  # vditor 3.11.2 (Zaaack 0.1.15)
+]
 
 # Patch 4: wrap vscode.postMessage to drop intra-doc open-link messages
 P4_OLD = 'window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();window.global=window;'
@@ -337,6 +339,124 @@ window.__zaaackEnhance=function(){
 
 CLOSE = 'vscode.postMessage({command:"ready"});})();'
 
+# Patch 5: intercept dynamic script loader to suppress i18n CDN 404
+P5_MARKER = '/*__zk_i18n_fix__*/'
+P5_OLD = (
+    'O=function(b,y){return new Promise(function(j,M)'
+    '{if(document.getElementById(y))return j(!0),!1;'
+    'var R=document.createElement("script");R.src=b,R.async=!0,'
+    'document.head.appendChild(R),R.onerror=function(A){M(A)},'
+    'R.onload=function(){if(document.getElementById(y))return R.remove(),j(!0),!1;'
+    'R.id=y,j(!0)}})}')
+P5_NEW = (
+    'O=function(b,y){'
+    + P5_MARKER
+    + 'if(typeof b==="string"&&b.indexOf("/i18n/")!==-1){'
+    'if(!window.VditorI18n)window.VditorI18n={};'
+    'return Promise.resolve(true);}'
+    'return new Promise(function(j,M)'
+    '{if(document.getElementById(y))return j(!0),!1;'
+    'var R=document.createElement("script");R.src=b,R.async=!0,'
+    'document.head.appendChild(R),R.onerror=function(A){M(A)},'
+    'R.onload=function(){if(document.getElementById(y))return R.remove(),j(!0),!1;'
+    'R.id=y,j(!0)}})}')
+
+# ====================================================================
+# extension.js multi-file editor patch (panelsByPath)
+# Transforms singleton EditorPanel.currentPanel into a per-file Map.
+# Must run BEFORE outline patches; outline patches require panelsByPath.
+# ====================================================================
+
+MULTIPANEL_CHECK = 'EditorPanel.panelsByPath'
+
+# 1. Remove singleton disposal + reveal block from createOrShow
+MULTIPANEL_SINGLETON_OLD = (
+    '        if (EditorPanel.currentPanel && uri !== ((_a = EditorPanel.currentPanel) === null || _a === void 0 ? void 0 : _a._uri)) {\n'
+    '            EditorPanel.currentPanel.dispose();\n'
+    '        }\n'
+    '        // If we already have a panel, show it.\n'
+    '        if (EditorPanel.currentPanel) {\n'
+    '            EditorPanel.currentPanel._panel.reveal(column);\n'
+    '            return;\n'
+    '        }'
+)
+MULTIPANEL_SINGLETON_NEW = ''  # replaced by per-file lookup inserted below
+
+# 2. Insert per-file check just before panel creation
+MULTIPANEL_CREATE_ANCHOR = '        // Otherwise, create a new panel.\n        const panel = vscode.window.createWebviewPanel'
+MULTIPANEL_CREATE_INSERT = (
+    '        // [PATCH] Multi-file editor: check if panel already exists for this file\n'
+    '        const fsPath = doc.uri.fsPath;\n'
+    '        if (EditorPanel.panelsByPath.has(fsPath)) {\n'
+    '            const existingPanel = EditorPanel.panelsByPath.get(fsPath);\n'
+    '            existingPanel._panel.reveal(column);\n'
+    '            return;\n'
+    '        }\n'
+)
+
+# 3. Replace currentPanel assignment with panelsByPath.set
+MULTIPANEL_ASSIGN_OLD = '        EditorPanel.currentPanel = new EditorPanel(context, panel, extensionUri, doc, uri);'
+MULTIPANEL_ASSIGN_NEW = (
+    '        const newPanel = new EditorPanel(context, panel, extensionUri, doc, uri);\n'
+    '        EditorPanel.panelsByPath.set(fsPath, newPanel);'
+)
+
+# 4. Replace dispose teardown
+MULTIPANEL_DISPOSE_OLD = '        EditorPanel.currentPanel = undefined;'
+MULTIPANEL_DISPOSE_NEW = '        EditorPanel.panelsByPath.delete(this._fsPath);'
+
+# 5. Add static initializer (before viewType)
+MULTIPANEL_STATIC_OLD = "EditorPanel.viewType = 'markdown-editor';"
+MULTIPANEL_STATIC_NEW = "EditorPanel.panelsByPath = new Map();\nEditorPanel.viewType = 'markdown-editor';"
+
+
+def patch_extension_js_multipanel(path):
+    print(f'  extension.js (multipanel): {path}')
+    with open(path) as f:
+        src = f.read()
+
+    if MULTIPANEL_CHECK in src:
+        print('    multi-panel patch already applied')
+        return
+
+    ok = True
+
+    if src.count(MULTIPANEL_SINGLETON_OLD) == 1:
+        src = src.replace(MULTIPANEL_SINGLETON_OLD, MULTIPANEL_SINGLETON_NEW, 1)
+        print('    [MP1] singleton block removed')
+    else:
+        print('    [MP1] singleton block anchor not found — skipped (manual apply may be needed)')
+        ok = False
+
+    if ok and src.count(MULTIPANEL_CREATE_ANCHOR) == 1:
+        src = src.replace(MULTIPANEL_CREATE_ANCHOR,
+                          MULTIPANEL_CREATE_INSERT + MULTIPANEL_CREATE_ANCHOR, 1)
+        print('    [MP2] per-file panel check inserted')
+    elif ok:
+        print('    [MP2] create comment anchor not found — skipped')
+        ok = False
+
+    if ok and src.count(MULTIPANEL_ASSIGN_OLD) == 1:
+        src = src.replace(MULTIPANEL_ASSIGN_OLD, MULTIPANEL_ASSIGN_NEW, 1)
+        print('    [MP3] panelsByPath.set inserted')
+    elif ok:
+        print('    [MP3] assign anchor not found — skipped')
+
+    if src.count(MULTIPANEL_DISPOSE_OLD) == 1:
+        src = src.replace(MULTIPANEL_DISPOSE_OLD, MULTIPANEL_DISPOSE_NEW, 1)
+        print('    [MP4] dispose teardown updated')
+    else:
+        print('    [MP4] dispose anchor not found — skipped')
+
+    if src.count(MULTIPANEL_STATIC_OLD) == 1:
+        src = src.replace(MULTIPANEL_STATIC_OLD, MULTIPANEL_STATIC_NEW, 1)
+        print('    [MP5] panelsByPath static initializer added')
+    else:
+        print('    [MP5] static anchor not found — skipped')
+
+    with open(path, 'w') as f:
+        f.write(src)
+
 
 def patch_main_js(path):
     print(f'  main.js: {path}')
@@ -350,15 +470,17 @@ def patch_main_js(path):
     else:
         print('    [1/4] vditor outline already absent')
 
-    # P2: after() hook
-    if P2_NEW in src:
+    # P2: after() hook (version-aware: supports multiple vditor versions)
+    p2_done = any(new_val in src for _, new_val in P2_VARIANTS)
+    if p2_done:
         print('    [2/4] after() hook already installed')
     else:
-      if src.count(P2_OLD) == 1:
-        src = src.replace(P2_OLD, P2_NEW, 1)
-        print('    [2/4] after() hook installed')
-      else:
-        print('    [2/4] after() anchor not found; skipped')
+        p2_matched = next(((old, new) for old, new in P2_VARIANTS if src.count(old) == 1), None)
+        if p2_matched:
+            src = src.replace(p2_matched[0], p2_matched[1], 1)
+            print('    [2/4] after() hook installed')
+        else:
+            print('    [2/4] after() anchor not found; skipped')
 
     # P4: postMessage wrap (strip old, re-inject)
     if P4_MARKER in src:
@@ -401,6 +523,15 @@ def patch_main_js(path):
                       'vscode.postMessage({command:"ready"});' + ENHANCE_JS + '})();',
                       1)
     print('    [3/4] enhancer installed')
+
+    # P5: i18n CDN intercept (suppress 404 for missing i18n scripts)
+    if P5_MARKER in src:
+        print('    [5/5] i18n CDN intercept already installed')
+    elif P5_OLD in src and src.count(P5_OLD) == 1:
+        src = src.replace(P5_OLD, P5_NEW, 1)
+        print('    [5/5] i18n CDN intercept installed')
+    else:
+        print('    [5/5] i18n intercept anchor not found; skipped')
 
     with open(path, 'w') as f:
         f.write(src)
@@ -693,9 +824,16 @@ def patch_extension_js(path):
 
 PKG_MARKER = '"markdownEditorOutline"'
 
-# Add activation event for the outline view
-PKG_AE_OLD = '"onLanguage:markdown"\n\t],'
-PKG_AE_NEW = '"onLanguage:markdown",\n\t\t"onView:markdownEditorOutline"\n\t],'
+# Add activation event for the outline view (multiple version anchors)
+PKG_AE_CANDIDATES = [
+    ('"onLanguage:markdown"\n\t],',
+     '"onLanguage:markdown",\n\t\t"onView:markdownEditorOutline"\n\t],'),   # 0.1.13
+    ('"onCustomEditor:markdown-editor.customEditor"\n\t],',
+     '"onCustomEditor:markdown-editor.customEditor",\n\t\t"onView:markdownEditorOutline"\n\t],'),  # 0.1.15+
+]
+# Legacy aliases kept for backwards compat in the assert below
+PKG_AE_OLD = PKG_AE_CANDIDATES[0][0]
+PKG_AE_NEW = PKG_AE_CANDIDATES[0][1]
 
 # Add views contribution (insert between keybindings close and contributes close)
 PKG_VIEWS_OLD = '\t\t]\n\t},\n\t"scripts": {'
@@ -749,9 +887,10 @@ def patch_package_json(path):
             print('    outline view already declared')
         return
 
-    # Add activationEvent
-    assert src.count(PKG_AE_OLD) == 1, f'activationEvents anchor not found:\n  {PKG_AE_OLD!r}'
-    src = src.replace(PKG_AE_OLD, PKG_AE_NEW, 1)
+    # Add activationEvent (try each version-specific anchor)
+    ae_matched = next(((o, n) for o, n in PKG_AE_CANDIDATES if src.count(o) == 1), None)
+    assert ae_matched, f'activationEvents anchor not found — tried: {[o for o,_ in PKG_AE_CANDIDATES]}'
+    src = src.replace(ae_matched[0], ae_matched[1], 1)
     print('    activationEvent added')
 
     # Add views declaration
@@ -803,6 +942,7 @@ def main():
             print(f'  main.css: NOT FOUND at {main_css}')
 
         if os.path.exists(ext_js):
+            patch_extension_js_multipanel(ext_js)
             patch_extension_js(ext_js)
         else:
             print(f'  extension.js: NOT FOUND at {ext_js}')

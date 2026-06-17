@@ -5,9 +5,9 @@
 | Feature                        | IDEA         | VS Code      | Cursor                  |
 |--------------------------------|--------------|--------------|-------------------------|
 | Score                          | 21.5         | 21.5 ⚙️      | 12.5                    |
-| IDE                            | 2025.3.3     | 1.120        | 3.3.27                  |
+| IDE                            | 2025.3.3     | 1.124.2        | 3.3.27                  |
 | VSCode engine                  | —            | —            | 1.105.1                 |
-| Wibey                          | 1.0.7        | 1.0.16       | 1.10                    |
+| Wibey                          | 1.0.7        | 1.0.16 ⚙️    | 1.10                    |
 | └ parallel agents              | ❌            | ✅            | ?                       |
 | └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌                      |
 | └ context += @ file            | ✅            | 🟡<100KB     | 🟡<100KB                |
@@ -60,7 +60,7 @@ Score rubric
 
 | Behavior                 | IDEA viewer | IDEA shuzijun       | typedown    | zaaack | Cursor native |
 | ------------------------ | ----------- | ------------------- | ----------- | ------ | ------------- |
-| version                  | 2025.3.3    | 2.0.5               | 1.1.7       | 0.1.13 | 2.6.19        |
+| version                  | 2025.3.3    | 2.0.5               | 1.1.7       | 0.1.15 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
 | >1 tab at a time         | ✅           | ✅✅                  | ✅✅          | ✅✅     | ✅✅            |
 | re-read changed file     | ?           | ?                   | ✅           | ?      | ?             |
 | wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅     | ❌ truncates   |
@@ -315,15 +315,17 @@ Patch caveat: extension updates overwrite patched files; reapply after each Zaaa
 
 ### Zaaack Find / Outline / Anchor Nav (patched)
 
-The ⚙️ rows in the comparison table — find in file, structure, internal links — are added by `~/bin/patches/patch-zaaack.py` (canonical, lives in `~/bin/` repo and syncs across laptops via git). It patches four files — `media/dist/main.js`, `media/dist/main.css`, `out/extension.js`, and `package.json` — in **both** `~/.vscode/extensions/zaaack.markdown-editor-<version>/` and `~/.cursor/extensions/zaaack.markdown-editor-<version>/` (each IDE has its own extensions dir). **Pinned to Zaaack 0.1.13 + vditor 3.8.4** (the bundled lib version visible in `main.js`'s license footer). The script globs all matching versioned dirs so a Zaaack version bump does not require editing the script.
+The ⚙️ rows in the comparison table — find in file, structure, internal links — are added by `~/bin/patches/patch-zaaack.py` (canonical, lives in `~/bin/` repo and syncs across laptops via git). It patches four files — `media/dist/main.js`, `media/dist/main.css`, `out/extension.js`, and `package.json` — in **both** `~/.vscode/extensions/zaaack.markdown-editor-<version>/` and `~/.cursor/extensions/zaaack.markdown-editor-<version>/` (each IDE has its own extensions dir). **Pinned to Zaaack 0.1.13/0.1.15 + vditor 3.8.4/3.11.2** (the bundled lib version visible in `pnpm-lock.yaml`). The script globs all matching versioned dirs and supports multiple vditor versions via `P2_VARIANTS`.
 
 **Why patch instead of switching editors.** Every webview-based WYSIWYG competitor (typedown, IDEA shuzijun, Mark Sharp, Unotes, vscode-markdown-wysiwyg, Teddy Editor) shares the same Cmd+F gap — VS Code's find UI doesn't reach into webview content, and vditor doesn't expose a public search API. The only extension with native find is `remcohaszing.markdown-decorations`, but it's decoration-only and loses the rich WYSIWYG rendering that makes zaaack the best choice. So patching zaaack beats every alternative on the market as of 2026.05.
 
 **The `main.js` + `main.css` patch sites** — all are uniquely addressable and idempotent:
 
 1. **after()-hook bridge** — call our enhancer once vditor finishes initializing:
-  - Anchor: `after(){V_(),Y_(),sB(),K_()}`
-  - Replace with: `after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}`
+  - Anchor (vditor 3.8.4 / Zaaack ≤0.1.13): `after(){V_(),Y_(),sB(),K_()}`
+  - Anchor (vditor 3.11.2 / Zaaack 0.1.15+): `after(){vE(),wE(),VH(),bE()}`
+  - `P2_VARIANTS` in the script covers both; add new entries for future vditor bumps.
+  - Replace with the same + `,window.__zaaackEnhance&&window.__zaaackEnhance()}`
   - Why this works: `after()` fires after vditor mounts the DOM — `window.vditor` is live and the editor `<div id="app">` is populated.
 2. **Enhancer definition** — append `window.__zaaackEnhance` body just before the closing IIFE:
   - Anchor: `vscode.postMessage({command:"ready"});})();`
@@ -374,17 +376,20 @@ The ⚙️ rows in the comparison table — find in file, structure, internal li
 
 **CSP note.** The webview HTML in `extension.js`'s `_getHtmlForWebview()` sets no `Content-Security-Policy` meta tag, so inline scripts in `main.js` execute freely. If a future Zaaack version adds CSP, the enhancer needs to move to a separate file registered via `webview.asWebviewUri()`.
 
+**vditor i18n 404 (Zaaack 0.1.15 / vditor 3.11.2, cosmetic).** `GET https://unpkg.com/vditor@3.11.2/dist/js/i18n/en_US.js net::ERR_ABORTED 404` appears in the webview console after upgrade. Vditor fetches the i18n file lazily from CDN; in 3.11.2 that path doesn't exist on unpkg. Vditor falls back to default (English) UI strings — toolbar tooltips remain English, functionality is unaffected. No fix applied; upstream issue with the unpkg publish for 3.11.2.
+
 **Reapply procedure** (after Zaaack extension update, OS migration, or fresh checkout):
 
 1. Confirm installed version(s): `ls ~/.vscode/extensions/ ~/.cursor/extensions/ 2>/dev/null | grep zaaack`. The script auto-globs every matching dir under both IDEs.
-2. `python3 ~/bin/patches/patch-zaaack.py` — for each target dir, patches `main.js` (3 sites), `main.css` (1 site), `extension.js` (6 sites), and `package.json` (2 sites). Re-running strips + re-injects where applicable (marker-based idempotency) and creates `.bak.<unix-ts>` backups of all files before patching.
+2. `python3 ~/bin/patches/patch-zaaack.py` — for each target dir: applies multi-file editor patch to `extension.js` (step MP1–MP5), then patches `main.js` (3 sites), `main.css` (1 site), `extension.js` outline (6 sites), and `package.json` (2 sites). Re-running strips + re-injects where applicable (marker-based idempotency) and creates `.bak.<unix-ts>` backups of all files before patching.
+   - If a new Zaaack version ships a new vditor version, add a new tuple to `P2_VARIANTS` and update `MULTIPANEL_SINGLETON_OLD` if TypeScript recompilation changed the `_a` var references.
 3. Sanity check:
   - `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` and `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/out/extension.js` should print no errors.
   - `rg -n "__zaaackCssPatch__" ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.css ~/.cursor/extensions/zaaack.markdown-editor-*/media/dist/main.css` should find the marker.
 4. Reload VS Code / Cursor window (`Developer: Reload Window`) for each affected window.
 5. Open a markdown file with `^⌥⌘M` and verify: "Markdown Outline" tree view appears in the Explorer sidebar showing heading hierarchy, clicking a heading scrolls the webview, dark-theme table rows are no longer white, `[link](#some-heading)` jumps in-place (no new tab opens), and `⌘F` opens the find bar with multi-char search working. When switching to a non-Zaaack editor, the Markdown Outline view hides and the standard Outline view reappears.
 
-**Prerequisite: multi-file editor patch.** The extension.js outline patches depend on `EditorPanel.panelsByPath` (the multi-file editor patch described in *Zaaack Markdown Editor Patches* below). The script checks for this and skips outline patches if not found.
+**Multi-file editor patch baked in.** `patch_extension_js_multipanel()` runs automatically before the outline patches, converting the singleton `EditorPanel.currentPanel` to a per-file `EditorPanel.panelsByPath` Map. Idempotent: re-running is safe. The outline patches depend on `panelsByPath` and are skipped if it is absent.
 
 **Recreating the patch from scratch** (if `~/bin/patches/patch-zaaack.py` is ever lost): use the main.js anchor strings + enhancer/TreeView responsibilities described above, add one marker-guarded CSS block in `main.css` for dark tables/outline width, and add the `extension.js` + `package.json` TreeView patches. All patch sites use anchor checks plus marker-comment idempotency.
 
@@ -536,7 +541,7 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
 
 ### Wibey Extension Patches
 
-#### New Conversation Bug Fix (v1.0.10)
+#### New Conversation Bug Fix (v1.0.10 and v1.0.16+)
 
 **Bug:** Clicking "+" (new conversation button) shows the old/most-recent conversation instead of opening a blank chat.
 
@@ -603,6 +608,24 @@ else {
 ```
 
 After patching, run `Developer: Reload Window` in VS Code. Patches are overwritten on Wibey extension update — reapply after each update (adapt paths for new version).
+
+**v1.0.16 patch** — `MultiSessionHandler.js` no longer exists (architecture changed). Only `webview.js` needs patching. Variable names changed (`c`→`C`, `bi`→`te`, `o`→`l`, `h`→`L`):
+
+```python
+python3 - <<'EOF'
+import os, shutil, time
+path = os.path.expanduser('~/.vscode/extensions/wibey.wibey-vscode-extension-1.0.16/out/webview/webview.js')
+src = open(path).read()
+old = 'case"newParallelSession":C.showChat();'
+new = 'case"newParallelSession":C.showChat(),l.clearMessages(),l.clearTodos(),L.clearQueue();'
+assert src.count(old) == 1
+shutil.copy2(path, f'{path}.bak.{int(time.time())}')
+open(path, 'w').write(src.replace(old, new, 1))
+print("webview.js patched")
+EOF
+```
+
+If variable names change again in a future version, search for `case"newParallelSession"` and `case"cleared"` (which shows the correct `clearMessages`/`clearTodos`/`clearQueue` variable names) to find the right substitution.
 
 ---
 
@@ -694,3 +717,4 @@ History of tool use practices, not of this doc.
 - 2026.05.12 Tue: Updated `~/bin/patches/patch-zaaack.py` CSS patch to force link colors to VS Code Markdown Preview theme tokens (`--vscode-textLink-foreground` and `--vscode-textLink-activeForeground`) for both anchor tags and vditor IR link spans (`.vditor-ir__link`). Re-ran patch script across both extension roots (`~/.vscode/extensions/zaaack.markdown-editor-*` and `~/.cursor/extensions/zaaack.markdown-editor-*`).
 - 2026.05.18 Sun: Investigated "intra-doc links and outline click-to-scroll not working." Verified all three patch files (`main.js`, `extension.js`, `package.json`) are correctly applied in both VS Code and Cursor; JS syntax valid; all anchors present. Root cause: stale webview running pre-patch `main.js`. The `?v=${Date.now()}` cache-buster (E7) ensures fresh `main.js` load, but only takes effect after a window reload triggers the updated `extension.js`. Fix: **`Developer: Reload Window`** in each IDE. Re-ran `patch-zaaack.py` to freshen the patch timestamp; confirmed idempotent. No patch logic changes needed.
 
+- 2026.06.15 Sun: VS Code upgraded, Zaaack updated to 0.1.15 (vditor 3.8.4 → 3.11.2). Updated `patch-zaaack.py`: (1) replaced single `P2_OLD`/`P2_NEW` with `P2_VARIANTS` list to support multiple vditor versions without per-version edits; (2) baked multi-file editor patch (`currentPanel` → `panelsByPath` Map) into `patch_extension_js_multipanel()` so it's no longer a manual prerequisite; (3) added `PKG_AE_CANDIDATES` for package.json activationEvents (0.1.15 added a 4th activation event, breaking the old anchor). Applied Wibey 1.0.16 webview.js `newParallelSession` patch (variable names changed from 1.0.10: `c`→`C`, `o`→`l`, `h`→`L`; `MultiSessionHandler.js` gone). Cosmetic: vditor 3.11.2 i18n 404 on CDN is benign — noted in doc, not fixed.
