@@ -2,42 +2,43 @@
 
 ## IDEs
 
-| Feature                        | IDEA         | VS Code      | Cursor                  |
-|--------------------------------|--------------|--------------|-------------------------|
-| Score                          | 21.5         | 21.5 ⚙️      | 12.5                    |
-| IDE                            | 2025.3.3     | 1.124.2        | 3.3.27                  |
+
+| Feature                        | IDEA          | VS Code       | Cursor                  |
+| ------------------------------ | ------------- | ------------- | ----------------------- |
+| Score                          | 28.5          | 20.5 ⚙️     | 19.5                    |
+| IDE                            | 2025.3.3      | 1.124.2       | 3.3.27                  |
 | VSCode engine                  | —            | —            | 1.105.1                 |
-| Wibey                          | 1.0.18        | 1.0.16 ⚙️    | 1.10                    |
-| └ parallel agents              | ❌            | ✅            | ?                       |
-| └ type @ busy Wibey            | ✅            | ❌❌           | ❌❌                      |
-| └ context += @ file            | ✅            | 🟡<100KB     | 🟡<100KB                |
-| └ context += selection         | ✅ cmd-' pill | ✅ cmd-L pill | 🟡 cmd-L pill via Agent |
-| └ image paste                  | ❌❌           | ✅            | ✅                       |
-| └ convo title edit             | ❌            | ✅            | ✅                       |
-| └ convo title auto             | last prompt  | last prompt  | last prompt             |
-| └ convo search                 | ❌            | ✅            | ✅                       |
-| └ convo timestamps             | ✅            | ✅            | ✅                       |
-| └ convo bookmark               | ❌            | ✅            | ✅                       |
-| └ rich/linked paste            | ❌            | ❌            | ❌                       |
-| Github Copilot                 | 1.6.1-243    | 0.39.0       | 1.388.0 ????            |
-| └ parallel agents              | ✅            | ✅            | ✅                       |
-| └ context += selection         | ✅ auto       | ❌            | ❌                       |
-| └ convo title                  | 🟡 manual    | ✅ auto       | ✅ auto                  |
-| AI diff review                 | ✅ per delta  | 🟡 per file  | 🟡 per file             |
-| AI diff in linked repo         | ✅            | ❌            | ❌                       |
-| git ops in linked repo         | ✅            | ✅            | ✅                       |
-| approval UX                    | ✅            | ✅            | ✅                       |
-| md preview                     | ✅            | 🟡 only 1    | ✅✅ wysiwyg              |
-| md preview search              | ✅            | ✅            | ❌❌ neither              |
-| md table format                | ✅✅ auto      | 🟡 manual    | 🟡 manual               |
-| md pastes details block        | ❌            | ✔️           | ✔️                      |
-| md headers paste bold to Slack | ✅            | ❌            | ❌                       |
-| search/find                    | ✅            | ✅            | ✅                       |
-| git                            | 🟡           | ✅✅           | ✅✅                      |
-| debug                          | ✅            | ?            | ?                       |
-| database                       | ✅            | ❌            | ❌                       |
-| http                           | ✅            | ❌            | ❌                       |
-| editor history UI              | ✅            | 🟡           | 🟡                      |
+| Wibey                          | 1.0.18        | 1.0.16 ⚙️   | 1.10                    |
+| └ parallel agents             | ✅            | ✅            | ✅                      |
+| └ enqueue next prompt         | ❌            | ✅            | ✅                      |
+| └ context += @ file           | ✅            | 🟡<100KB      | 🟡<100KB                |
+| └ context += selection        | ✅ cmd-' pill | ✅ cmd-L pill | 🟡 cmd-L pill via Agent |
+| └ image paste                 | ❌❌          | ✅            | ✅                      |
+| └ convo title edit            | ✅            | ✅            | ✅                      |
+| └ convo title auto            | last prompt   | last prompt   | last prompt             |
+| └ convo search                | ✅            | ✅            | ✅                      |
+| └ convo timestamps            | ✅            | ✅            | ✅                      |
+| └ convo bookmark              | ✅            | ✅            | ✅                      |
+| └ rich/linked paste           | ❌            | ❌            | ❌                      |
+| Github Copilot                 | 1.6.1-243     | 0.39.0        | 1.388.0 ????            |
+| └ parallel agents             | ✅            | ✅            | ✅                      |
+| └ context += selection        | ✅ auto       | ❌            | ❌                      |
+| └ convo title                 | 🟡 manual     | ✅ auto       | ✅ auto                 |
+| AI diff review                 | ✅ per delta  | 🟡 per file   | 🟡 per file             |
+| AI diff in linked repo         | ✅            | ❌            | ❌                      |
+| git ops in linked repo         | ✅            | ✅            | ✅                      |
+| approval UX                    | ✅            | ✅            | ✅                      |
+| md preview                     | ✅            | 🟡 only 1     | ✅✅ wysiwyg            |
+| md preview search              | ✅            | ✅            | ❌❌ neither            |
+| md table format                | ✅✅ auto     | 🟡 manual     | 🟡 manual               |
+| md pastes details block        | ❌            | ✔️          | ✔️                    |
+| md headers paste bold to Slack | ✅            | ❌            | ❌                      |
+| search/find                    | ✅            | ✅            | ✅                      |
+| git                            | 🟡            | ✅✅          | ✅✅                    |
+| debug                          | ✅            | ?             | ?                       |
+| database                       | ✅            | ❌            | ❌                      |
+| http                           | ✅            | ❌            | ❌                      |
+| editor history UI              | ✅            | 🟡            | 🟡                      |
 
 Score rubric
 
@@ -46,9 +47,9 @@ Score rubric
 - Version/text-only cells (version numbers, descriptive text) = excluded
 - Copilot rows excluded from IDE score
 - Editor score: each IDE gets the maximum score achievable by any editor available to it
-  - IDEA: shuzijun only (3.5 pts)
-  - VS Code: best of typedown / zaaack → zaaack patched (7 pts; +3 from `patch-zaaack.py`)
-  - Cursor: best of typedown / zaaack / Cursor native → zaaack patched (7 pts; same `patch-zaaack.py` covers both IDE extension dirs)
+  - IDEA: native WYSIWYG editor (8.0 pts); beats viewer (7.0) and shuzijun (3.5)
+  - VS Code: typedown (3.5 pts); zaaack broken ~2026.06.01 (was 7 pts w/ patch)
+  - Cursor: typedown (3.5 pts); zaaack broken ~2026.06.01 (was 7 pts w/ patch)
 - Final score = IDE row subtotal + best editor subtotal
 
 ## Markdown Viewers/ Editors
@@ -58,32 +59,30 @@ Score rubric
 - typedown and zaaack work in both VS Code and Cursor
 
 
-| Behavior                 | IDEA viewer | IDEA shuzijun       | typedown    | zaaack | Cursor native |
-| ------------------------ | ----------- | ------------------- | ----------- | ------ | ------------- |
-| version                  | 2025.3.3    | 2.0.5               | 1.1.7       | 0.1.15 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
-| >1 tab at a time         | ✅           | ✅✅                  | ✅✅          | ✅✅     | ✅✅            |
-| re-read changed file     | ?           | ?                   | ✅           | ?      | ?             |
-| wide tables              | ?           | 🟡 scrolls but pads | ❌ truncates | ✅✅     | ❌ truncates   |
-| non-bloated side padding | ?           | ❌❌                  | ❌           | ✅      | ❌             |
-| shows images             | ?           | ?                   | ?           | ?      | ?             |
-| find in file             | ✅           | ✅                   | ❌           | ✅ ⚙️   | ❌             |
-| structure                | ✅           | ✅                   | ❌           | ✅ ⚙️   | ❌             |
-| internal links           | ?           | ?                   | ?           | ✅ ⚙️   | ?             |
-| link editing             | ?           | ✔️                  | ❌           | ✔️     | ❌             |
-| toolbar                  | ?           | ✔️                  | ✔️          | ✔️     | ❌             |
-
+| Behavior                 | IDEA viewer | IDEA editor | typedown     | zaaack                            | Cursor native |
+| ------------------------ | ----------- | ----------- | ------------ | --------------------------------- | ------------- |
+| version                  | 2025.3.3    | 2025.3.3    | 1.1.7        | 0.1.15 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
+| >1 tab at a time         | ✅          | ✅✅        | ✅✅         | ✅✅                              | ✅✅          |
+| re-read changed file     | ?           | ?           | ✅           | ?                                 | ?             |
+| wide tables              | ✅          | ✅          | ❌ truncates | ✅✅                              | ❌ truncates  |
+| non-bloated side padding | ✅          | ✅          | ❌           | ✅                                | ❌            |
+| shows images             | ✅          | ✅          | ?            | ?                                 | ?             |
+| find in file             | ✅          | ✅          | ❌           | ✅ ⚙️                           | ❌            |
+| structure                | ✅          | ✅          | ❌           | ✅ ⚙️                           | ❌            |
+| internal links           | ✅          | ❌          | ?            | ✅ ⚙️                           | ?             |
+| link editing             | ?           | ✔️        | ❌           | ✔️                              | ❌            |
+| toolbar                  | -           | ✔️        | ✔️         | ✔️                              | ❌            |
 
 ### IDE Keybindings
 
 
-| Action         | IDEA             | VS Code     | Cursor      |
-| -------------- | ---------------- | ----------- | ----------- |
+| Action         | IDEA                 | VS Code       | Cursor        |
+| -------------- | -------------------- | ------------- | ------------- |
 | zoom in / out  | `^⌥=` / `^⌥-` ⚠️ | `⌘=` / `⌘-` | `⌘=` / `⌘-` |
-| open file      | `⇧⌘O` ⚠️         | `⌘P`        | `⌘P`        |
-| search project | `⇧⌘F`            | `⇧⌘F`       | `⇧⌘F`       |
-| Wibey history  | ?                | ?           | ?           |
-| Wibey new chat | ?                | ?           | ?           |
-
+| open file      | `⇧⌘O` ⚠️         | `⌘P`         | `⌘P`         |
+| search project | `⇧⌘F`              | `⇧⌘F`       | `⇧⌘F`       |
+| Wibey history  | ?                    | ?             | ?             |
+| Wibey new chat | ?                    | ?             | ?             |
 
 IDEA keybinding overrides (defaults shown in table, actual bindings below):
 
@@ -107,9 +106,9 @@ Extension command IDs:
 
 ## Top Frictions
 
-- Eagerly awaiting parallel Wibey agents. For now I can run all 3 IDEs on the same repo and thus get 3-way parallelism.
+- Parallel Wibey agents now available in all three IDEs (as of 2026.06).
 - Top silly frictions: let me buffer up my next prompt, and make it super-easy to reference the current file and selection.
-  - Wibey disables buffering up the next prompt in VSCode and Cursor, but allows it in IDEA. Allowing this would give 30% of the value of parallel agents. I don't like interrupting agents to add their next prompt and then tell them to first finish the previous one.
+  - Wibey allows enqueuing the next prompt while busy in VS Code and Cursor, but not in IDEA. Allowing this in IDEA would give 30% of the value of parallel agents. I don't like interrupting agents to add their next prompt and then tell them to first finish the previous one.
   - In no IDE does Wibey automatically track the current selection as context, which Github Copilot does in IDEA and VSCode, probably Cursor too.
   - Cursor+Wibey: Cmd-L broke! It now inserts selection context into builtin chat, not Wibey Chat.
 
@@ -322,25 +321,32 @@ The ⚙️ rows in the comparison table — find in file, structure, internal li
 **The `main.js` + `main.css` patch sites** — all are uniquely addressable and idempotent:
 
 1. **after()-hook bridge** — call our enhancer once vditor finishes initializing:
-  - Anchor (vditor 3.8.4 / Zaaack ≤0.1.13): `after(){V_(),Y_(),sB(),K_()}`
-  - Anchor (vditor 3.11.2 / Zaaack 0.1.15+): `after(){vE(),wE(),VH(),bE()}`
-  - `P2_VARIANTS` in the script covers both; add new entries for future vditor bumps.
-  - Replace with the same + `,window.__zaaackEnhance&&window.__zaaackEnhance()}`
-  - Why this works: `after()` fires after vditor mounts the DOM — `window.vditor` is live and the editor `<div id="app">` is populated.
+
+- Anchor (vditor 3.8.4 / Zaaack ≤0.1.13): `after(){V_(),Y_(),sB(),K_()}`
+- Anchor (vditor 3.11.2 / Zaaack 0.1.15+): `after(){vE(),wE(),VH(),bE()}`
+- `P2_VARIANTS` in the script covers both; add new entries for future vditor bumps.
+- Replace with the same + `,window.__zaaackEnhance&&window.__zaaackEnhance()}`
+- Why this works: `after()` fires after vditor mounts the DOM — `window.vditor` is live and the editor `<div id="app">` is populated.
+
 2. **Enhancer definition** — append `window.__zaaackEnhance` body just before the closing IIFE:
-  - Anchor: `vscode.postMessage({command:"ready"});})();`
-  - Insert before `})();`: the enhancer JS bracketed by markers `/*__zaaackEnhance__*/` … `/*__zaaackEnhance_end__*/`.
-  - Marker pair lets the script strip + re-inject cleanly (the old single-marker approach broke because `})();` inside the enhancer's `injectCssFixes` IIFE matched before the file's IIFE close).
+
+- Anchor: `vscode.postMessage({command:"ready"});})();`
+- Insert before `})();`: the enhancer JS bracketed by markers `/*__zaaackEnhance__*/` … `/*__zaaackEnhance_end__*/`.
+- Marker pair lets the script strip + re-inject cleanly (the old single-marker approach broke because `})();` inside the enhancer's `injectCssFixes` IIFE matched before the file's IIFE close).
+
 3. **vscode.postMessage wrap** — drop intra-doc anchor `open-link` messages so VS Code does not try to open them as files:
-  - Anchor: `window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();window.global=window;`
-  - Insert between the two assignments: a wrapper that intercepts `vscode.postMessage({command:"open-link", href})` and, when the href is non-http and contains `#`, scrolls the matching heading via `window.__zaaackGotoAnchor(frag)` instead of forwarding the message.
-  - Marker `/*__zk_postwrap__*/` for idempotency.
-  - **Belt-and-suspenders, not the primary chokepoint.** In practice the capture-phase click handler in patch site #2 stops the click before vditor ever calls `window.open` / `postMessage`, so this wrap rarely fires. It exists as a fallback for any code path that bypasses the click listener (e.g. programmatic `vditor.api` calls, or a future vditor version that posts directly).
+
+- Anchor: `window.vscode=window.acquireVsCodeApi&&window.acquireVsCodeApi();window.global=window;`
+- Insert between the two assignments: a wrapper that intercepts `vscode.postMessage({command:"open-link", href})` and, when the href is non-http and contains `#`, scrolls the matching heading via `window.__zaaackGotoAnchor(frag)` instead of forwarding the message.
+- Marker `/*__zk_postwrap__*/` for idempotency.
+- **Belt-and-suspenders, not the primary chokepoint.** In practice the capture-phase click handler in patch site #2 stops the click before vditor ever calls `window.open` / `postMessage`, so this wrap rarely fires. It exists as a fallback for any code path that bypasses the click listener (e.g. programmatic `vditor.api` calls, or a future vditor version that posts directly).
+
 4. **Dark-table + optional vditor outline-width CSS block** — append one idempotent style patch to `main.css`:
-  - Marker: `/*__zaaackCssPatch__*/`
-  - Fixes dark-theme tables by overriding hardcoded light row/cell styles under `.vditor--dark .vditor-reset table ...` with vditor variables.
-  - Aligns markdown link colors with VS Code Markdown Preview tokens (`--vscode-textLink-foreground` / `--vscode-textLink-activeForeground`) so links are readable in dark themes and no longer render as electric blue defaults.
-  - Adds `.vditor-outline{width:var(--zaaack-outline-width,250px);resize:horizontal;...}` for installs that still expose vditor outline UI.
+
+- Marker: `/*__zaaackCssPatch__*/`
+- Fixes dark-theme tables by overriding hardcoded light row/cell styles under `.vditor--dark .vditor-reset table ...` with vditor variables.
+- Aligns markdown link colors with VS Code Markdown Preview tokens (`--vscode-textLink-foreground` / `--vscode-textLink-activeForeground`) so links are readable in dark themes and no longer render as electric blue defaults.
+- Adds `.vditor-outline{width:var(--zaaack-outline-width,250px);resize:horizontal;...}` for installs that still expose vditor outline UI.
 
 **The `extension.js` patch sites** (6 blocks, each bracketed by `/*__zk_outline_*__*/` markers):
 
@@ -384,8 +390,10 @@ The ⚙️ rows in the comparison table — find in file, structure, internal li
 2. `python3 ~/bin/patches/patch-zaaack.py` — for each target dir: applies multi-file editor patch to `extension.js` (step MP1–MP5), then patches `main.js` (3 sites), `main.css` (1 site), `extension.js` outline (6 sites), and `package.json` (2 sites). Re-running strips + re-injects where applicable (marker-based idempotency) and creates `.bak.<unix-ts>` backups of all files before patching.
    - If a new Zaaack version ships a new vditor version, add a new tuple to `P2_VARIANTS` and update `MULTIPANEL_SINGLETON_OLD` if TypeScript recompilation changed the `_a` var references.
 3. Sanity check:
-  - `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` and `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/out/extension.js` should print no errors.
-  - `rg -n "__zaaackCssPatch__" ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.css ~/.cursor/extensions/zaaack.markdown-editor-*/media/dist/main.css` should find the marker.
+
+- `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.js` and `node -c ~/.vscode/extensions/zaaack.markdown-editor-*/out/extension.js` should print no errors.
+- `rg -n "__zaaackCssPatch__" ~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.css ~/.cursor/extensions/zaaack.markdown-editor-*/media/dist/main.css` should find the marker.
+
 4. Reload VS Code / Cursor window (`Developer: Reload Window`) for each affected window.
 5. Open a markdown file with `^⌥⌘M` and verify: "Markdown Outline" tree view appears in the Explorer sidebar showing heading hierarchy, clicking a heading scrolls the webview, dark-theme table rows are no longer white, `[link](#some-heading)` jumps in-place (no new tab opens), and `⌘F` opens the find bar with multi-char search working. When switching to a non-Zaaack editor, the Markdown Outline view hides and the standard Outline view reappears.
 
@@ -464,7 +472,7 @@ TypeDown WYSIWYG markdown editor (tarikkavaz.typedown-markdown-editor) has no se
 - **Superior features: search/find, git, debug, database, http, yaml preview**
 - *Terminal Blindness observed on personal laptop in IDEA; not observed on Walmart laptop as of 2026.04.04.*
 - *command-approval constipation*
-- *Does not fully support parallel agents*
+- *Parallel agents now supported (as of 2026.06)*
 - *Cannot paste file/line reference!?*
 - *Pending Changes panel sometimes fails to show agent-written files (new untracked files, or edits via MCP/Write tool). Check* `git status` *to catch anything the panel missed.*
 - *⚠️ Accept All hazard: if the user makes local edits (including undos) while reviewing an agent diff, Accept All collapses those edits into the accept gesture and reverts them. Use per-chunk accept/reject instead.*
@@ -716,5 +724,6 @@ History of tool use practices, not of this doc.
 - 2026.05.11 Mon: Moved Zaaack outline from vditor's built-in webview panel to a VS Code sidebar TreeView (`markdownEditorOutline`). The vditor outline consumed horizontal editor space and couldn't integrate with VS Code's sidebar; now the outline appears in the Explorer sidebar only when a Zaaack editor is focused, showing a hierarchical heading tree with click-to-scroll. Patch script expanded from 1 file (`main.js`) to 3 (`main.js`, `extension.js`, `package.json`). Fixed a strip-and-re-inject bug: old enhancer strip logic used `src.find('})();')` which matched the `injectCssFixes` IIFE inside the enhancer instead of the file's IIFE close; fixed by adding `/*__zaaackEnhance_end__*/` bracket marker. Removed the draggable outline resizer (no longer needed — sidebar resize is built into VS Code).
 - 2026.05.12 Tue: Updated `~/bin/patches/patch-zaaack.py` CSS patch to force link colors to VS Code Markdown Preview theme tokens (`--vscode-textLink-foreground` and `--vscode-textLink-activeForeground`) for both anchor tags and vditor IR link spans (`.vditor-ir__link`). Re-ran patch script across both extension roots (`~/.vscode/extensions/zaaack.markdown-editor-*` and `~/.cursor/extensions/zaaack.markdown-editor-*`).
 - 2026.05.18 Sun: Investigated "intra-doc links and outline click-to-scroll not working." Verified all three patch files (`main.js`, `extension.js`, `package.json`) are correctly applied in both VS Code and Cursor; JS syntax valid; all anchors present. Root cause: stale webview running pre-patch `main.js`. The `?v=${Date.now()}` cache-buster (E7) ensures fresh `main.js` load, but only takes effect after a window reload triggers the updated `extension.js`. Fix: **`Developer: Reload Window`** in each IDE. Re-ran `patch-zaaack.py` to freshen the patch timestamp; confirmed idempotent. No patch logic changes needed.
-
 - 2026.06.15 Sun: VS Code upgraded, Zaaack updated to 0.1.15 (vditor 3.8.4 → 3.11.2). Updated `patch-zaaack.py`: (1) replaced single `P2_OLD`/`P2_NEW` with `P2_VARIANTS` list to support multiple vditor versions without per-version edits; (2) baked multi-file editor patch (`currentPanel` → `panelsByPath` Map) into `patch_extension_js_multipanel()` so it's no longer a manual prerequisite; (3) added `PKG_AE_CANDIDATES` for package.json activationEvents (0.1.15 added a 4th activation event, breaking the old anchor). Applied Wibey 1.0.16 webview.js `newParallelSession` patch (variable names changed from 1.0.10: `c`→`C`, `o`→`l`, `h`→`L`; `MultiSessionHandler.js` gone). Cosmetic: vditor 3.11.2 i18n 404 on CDN is benign — noted in doc, not fixed.
+- 2026.06.17 Tue: Zaaack stopped working ~2026.06.01 (exact cause TBD); VS Code and Cursor fall back to typedown (3.5 pts) as best available editor. Editor subtotals drop from 7 → 3.5 for both.
+- 2026.06.18 Wed: Switched primary IDE from VS Code to IDEA. Added "IDEA editor" column to markdown table (native WYSIWYG, replaces shuzijun column). Native editor scores 8.0 pts (vs shuzijun 3.5), lifting IDEA total from 21.5 → 28.5. Parallel agents now ✅ in IDEA (was ❌); "type @ busy Wibey" renamed to "enqueue next prompt" and inverted — VS Code/Cursor now ✅, IDEA ❌. Score recalc: IDEA 28.5, VS Code 20.5, Cursor 19.5.
