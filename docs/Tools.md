@@ -6,7 +6,7 @@
 | Feature                        | IDEA          | VS Code       | Cursor                  |
 | ------------------------------ | ------------- | ------------- | ----------------------- |
 | Score                          | 28.5          | 20.5 ⚙️     | 19.5                    |
-| IDE                            | 2025.3.3      | 1.124.2       | 3.3.27                  |
+| IDE                            | 2026.1.3      | 1.124.2       | 3.3.27                  |
 | VSCode engine                  | —            | —            | 1.105.1                 |
 | Wibey                          | 1.0.18        | 1.0.16 ⚙️   | 1.10                    |
 | └ parallel agents             | ✅            | ✅            | ✅                      |
@@ -59,19 +59,19 @@ Score rubric
 - typedown and zaaack work in both VS Code and Cursor
 
 
-| Behavior                 | IDEA viewer | IDEA editor | typedown     | zaaack                            | Cursor native |
-| ------------------------ | ----------- | ----------- | ------------ | --------------------------------- | ------------- |
-| version                  | 2025.3.3    | 2025.3.3    | 1.1.7        | 0.1.15 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
-| >1 tab at a time         | ✅          | ✅✅        | ✅✅         | ✅✅                              | ✅✅          |
-| re-read changed file     | ?           | ?           | ✅           | ?                                 | ?             |
-| wide tables              | ✅          | ✅          | ❌ truncates | ✅✅                              | ❌ truncates  |
-| non-bloated side padding | ✅          | ✅          | ❌           | ✅                                | ❌            |
-| shows images             | ✅          | ✅          | ?            | ?                                 | ?             |
-| find in file             | ✅          | ✅          | ❌           | ✅ ⚙️                           | ❌            |
-| structure                | ✅          | ✅          | ❌           | ✅ ⚙️                           | ❌            |
-| internal links           | ✅          | ❌          | ?            | ✅ ⚙️                           | ?             |
-| link editing             | ?           | ✔️        | ❌           | ✔️                              | ❌            |
-| toolbar                  | -           | ✔️        | ✔️         | ✔️                              | ❌            |
+| Behavior                 | IDEA viewer | shuzijun | typedown     | zaaack                            | Cursor native |
+| ------------------------ | ----------- | -------- | ------------ | --------------------------------- | ------------- |
+| version                  | 2025.3.3    | 2.0.5    | 1.1.7        | 0.1.15 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
+| >1 tab at a time         | ✅          | ✅✅     | ✅✅         | ✅✅                              | ✅✅          |
+| re-read changed file     | ?           | ?        | ✅           | ?                                 | ?             |
+| wide tables              | ✅          | ✅       | ❌ truncates | ✅✅                              | ❌ truncates  |
+| non-bloated side padding | ✅          | ✅       | ❌           | ✅                                | ❌            |
+| shows images             | ✅          | ✅       | ?            | ?                                 | ?             |
+| find in file             | ✅          | ✅       | ❌           | ✅ ⚙️                           | ❌            |
+| structure                | ✅          | ✅       | ❌           | ✅ ⚙️                           | ❌            |
+| internal links           | ✅          | ❌       | ?            | ✅ ⚙️                           | ?             |
+| link editing             | ?           | ✔️     | ❌           | ✔️                              | ❌            |
+| toolbar                  | -           | ✔️     | ✔️         | ✔️                              | ❌            |
 
 ### IDE Keybindings
 
