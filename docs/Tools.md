@@ -124,6 +124,21 @@ Extension command IDs:
   - **Multi-file edits in agent mode with @workspace**
   - *No MCP (Model Context Protocol) support*
 
+### IDEA yolo permissions
+
+To re-enable maximum Copilot agent permissions in IntelliJ IDEA, set these options in `~/Library/Application Support/JetBrains/IntelliJIdea2026.1/options/github-copilot.xml`:
+
+```xml
+<option name="agent.autoApproveYoloMode" value="true" />
+<option name="agent.toolConfirmAutoApprove" value="true" />
+<option name="agent.autoApproveUnmatchedTerminal" value="true" />
+<option name="agent.autoApproveUnmatchedFileOp" value="true" />
+<option name="agent.trustToolAnnotations" value="true" />
+<option name="agent.editorHandlesAllConfirmation" value="false" />
+```
+
+`agent.autoApproveYoloMode=true` is the main yolo switch. Restart IDEA after changing it.
+
 ## Cursor
 
 **GitHub Copilot Chat is not supported in Cursor** — the Chat extension requires VS Code ^1.111.0 and Cursor is on 1.105.x, so it cannot be installed.
