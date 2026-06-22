@@ -11,7 +11,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 
 ## Table of Contents
 
-- [The Three Commandments](#the-three-commandments)
+- [The Four Commandments](#the-four-commandments)
 - [~/bin/ structure](#bin-structure)
   - [~/bin/ vs relationship-shared/](#bin-vs-relationship-shared)
 - [Write Rules](#write-rules)
@@ -33,12 +33,12 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
   - [Custom Commands](#custom-commands)
     - [Project-Level Commands](#project-level-commands)
 
-## The Three Commandments
+## The Four Commandments
 
-- Be terse: from chapters to words, omit or condense until meaning changes.
-- Every file write must follow the [Write Rules](#write-rules).
-- Do not give up on the best tool for the job: if it is missing or broken, diagnose and repair/install it first; only fall back when repair is impossible, and state the fallback + reason.
-- Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing git or Confluence operations.
+- Don't ramble: from chapters to words, omit or condense until meaning changes.
+- Don't clobber: Every file write must follow the [Write Rules](#write-rules).
+- Don't quit: Do not give up on the best tool for the job: if it is missing or broken, diagnose and repair/install it first; fallback only when repair fails and user is unresponsive, and state the fallback + reason.
+- Don't spam: Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing other git or Confluence operations.
 
 ## ~/bin/ structure
 
@@ -68,7 +68,7 @@ Two completely separate repos serve different scopes:
 
 
 |                           | `~/bin/`                                     | `relationship-shared/`       |
-| --------------------------- | ---------------------------------------------- | ------------------------------ |
+| ------------------------- | -------------------------------------------- | ---------------------------- |
 | Git host                  | GitHub (personal, public)                    | Walmart GHE (team, internal) |
 | Available on              | both laptops                                 | work laptop only             |
 | Contains                  | personal tools, rules, cross-platform skills | team skills, docs, commands  |
