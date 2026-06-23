@@ -7,10 +7,11 @@ Interpolate values into the template block below and render it as Markdown exact
 
 **Rules:**
 
-- Output exactly the interpolated template block. Ordering is fixed; the `# doc:` line is conditional — include it only when a doc is identified (see below), omit it entirely otherwise.
+- Output exactly the interpolated template block. Ordering is fixed; the `### Doc:` line is conditional — include it only when a doc is identified (see below), omit it entirely otherwise.
 - Do not add commentary, bullets, code fences, or extra whitespace.
-- For the conversation summary line, use the IDE conversation title when available; otherwise generate a very close one-line summary from the current request.
-- For the last-3-turns line, never mention invoking, running, rendering, or displaying `/convo` or the conversation banner itself.
+- For the `#` title line: use the IDE conversation title if available and not auto-chosen from the most recent prompt; otherwise generate a terse one-line title from the conversation.
+- For the `### All:` line: always generate a one-line summary of the entire conversation.
+- For the `### Latest:` line: never mention invoking, running, rendering, or displaying `/convo` or the conversation banner itself.
 
 **Doc detection (run before rendering):**
 
