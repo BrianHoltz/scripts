@@ -9,25 +9,35 @@ Interpolate values into the template block below and render it as Markdown exact
 
 - Output exactly the interpolated template block. Ordering is fixed; the `### Doc:` line is conditional — include it only when a doc is identified (see below), omit it entirely otherwise.
 - Do not add commentary, bullets, code fences, or extra whitespace.
-- For the `#` title line: use the IDE conversation title if available and not auto-chosen from the most recent prompt; otherwise generate a terse one-line title from the conversation.
-- For the `### All:` line: always generate a one-line summary of the entire conversation.
 - For the `### Latest:` line: never mention invoking, running, rendering, or displaying `/convo` or the conversation banner itself.
+
+**Conversation title (`#` line):**
+
+Check whether the current conversation has an official title visible in the IDE or agent history sidebar. Use it verbatim if it is substantive — not a single-prompt echo, not a default like "New Conversation", and not merely the most recent message rephrased. If the official title is good, use it. If you must synthesize a title: generate a terse one-line summary of the whole conversation, then attempt to set the official conversation title using any available MCP tool or mechanism; skip that step silently if no such mechanism is known.
 
 **Doc detection (run before rendering):**
 
-Identify the primary incident or project doc for this conversation — the one most recently **read or edited** by the agent (file paths matching `incidents/**/*.md` or `projects/**/*.md`). Mentions in `git status` output alone do not qualify; the file must have been opened or written.
+Identify the single doc that is the **central focus** of this conversation — the one most substantively read, edited, or discussed. Mere appearance in `git status` output or as a passing mention does not qualify. Pick only one; omit `### Doc:` if no doc is clearly central.
+
+Candidates in priority order:
+1. `incidents/**/*.md` or `projects/**/*.md` — incident/project work
+2. `.wibey/skills/<name>/SKILL.md` — if the work is improving a skill
+3. `.wibey/commands/<name>.md` or `shared/.wibey/commands/<name>.md` — if the work is improving a command
+4. `docs/**/*.md`, `shared/docs/**/*.md`, or any other reference doc that was the primary subject
 
 If a doc is identified, run this Bash block (substituting the absolute path):
 
 ```bash
 DOC_PATH="<absolute path>"
+DOC_PARENT=$(basename "$(dirname "$DOC_PATH")")
 DOC_FILE=$(basename "$DOC_PATH")
+DOC_DISPLAY="${DOC_PARENT}/${DOC_FILE}"
 DOC_CTIME=$(stat -f "%SB" -t "%Y.%m.%d.%H%M" "$DOC_PATH" 2>/dev/null)
-# Fall back to mtime if birth time is unavailable (non-APFS or pre-2000)
+# Fall back to mtime if birth time unavailable (non-APFS or pre-2000 result)
 [[ "${DOC_CTIME%%.*}" -lt 2000 ]] 2>/dev/null && \
   DOC_CTIME=$(stat -f "%Sm" -t "%Y.%m.%d.%H%M" "$DOC_PATH" 2>/dev/null)
 DOC_MTIME=$(stat -f "%Sm" -t "%Y.%m.%d.%H%M" "$DOC_PATH" 2>/dev/null)
-echo "file=$DOC_FILE ctime=$DOC_CTIME mtime=$DOC_MTIME"
+echo "display=$DOC_DISPLAY ctime=$DOC_CTIME mtime=$DOC_MTIME"
 ```
 
 Then call `mcp__jetbrains-mcp__open_file_in_editor` with `DOC_PATH` as the `filePath` — skip silently if the tool is unavailable (personal laptop / no IDE connection).
@@ -36,13 +46,13 @@ Then call `mcp__jetbrains-mcp__open_file_in_editor` with `DOC_PATH` as the `file
 
 ```
 ---
-# terse conversation title (prefer the agent conversation title if available and isn't just auto-chosen from most recent prompt)
+# terse conversation title (prefer official IDE/agent history title if substantive; synthesize and attempt to set it otherwise)
 ### yyyy.mm.dd.Dow.hhmm repo:branchname
 ### All: one-line summary of entire conversation
 ### Latest: one-line description of last 3 turns, excluding any mention of /convo or banner rendering
-### Doc: <filename.md>  created:<yyyy.mm.dd.hhmm>  modified:<yyyy.mm.dd.hhmm>
+### Doc: <parent/filename.md>  created:<yyyy.mm.dd.hhmm>  modified:<yyyy.mm.dd.hhmm>
 ---
 ```
 
-Omit the `Doc:` line entirely if no incident or project doc was identified.
-Omit the created time if not available (i.e. not different from the modtime).
+Omit `### Doc:` entirely if no central doc was identified.
+Omit `created:` if unavailable or identical to `modified:`.
