@@ -35,11 +35,13 @@ Then call `mcp__jetbrains-mcp__open_file_in_editor` with `DOC_PATH` as the `file
 
 ```
 ---
-# yyyy.mm.dd.Dow.hhmm repo:branchname
-# one-line summary of entire conversation (prefer IDE title text)
-# one-line description of last 3 turns, excluding any mention of /convo or banner rendering
-# doc: <filename.md>  created:<yyyy.mm.dd.hhmm>  modified:<yyyy.mm.dd.hhmm>
+# terse conversation title (prefer the agent conversation title if available and isn't just auto-chosen from most recent prompt)
+### yyyy.mm.dd.Dow.hhmm repo:branchname
+### All: one-line summary of entire conversation
+### Latest: one-line description of last 3 turns, excluding any mention of /convo or banner rendering
+### Doc: <filename.md>  created:<yyyy.mm.dd.hhmm>  modified:<yyyy.mm.dd.hhmm>
 ---
 ```
 
-Omit the `# doc:` line entirely if no incident or project doc was identified.
+Omit the `Doc:` line entirely if no incident or project doc was identified.
+Omit the created time if not available (i.e. not different from the modtime).
