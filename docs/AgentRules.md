@@ -56,6 +56,13 @@ Other `~/bin/` files symlinked into `~/`:
 - `~/.bash_profile` → `~/bin/shellrc/bash_profile` — bash login/interactive shell config
 - `~/.bashrc` → `~/bin/shellrc/bashrc` — bash interactive shell config
 
+Canonical personal path aliases in `~/`:
+
+- `~/gdrive` → `~/Google Drive` — preferred short path for the Google Drive mount
+- `~/lpscc` → `~/Google Drive/Shared drives/LP SCC Financial` — preferred short path for LP SCC Financial
+
+Use these aliases in local tool/IDE config when possible to avoid space-heavy paths and keep paths consistent across settings.
+
 The `~/bin/` repo also contains personal tool settings and reference docs (not symlinked):
 
 - `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
