@@ -282,30 +282,30 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
     plando.md        — mirrored
     tdd.md           — mirrored
   docs/
-    StatusVocabulary.md                  — mirrored (massaged: Walmart URLs stripped)
-    IncidentRCA.md                       — mirrored (massaged: platform ref genericized)
+    StatusVocabulary.md                  — mirrored from relationship-shared
+    IncidentRCA.md                       — mirrored
     templates/
-      Project.md                         — mirrored (massaged: URLs megacorp, doc-audit by name)
-      Incident.md                        — mirrored (massaged: URLs megacorp, team refs genericized)
+      Project.md                         — mirrored
+      Incident.md                        — mirrored
   hooks/             (empty)
 ```
 
-**Mirror-safe convention:** Skills and commands in relationship-shared carrying the "Mirror-safe" callout contain no Walmart-proprietary content and are designed for personal-laptop use. Refresh manually when you know something changed — no scripts or hooks.
-
-**Note for docs/ mirrors:** These are *not* clean `cp` refreshes. Each file has been massaged (Walmart URLs → megacorp examples, internal tool URLs → tool names, team-specific phrasing genericized). When relationship-shared updates a source doc, review the diff and apply the same massage rather than overwriting.
+**Mirror-safe convention:** Skills, commands, and docs in relationship-shared that are mirror-safe contain no Walmart-proprietary content and are designed for personal-laptop use. Refresh manually when you know something changed — no scripts or hooks.
 
 ```sh
 # Refresh a mirrored skill (run from work laptop):
 cp -R ~/src/relationship-shared/.wibey/skills/<name> ~/bin/.wibey/skills/
 # Refresh a mirrored command:
 cp ~/src/relationship-shared/.wibey/commands/<name>.md ~/bin/.wibey/commands/
+# Refresh a mirrored doc:
+cp ~/src/relationship-shared/docs/<name>.md ~/bin/.wibey/docs/
+cp ~/src/relationship-shared/docs/templates/<name>.md ~/bin/.wibey/docs/templates/
 # After refreshing, commit ~/bin/ and push so personal laptop gets the update on pull.
-# For docs/ mirrors: review diff and apply massage manually — do NOT cp blindly.
 ```
 
 Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`.
 Currently mirror-safe commands: `continue`, `plando`, `tdd`.
-Currently mirror-safe docs (massaged): `StatusVocabulary.md`, `IncidentRCA.md`, `templates/Project.md`, `templates/Incident.md`.
+Currently mirror-safe docs: `StatusVocabulary.md`, `IncidentRCA.md`, `templates/Project.md`, `templates/Incident.md`.
 
 **Not mirrored:** `doc-audit` — contains Walmart-internal URLs (gecgithub01, Jira keys, service names) that are inappropriate for a public GitHub repo. Accessible only from `relationship-shared/.wibey/skills/doc-audit/` on the work laptop.
 

@@ -13,8 +13,8 @@
 - **Which** Systems Involved: *list of systems, each proper noun linked to most relevant target in docs/ or in this doc*.
 - **Who:** *One sub-bullet per person. Always include the team member(s) who investigated. Reporter is often already named in Where Tracked.*
   - *Name (handle) — Team, role*
-- [**When**](#timeline): *(All timestamps: `yyyy.mm.dd.Dow HH:MM` — HH:MM required when known; TBD otherwise. Detected and Engaged are mandatory COE fields. Invoked and Routed are additions — collapse into Detected/Invoked or Routed/Engaged when simultaneous.)*
-  - Introduced: *(Required — even if estimated. When the causal code/config/data change landed — the moment the vulnerability became possible. Estimate from git history, deploy log, or config change history. May predate Started by weeks or years.)*
+- [**When**](#timeline): *(All timestamps: `yyyy.mm.dd.Dow HH:MM` — HH:MM required when known; TBD otherwise. Detected and Engaged are mandatory COE fields. Invoked and Routed are team additions — collapse into Detected/Invoked or Routed/Engaged when simultaneous.)*
+  - Introduced: *(Required — even if estimated. When the causal code/config/data change landed — the moment the vulnerability became possible. Estimate from git history, deploy log, or CCM change history. May predate Started by weeks or years.)*
   - Started: *(Required — even if estimated. When the defect first activated — conditions first crossed the trigger threshold. May predate Detected by days.)*
   - Detected: *(mandatory — when problem first observed; write as Detected/Invoked if the team was notified at the same moment)*
   - Invoked: *(when the team was notified — omit if same as Detected)*
@@ -152,7 +152,7 @@ Definitions of terms, acronyms, and system components specific to this incident.
 
 - **Link every use** of each term in the doc to its definition: `[P0001](#concepts)`, `[OCC](#concepts)`. Exception: the definition itself and H1 titles.
 - **Quote or link official definitions first.** If the term is defined in `shared/docs/` (or wherever you keep your shared docs) (e.g., `CatalogIDs.md`, `CatalogRelationships.md`, a `repos/<service>.md`), quote or paraphrase from there and link to the source rather than writing a new definition from scratch. This keeps terminology consistent across all incident docs.
-- **Add new terms back to shared/docs/.** If you define a concept here that belongs in a shared doc (a new acronym, a system component, a platform behavior), add it there too. Incident docs are ephemeral; `shared/docs/` is the long-lived reference.
+- **Add new terms back to shared/docs/.** If you define a concept here that belongs in a shared doc (a new acronym, a system component, a platform behavior), add it there too. Incident docs are ephemeral; `shared/docs/` (or wherever you keep your shared docs) is the long-lived reference.
 
 ## Closed Questions
 

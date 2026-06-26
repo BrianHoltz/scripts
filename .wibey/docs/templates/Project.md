@@ -115,7 +115,7 @@ Then only subsections with content follow as ### headings. -->
 
 ### Configuration
 
-- New config keys, feature flags, and environment variables introduced by this project. Include NON-PROD and PROD values, and whether each key gates a specific phase.
+- New CCM keys, feature flags, and environment variables introduced by this project. Include NON-PROD and PROD values, and whether each key gates a specific phase.
 
 ### Inbound API
 
@@ -143,7 +143,7 @@ Cross-cutting concerns that any reviewer or on-call engineer would want to know.
 
 ### Security
 
-- Auth model changes, new consumer registrations, policy exceptions, or encryption considerations introduced by this project.
+- Auth model changes, new consumer registrations in sr.yaml, policy exceptions, or encryption considerations introduced by this project.
 
 ### Risk Assessment
 
@@ -173,7 +173,7 @@ Cross-cutting concerns that any reviewer or on-call engineer would want to know.
 
 ### Documents
 
-*Relevant external links consulted on demand: Confluence pages, tooling, monitoring dashboards, team contacts (people, Slack channels). Omit links already in Trackers (Jira tickets) or Evidence (empirical citations with claims).*
+*Relevant external links consulted on demand: Confluence pages, tooling (OneClick, DX, Akeyless), monitoring dashboards (Grafana, GCP console), team contacts (people, Slack channels). Omit links already in Trackers (Jira tickets) or Evidence (empirical citations with claims).*
 
 ### Concepts
 

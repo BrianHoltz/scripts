@@ -45,3 +45,4 @@ Examples:
 - Scale/rate: 5 WPIDs affected; why not the 50 others from the same seller?
 
 "Unknown" is a valid answer — it flags a gap. Findings carry forward to the Exposure check.
+
