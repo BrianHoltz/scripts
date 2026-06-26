@@ -194,7 +194,7 @@ With these modifications:
 
 ## Documentation
 
-For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use the [doc-audit skill](../.wibey/skills/doc-audit/SKILL.md) as the shared reference available on both Walmart and personal laptops.
+For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use the doc-audit skill as the shared reference. On the work laptop, it is at `shared/.wibey/skills/doc-audit/SKILL.md` (team repo). It is **not** in `~/bin/.wibey/` because it contains Walmart-internal URLs (gecgithub01, Jira keys, service names) that would be exposed in a public GitHub push.
 
 ## Rules For Personal Laptop
 
@@ -276,7 +276,6 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
     ailert/          SKILL.md + assets/  — mirrored from relationship-shared
     clipboard-read/  SKILL.md            — mirrored
     converge/        SKILL.md            — mirrored
-    doc-audit/       SKILL.md            — mirrored
     ftm/             SKILL.md            — personal-only (Family Tree Maker integration)
   commands/
     continue.md      — mirrored from relationship-shared
@@ -295,8 +294,10 @@ cp ~/src/relationship-shared/.wibey/commands/<name>.md ~/bin/.wibey/commands/
 # After refreshing, commit ~/bin/ and push so personal laptop gets the update on pull.
 ```
 
-Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`, `doc-audit`.
+Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`.
 Currently mirror-safe commands: `continue`, `plando`, `tdd`.
+
+**Not mirrored:** `doc-audit` — contains Walmart-internal URLs (gecgithub01, Jira keys, service names) that are inappropriate for a public GitHub repo. Accessible only from `relationship-shared/.wibey/skills/doc-audit/` on the work laptop.
 
 ### Project-Level Commands
 
