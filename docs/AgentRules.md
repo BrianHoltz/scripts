@@ -31,6 +31,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
   - [Coding Workflow](#coding-workflow)
   - [PR Diff Source of Truth](#pr-diff-source-of-truth)
   - [Custom Commands](#custom-commands)
+  - [Wibey Skills — ~/bin/.wibey/ Directory](#wibey-skills----binwibey-directory)
     - [Project-Level Commands](#project-level-commands)
 
 ## The Four Commandments
@@ -193,7 +194,7 @@ With these modifications:
 
 ## Documentation
 
-For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use [wibey/skills/doc-audit.md](wibey/skills/doc-audit.md) as the shared reference available on both Walmart and personal laptops.
+For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use the [doc-audit skill](../.wibey/skills/doc-audit/SKILL.md) as the shared reference available on both Walmart and personal laptops.
 
 ## Rules For Personal Laptop
 
@@ -218,40 +219,35 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ### Custom Commands
 
-Commands source from `~/bin/wibey/commands/`. When triggered, read the source file before executing.
+User-level commands source from `~/bin/wibey/commands/`. When triggered, read the source file before executing.
 
-User-level commands:
+User-level commands (available in all workspaces via hardlinks to `~/.wibey/commands/`):
 
 - **convo** — park conversation with visible title for Mission Control. Definition: `~/.wibey/commands/convo.md`
 - **commitz** — cluster diffs into commit buckets. Definition: `~/.wibey/commands/commitz.md`
+- **say** — text-to-speech output. Definition: `~/.wibey/commands/say.md`
 
 Install paths:
 
 - Source commands: `~/bin/wibey/commands/*.md`
 - Wibey user commands: `~/.wibey/commands/*.md` — **must be hardlinks, not symlinks** (Wibey's extension filters with `entry.isFile()`, which returns `false` for symlinks, silently dropping them)
-- Source skills: `~/bin/wibey/skills/<name>/SKILL.md`
-- Skill symlinks per workspace: `<workspace>/.wibey/skills/<name>/SKILL.md`
 
-To install or reinstall a user command as a hardlink:
+To install or reinstall user commands as hardlinks:
 
 ```sh
-rm ~/.wibey/commands/convo.md ~/.wibey/commands/commitz.md
+rm ~/.wibey/commands/convo.md ~/.wibey/commands/commitz.md ~/.wibey/commands/say.md
 ln ~/bin/wibey/commands/convo.md ~/.wibey/commands/convo.md
 ln ~/bin/wibey/commands/commitz.md ~/.wibey/commands/commitz.md
+ln ~/bin/wibey/commands/say.md ~/.wibey/commands/say.md
 ```
-
-Skills are **not** supported as user-level Wibey customizations. On the personal laptop, expose skills per workspace via `.github/skills/` symlinks.
 
 Maintenance/debug checklist:
 
-- If `/convo` or `/commitz` is missing: check `~/.wibey/commands/` — if files are symlinks (`isSymlink: true` via Node.js), replace with hardlinks (see above).
+- If a user command is missing: check `~/.wibey/commands/` — if files are symlinks (`isSymlink: true` via Node.js), replace with hardlinks (see above).
 - Verify with: `node -e "const fs=require('fs'); fs.readdirSync(process.env.HOME+'/.wibey/commands',{withFileTypes:true}).forEach(e=>console.log(e.name,'isFile:',e.isFile(),'isSymlink:',e.isSymbolicLink()))"`
-- If a skill is not discovered, verify `<workspace>/.github/skills/<name>/SKILL.md` exists and points at `~/bin/wibey/skills/<name>/SKILL.md`.
 - After adding or changing files, reload the VS Code window.
 - Keep the source files in `~/bin/wibey/`; do not rename or move them.
 - If discovery still fails, check YAML frontmatter first: `description` must be present and valid.
-
-Project-level commands for Walmart/Wibey still live under `.wibey/commands/` or `shared/.wibey/commands/` as described below.
 
 **Outside team repos (work laptop only):** When the current workspace has no `shared/` symlink (e.g. `~/My Drive/`, `~/Desktop/`, any personal folder), the team skills and commands are still available directly at `~/src/relationship-shared/.wibey/`. Always check there before concluding a skill or command doesn't exist.
 
@@ -260,9 +256,52 @@ Project-level commands for Walmart/Wibey still live under `.wibey/commands/` or 
 
 Read the command/skill file before executing it, exactly as you would for a workspace-local command.
 
+### Wibey Skills — ~/bin/.wibey/ Directory
+
+Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/bin/` repo ships its own `.wibey/` directory (git-tracked real directory, not a symlink) so that opening `~/bin/` in a Wibey IDE exposes a curated set of portable skills and commands.
+
+**Three-tier taxonomy:**
+
+| Tier | Location | Tracked | Available on |
+| --- | --- | --- | --- |
+| 1 — Team | `relationship-shared/.wibey/` (via `shared/` symlink) | Walmart GHE | Work laptop, team repos |
+| 2 — Portable | `~/bin/.wibey/` | Public GitHub | Both laptops |
+| 3 — Personal Walmart-only | `~/.wibey/` | Untracked | Work laptop only (keep empty) |
+
+**`~/bin/.wibey/` directory layout:**
+
+```
+.wibey/
+  skills/
+    ailert/          SKILL.md + assets/  — mirrored from relationship-shared
+    clipboard-read/  SKILL.md            — mirrored
+    converge/        SKILL.md            — mirrored
+    doc-audit/       SKILL.md            — mirrored
+    ftm/             SKILL.md            — personal-only (Family Tree Maker integration)
+  commands/
+    continue.md      — mirrored from relationship-shared
+    plando.md        — mirrored
+    tdd.md           — mirrored
+  hooks/             (empty)
+```
+
+**Mirror-safe convention:** Skills and commands in relationship-shared carrying the "Mirror-safe" callout contain no Walmart-proprietary content and are designed for personal-laptop use. Refresh manually when you know something changed — no scripts or hooks.
+
+```sh
+# Refresh a mirrored skill (run from work laptop):
+cp -R ~/src/relationship-shared/.wibey/skills/<name> ~/bin/.wibey/skills/
+# Refresh a mirrored command:
+cp ~/src/relationship-shared/.wibey/commands/<name>.md ~/bin/.wibey/commands/
+# After refreshing, commit ~/bin/ and push so personal laptop gets the update on pull.
+```
+
+Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`, `doc-audit`.
+Currently mirror-safe commands: `continue`, `plando`, `tdd`.
+
 ### Project-Level Commands
 
 In teams using the agent-toolkit shared repo pattern, commands live at `<workspace>/shared/.wibey/commands/` and are consistent across all repos via the `shared/` symlink:
 
 - **plando** — Structured plan-and-execute workflow with aidocs task record.
 - **tdd** — TDD workflow enforcer: branch, baseline, red, green, verify, full suite, newman, coverage.
+- **continue** — Checkpoint and resume: write work log, commit, then keep working.
