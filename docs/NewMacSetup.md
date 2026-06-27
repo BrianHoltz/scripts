@@ -23,6 +23,8 @@ ln -sf ~/bin/shellrc/zshrc ~/.zshrc
 ln -sf ~/bin/shellrc/bash_profile ~/.bash_profile
 ln -sf ~/bin/shellrc/bashrc ~/.bashrc
 ln -sf ~/bin/shellrc/shellrc.common ~/.shellrc.common
+ln -sfn ~/Google\ Drive ~/gdrive
+ln -sfn ~/Google\ Drive/Shared\ drives/LP\ SCC\ Financial ~/lpscc
 
 # VS Code + Copilot
 brew install --cask visual-studio-code
