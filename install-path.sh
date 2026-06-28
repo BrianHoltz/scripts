@@ -13,15 +13,15 @@
 
 set -e
 
-# Detect shell
+# Detect shell RC target. Prefer existing ~/.zshrc, then ~/.bashrc,
+# otherwise create ~/.zshrc (default shell on modern macOS).
 rc_file="$HOME/.zshrc"
 if [ ! -f "$rc_file" ]; then
-    rc_file="$HOME/.bashrc"
-fi
-
-if [ ! -f "$rc_file" ]; then
-    echo "Error: Could not find $HOME/.zshrc or $HOME/.bashrc"
-    exit 1
+    if [ -f "$HOME/.bashrc" ]; then
+        rc_file="$HOME/.bashrc"
+    else
+        touch "$rc_file"
+    fi
 fi
 
 # Check if already installed
