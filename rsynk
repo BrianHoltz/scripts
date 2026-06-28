@@ -44,7 +44,7 @@ DESCRIPTION
 OPTIONS
     --run             Execute immediately (skip dry-run). Overrides safety checks.
     -H, --raw-help    Show this raw usage text and exit.
-    -h, --help        Show colorized usage and exit.
+    -h, --help        Show colorized usage and exit (no state changes).
 
 EXIT CODES
     0  success
@@ -53,7 +53,7 @@ EXIT CODES
 
 FILES
     rsync_excludes                 exclude patterns, same directory as rsynk
-    /tmp/rsynk_last_$UID.json      repeat-to-run state file; keyed by SRC+DEST
+    /tmp/rsynk_last_$UID.json      repeat-to-run state file; stores only last SRC+DEST
 
 SEE ALSO
     rsync(1), time(1)
@@ -243,7 +243,8 @@ def main() -> int:
     cmd_display = " ".join(base_cmd)
     if dry_run:
         print(f"rsynk dry-running: {cmd_display}", file=sys.stderr)
-    print(f"rsynk running: {cmd_display}", file=sys.stderr)
+    else:
+        print(f"rsynk running: {cmd_display}", file=sys.stderr)
     
     try:
         start_time = datetime.now()
