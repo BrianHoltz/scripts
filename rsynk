@@ -69,9 +69,9 @@ EXAMPLES
     # Make DEST contain SRC as a subdirectory mirror
     $ rsynk /Volumes/Archive/Family ~/Backups
 
-    # Sync to a sparse bundle (mounted or at path)
-    $ rsynk /Volumes/Archive/Family/ ~/Backups/Cache/Backups.sparsebundle/Family
-    $ rsynk /Volumes/Archive/Family/ ~/Backups/Cache/Backups.sparsebundle/Family  # repeat to run
+    # Sync to a sparse bundle path on a remote host
+    $ rsynk /Volumes/Archive/Family/ user@host:Backups/Cache/Backups.sparsebundle/Family
+    $ rsynk /Volumes/Archive/Family/ user@host:Backups/Cache/Backups.sparsebundle/Family  # repeat to run
 
     # Nesting risk: no trailing slash, same basename → blocks.
     $ rsynk /Volumes/Archive/Family ~/Backups/Family
