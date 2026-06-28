@@ -208,9 +208,6 @@ def main() -> int:
 
     src, dest = positional
 
-    if dry_run and '--help' not in args:
-        print(f"rsynk dry-running: {' '.join(base_cmd)}", file=sys.stderr)
-
     # If the user repeats an identical default dry-run command, promote it to --run.
     state_path = os.path.join(tempfile.gettempdir(), f"rsynk_last_{os.getuid()}.json")
     invocation_key = json.dumps({"src": src, "dest": dest}, sort_keys=True)
@@ -244,6 +241,8 @@ def main() -> int:
     ])
 
     cmd_display = " ".join(base_cmd)
+    if dry_run:
+        print(f"rsynk dry-running: {cmd_display}", file=sys.stderr)
     print(f"rsynk running: {cmd_display}", file=sys.stderr)
     
     try:
