@@ -547,6 +547,27 @@ Shuzijun Markdown Editor plugin (com.shuzijun.markdown-editor) uses Vditor, whic
 - Patches apply to `~/Library/Application Support/JetBrains/IntelliJIdea2025.3/plugins/markdown-editor/lib/markdown-editor-2.0.5.jar`. Patches are overwritten on plugin update — reapply after each update. Restart IDEA after patching (tab close/reopen is not enough — IDEA caches plugin JAR resources at startup).
 - Patch procedure: extract `vditor/style.css` from the JAR, add the override, repack with `jar uf`
 
+**IDEA 2026.2 compatibility patch** — Shuzijun 2.0.5 crashes in IDEA 2026.2 with `NoClassDefFoundError: com/intellij/ui/jcef/JBCefApp` because IDEA 2026.2 moved `JBCefApp` from core to the `com.intellij.modules.jcef` plugin module (`jcef-plugin/lib/modules/intellij.platform.ui.jcef.jar`). Shuzijun's plugin.xml only declares `<depends>com.intellij.modules.lang</depends>`, so the class is invisible to its classloader and `MarkdownPreviewFileEditorProvider.accept()` throws on every markdown open, causing the WYSIWYG tab to disappear.
+
+Fix: add `<depends>com.intellij.modules.jcef</depends>` to `META-INF/plugin.xml` inside the JAR:
+
+```sh
+# Backup and patch (2026.2 copy):
+JAR=~/Library/Application\ Support/JetBrains/IntelliJIdea2026.2/plugins/markdown-editor/lib/markdown-editor-2.0.5.jar
+cp "$JAR" "${JAR}.bak.$(date +%s)"
+mkdir /tmp/shuzijun_patch && cd /tmp/shuzijun_patch
+jar xf "$JAR"
+# In META-INF/plugin.xml, after the existing <depends>com.intellij.modules.lang</depends> line, add:
+#   <depends>com.intellij.modules.jcef</depends>
+# Then repack:
+jar uf "$JAR" META-INF/plugin.xml
+# Verify:
+mkdir /tmp/verify && cd /tmp/verify && jar xf "$JAR" META-INF/plugin.xml && grep "modules.jcef" META-INF/plugin.xml
+rm -rf /tmp/shuzijun_patch /tmp/verify
+```
+
+Applied to 2026.2 on 2026.06.30. The 2025.3 copy did not need this patch (JBCefApp was in core there). Reapply after any Shuzijun update. Restart IDEA after patching.
+
 ### Wibey Extension Patches
 
 #### New Conversation Bug Fix (v1.0.10 and v1.0.16+)
@@ -725,5 +746,6 @@ History of tool use practices, not of this doc.
 - 2026.05.12 Tue: Updated `~/bin/patches/patch-zaaack.py` CSS patch to force link colors to VS Code Markdown Preview theme tokens (`--vscode-textLink-foreground` and `--vscode-textLink-activeForeground`) for both anchor tags and vditor IR link spans (`.vditor-ir__link`). Re-ran patch script across both extension roots (`~/.vscode/extensions/zaaack.markdown-editor-*` and `~/.cursor/extensions/zaaack.markdown-editor-*`).
 - 2026.05.18 Sun: Investigated "intra-doc links and outline click-to-scroll not working." Verified all three patch files (`main.js`, `extension.js`, `package.json`) are correctly applied in both VS Code and Cursor; JS syntax valid; all anchors present. Root cause: stale webview running pre-patch `main.js`. The `?v=${Date.now()}` cache-buster (E7) ensures fresh `main.js` load, but only takes effect after a window reload triggers the updated `extension.js`. Fix: **`Developer: Reload Window`** in each IDE. Re-ran `patch-zaaack.py` to freshen the patch timestamp; confirmed idempotent. No patch logic changes needed.
 - 2026.06.15 Sun: VS Code upgraded, Zaaack updated to 0.1.15 (vditor 3.8.4 → 3.11.2). Updated `patch-zaaack.py`: (1) replaced single `P2_OLD`/`P2_NEW` with `P2_VARIANTS` list to support multiple vditor versions without per-version edits; (2) baked multi-file editor patch (`currentPanel` → `panelsByPath` Map) into `patch_extension_js_multipanel()` so it's no longer a manual prerequisite; (3) added `PKG_AE_CANDIDATES` for package.json activationEvents (0.1.15 added a 4th activation event, breaking the old anchor). Applied Wibey 1.0.16 webview.js `newParallelSession` patch (variable names changed from 1.0.10: `c`→`C`, `o`→`l`, `h`→`L`; `MultiSessionHandler.js` gone). Cosmetic: vditor 3.11.2 i18n 404 on CDN is benign — noted in doc, not fixed.
+- 2026.06.30 Mon: Shuzijun WYSIWYG editor tab disappeared in IDEA. Root cause: IDEA auto-updated from 2025.3.3 to 2026.2 EAP (build 262.8377.35) on ~2026.06.27. In 2026.2, `com.intellij.ui.jcef.JBCefApp` was moved from core to `com.intellij.modules.jcef` plugin module; Shuzijun 2.0.5 has no dependency on that module, causing `NoClassDefFoundError` in `MarkdownPreviewFileEditorProvider.accept()` on every markdown open. IDEA suppresses the error and omits the tab. Fix: added `<depends>com.intellij.modules.jcef</depends>` to `META-INF/plugin.xml` inside `markdown-editor-2.0.5.jar` (2026.2 copy only). Restart IDEA to pick up the change.
 - 2026.06.17 Tue: Zaaack stopped working ~2026.06.01 (exact cause TBD); VS Code and Cursor fall back to typedown (3.5 pts) as best available editor. Editor subtotals drop from 7 → 3.5 for both.
 - 2026.06.18 Wed: Switched primary IDE from VS Code to IDEA. Added "IDEA editor" column to markdown table (native WYSIWYG, replaces shuzijun column). Native editor scores 8.0 pts (vs shuzijun 3.5), lifting IDEA total from 21.5 → 28.5. Parallel agents now ✅ in IDEA (was ❌); "type @ busy Wibey" renamed to "enqueue next prompt" and inverted — VS Code/Cursor now ✅, IDEA ❌. Score recalc: IDEA 28.5, VS Code 20.5, Cursor 19.5.
