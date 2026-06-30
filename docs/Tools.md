@@ -568,7 +568,7 @@ rm -rf /tmp/shuzijun_patch /tmp/verify
 
 Applied to 2026.2 on 2026.06.30. The 2025.3 copy did not need this patch (JBCefApp was in core there). Reapply after any Shuzijun update. Restart IDEA after patching.
 
-**MCP Server plugin — suppress Services panel auto-pop** — The bundled `com.intellij.mcpServer` plugin registers a `serviceViewContributor` that causes IDEA's Services tool window to auto-focus every time a Wibey/Claude session connects (SSE). To suppress the pop-up without affecting MCP functionality, comment out the line in `META-INF/plugin.xml` inside `mcpserver.jar`:
+**MCP Server plugin — suppress Services panel auto-pop** — The bundled `com.intellij.mcpServer` plugin registers a `serviceViewContributor` that causes IDEA's Services tool window to auto-focus every time a Wibey/Claude session connects (SSE). The `serviceViewContributor` is a **display-only widget** — it has no connection to the actual MCP server (`McpServerService`), SSE endpoint, or tool calls. Removing it is purely cosmetic: Wibey/Claude MCP integration continues working exactly as before. To suppress the pop-up, comment out the line in `META-INF/plugin.xml` inside `mcpserver.jar`:
 
 ```sh
 # Backup and patch (2026.2 user-plugin copy takes precedence over bundled):
