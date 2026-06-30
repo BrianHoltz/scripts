@@ -69,9 +69,12 @@ EXAMPLES
     # Make DEST contain SRC as a subdirectory mirror
     $ rsynk /Volumes/Archive/Family ~/Backups
 
-    # Sync to a remote backup path
+    # Sync to a remote backup path (dry-run, then repeat to execute)
     $ rsynk /Volumes/Archive/Family/ brian@livingroommac.local:~/Backups/Backups
     $ rsynk /Volumes/Archive/Family/ brian@livingroommac.local:~/Backups/Backups  # repeat to run
+
+    # Sync backup bundle to remote, execute immediately
+    $ rsynk --run Backups.sparsebundle brian@livingroommac.local:~/Backups/Backups/
 
     # Nesting risk: no trailing slash, same basename → blocks.
     $ rsynk /Volumes/Archive/Family ~/Backups/Family
