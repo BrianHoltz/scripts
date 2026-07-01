@@ -84,12 +84,12 @@ Two completely separate repos serve different scopes:
 
 **Skills by laptop:**
 
-- **Work laptop**: team skills from `shared/.wibey/skills/` (relationship-shared); personal skills from `~/bin/wibey/skills/`. The Wibey VS Code extension is Walmart-internal and only present on the work laptop, never on the personal laptop.
-- **Personal laptop**: only `~/bin/wibey/skills/`, exposed per-workspace via `.wibey/skills/` symlinks. The Wibey extension is not available or expected here.
+- **Work laptop**: team skills from `shared/.wibey/skills/` (relationship-shared); personal skills from `~/bin/.wibey/skills/`. The Wibey VS Code extension is Walmart-internal and only present on the work laptop, never on the personal laptop.
+- **Personal laptop**: only `~/bin/.wibey/skills/`, exposed per-workspace via `.wibey/skills/` symlinks. The Wibey extension is not available or expected here.
 
-Skills useful on both laptops live canonically in relationship-shared (team owns them) and are manually copied to `~/bin/wibey/skills/` + committed when updated.
+Skills useful on both laptops live canonically in relationship-shared (team owns them) and are manually copied to `~/bin/.wibey/skills/` + committed when updated.
 
-**When resolving a skill on personal laptop**: look in `~/bin/wibey/skills/<name>/SKILL.md`. Do not attempt to read `shared/` — the symlink doesn't exist. Do not expect the Wibey extension to be present.
+**When resolving a skill on personal laptop**: look in `~/bin/.wibey/skills/<name>/SKILL.md`. Do not attempt to read `shared/` — the symlink doesn't exist. Do not expect the Wibey extension to be present.
 
 **When resolving a skill on work laptop**: check `shared/.wibey/skills/` first (team version may be newer than `~/bin/` copy). The Wibey extension is available and should be used if needed.
 
@@ -226,7 +226,7 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 
 ### Custom Commands
 
-User-level commands source from `~/bin/wibey/commands/`. When triggered, read the source file before executing.
+User-level commands source from `~/bin/.wibey/commands/`. When triggered, read the source file before executing.
 
 User-level commands (available in all workspaces via hardlinks to `~/.wibey/commands/`):
 
@@ -236,16 +236,16 @@ User-level commands (available in all workspaces via hardlinks to `~/.wibey/comm
 
 Install paths:
 
-- Source commands: `~/bin/wibey/commands/*.md`
+- Source commands: `~/bin/.wibey/commands/*.md`
 - Wibey user commands: `~/.wibey/commands/*.md` — **must be hardlinks, not symlinks** (Wibey's extension filters with `entry.isFile()`, which returns `false` for symlinks, silently dropping them)
 
 To install or reinstall user commands as hardlinks:
 
 ```sh
 rm ~/.wibey/commands/convo.md ~/.wibey/commands/commitz.md ~/.wibey/commands/say.md
-ln ~/bin/wibey/commands/convo.md ~/.wibey/commands/convo.md
-ln ~/bin/wibey/commands/commitz.md ~/.wibey/commands/commitz.md
-ln ~/bin/wibey/commands/say.md ~/.wibey/commands/say.md
+ln ~/bin/.wibey/commands/convo.md ~/.wibey/commands/convo.md
+ln ~/bin/.wibey/commands/commitz.md ~/.wibey/commands/commitz.md
+ln ~/bin/.wibey/commands/say.md ~/.wibey/commands/say.md
 ```
 
 Maintenance/debug checklist:
@@ -253,7 +253,7 @@ Maintenance/debug checklist:
 - If a user command is missing: check `~/.wibey/commands/` — if files are symlinks (`isSymlink: true` via Node.js), replace with hardlinks (see above).
 - Verify with: `node -e "const fs=require('fs'); fs.readdirSync(process.env.HOME+'/.wibey/commands',{withFileTypes:true}).forEach(e=>console.log(e.name,'isFile:',e.isFile(),'isSymlink:',e.isSymbolicLink()))"`
 - After adding or changing files, reload the VS Code window.
-- Keep the source files in `~/bin/wibey/`; do not rename or move them.
+- Keep the source files in `~/bin/.wibey/commands/`; do not rename or move them.
 - If discovery still fails, check YAML frontmatter first: `description` must be present and valid.
 
 **Outside team repos (work laptop only):** When the current workspace has no `shared/` symlink (e.g. `~/My Drive/`, `~/Desktop/`, any personal folder), the team skills and commands are still available directly at `~/src/relationship-shared/.wibey/`. Always check there before concluding a skill or command doesn't exist.
@@ -285,6 +285,9 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
     converge/        SKILL.md            — mirrored
     ftm/             SKILL.md            — personal-only (Family Tree Maker integration)
   commands/
+    commitz.md       — personal-only (cluster diffs into commit buckets)
+    convo.md         — personal-only (park conversation for Mission Control)
+    say.md           — personal-only (text-to-speech output)
     continue.md      — mirrored from relationship-shared
     plando.md        — mirrored
     tdd.md           — mirrored
