@@ -70,6 +70,7 @@ def parse_status_lines(lines: list[str]) -> tuple[list[str], int]:
             continue
         if line.startswith("?? "):
             untracked_count += 1
+            entries.append(f"{basename(line[3:])}: untracked")
             continue
         if len(line) < 4:
             continue
@@ -217,7 +218,7 @@ def main(argv: list[str]) -> int:
             print(f"commitz_ui: unknown argument: {unknown[0]}", file=sys.stderr)
             return 1
 
-    status_cp = run_git(["status", "--porcelain=v1"])
+    status_cp = run_git(["status", "--porcelain=v1", "--untracked-files=all"])
     if status_cp.returncode != 0:
         print("commitz_ui: must be run inside a git repository", file=sys.stderr)
         return 1
