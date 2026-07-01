@@ -26,6 +26,13 @@ ln -sf ~/bin/shellrc/shellrc.common ~/.shellrc.common
 ln -sfn ~/Google\ Drive ~/gdrive
 ln -sfn ~/Google\ Drive/Shared\ drives/LP\ SCC\ Financial ~/lpscc
 
+# Wibey custom commands (hardlinks, not symlinks)
+mkdir -p ~/.wibey/commands
+ln ~/bin/wibey/commands/convo.md ~/.wibey/commands/convo.md
+ln ~/bin/wibey/commands/commitz.md ~/.wibey/commands/commitz.md
+ln ~/bin/wibey/commands/commmitz.md ~/.wibey/commands/commmitz.md
+ln ~/bin/wibey/commands/say.md ~/.wibey/commands/say.md
+
 # VS Code + Copilot
 brew install --cask visual-studio-code
 code --install-extension github.copilot
@@ -170,7 +177,7 @@ Add to `~/Library/Application Support/Code/User/settings.json`
 }
 ```
 
-**Cursor proxy**: no proxy on personal — omit/remove `http.proxy` and `http.proxySupport` from Cursor settings. See `Tools.md` § Cursor § Proxy.
+**Cursor proxy**: no proxy on personal — omit/remove `http.proxy` and `http.proxySupport` from Cursor settings. See `docs/Tools.md` § Cursor § Proxy.
 
 Add to `~/Library/Application Support/Code/User/keybindings.json`
 (and `~/Library/Application Support/Cursor/User/keybindings.json`):
@@ -198,13 +205,13 @@ These patches survive extension installs but are overwritten on extension *updat
 
 - Patch `~/.vscode/extensions/tarikkavaz.typedown-markdown-editor-*/dist/extension.js`
 - Patch `~/.cursor/extensions/tarikkavaz.typedown-markdown-editor-*/dist/extension.js` (same patch, both IDEs)
-- Full patch details: `Tools.md` § TypeDown Patches
+- Full patch details: `docs/Tools.md` § TypeDown Patches
 
 **Zaaack** (`zaaack.markdown-editor`): fix dark-mode colors, multi-panel support, font (VS Code only; not yet installed in Cursor)
 
 - Patch `~/.vscode/extensions/zaaack.markdown-editor-*/media/dist/main.css`
 - Patch `~/.vscode/extensions/zaaack.markdown-editor-*/out/extension.js`
-- Full patch details: `Tools.md` § Zaaack Markdown Editor Patches
+- Full patch details: `docs/Tools.md` § Zaaack Markdown Editor Patches
 
 After patching either extension: `⇧⌘P` → Developer: Reload Window.
 
@@ -251,7 +258,7 @@ Restart IDEA after adding. **Shuzijun Markdown Editor** (install plugin first, t
 
 - JAR: `~/Library/Application Support/JetBrains/<version>/plugins/markdown-editor/lib/markdown-editor-*.jar`
 - Extract `vditor/style.css`, add `font-size: 13px !important` to `.vditor .vditor-reset`, `.vditor-sv`, `.vditor-ir`; repack with `jar uf`; restart IDEA
-- Full patch details: `Tools.md` § Shuzijun Markdown Editor Patches
+- Full patch details: `docs/Tools.md` § Shuzijun Markdown Editor Patches
 
 ## Copilot: Claude Code
 
@@ -261,7 +268,7 @@ npm install -g @anthropic-ai/claude-code
 
 - Personal laptop uses `~/bin/wibey/skills/` — no `shared/` symlink
 - Expose skills per workspace via `.wibey/skills/<name>/SKILL.md` symlinks into `~/bin/wibey/skills/`
-- Usage dashboard: install via `/install usage-dashboard` in a session; apply UTC timezone patches from `Tools.md` § usage-dashboard
+- Usage dashboard: install via `/install usage-dashboard` in a session; apply UTC timezone patches from `docs/Tools.md` § usage-dashboard
 
 ## Copilot: Media & AI
 
