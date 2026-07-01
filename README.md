@@ -69,7 +69,7 @@ Custom slash commands in Claude markdown format. Install paths:
 
 Commands:
 
-- **`commitz`** — cluster uncommitted changes into themed commit buckets with per-file summaries; uses `commitz_ui` for deterministic file inventory.
+- **`commitz`** — cluster the next dirty IDEA git root into themed buckets; uses `commitz_ui` for deterministic file inventory.
 - **`convo`** — render a timestamped markdown banner summarizing the current conversation (date, repo, branch, last-3-turns summary).
 - **`say`** — render a timestamped markdown banner with custom user-provided message text.
 

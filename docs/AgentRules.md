@@ -66,7 +66,7 @@ Use these aliases in local tool/IDE config when possible to avoid space-heavy pa
 
 The `~/bin/` repo also contains personal tool settings and reference docs (not symlinked):
 
-- `~/bin/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
+- `~/bin/docs/Tools.md` — IDE/editor comparison matrix, extension patches, keybinding customizations, and tool-specific configuration notes
 
 To update the above files, edit the `~/bin/` copies and commit in the `~/bin/` repo.
 

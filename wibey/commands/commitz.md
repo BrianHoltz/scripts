@@ -1,5 +1,5 @@
 ---
-description: Cluster uncommitted changes into themed buckets with per-file summaries, using commitz_ui for deterministic file inventory.
+description: Cluster the next dirty IDEA git root into themed buckets, using commitz_ui for deterministic file inventory.
 allowed-tools: Bash(git *), Read, Grep, Glob
 ---
 
@@ -9,14 +9,18 @@ allowed-tools: Bash(git *), Read, Grep, Glob
 - Current git diff (for understanding changes): !`git diff HEAD`
 - Recent commit style reference: !`git log --oneline -10`
 
+Scope each run to a single git root: the next dirty root shown in the IDEA VCS
+window. If other roots are dirty, leave them for a later run.
+
 The file list from `commitz_ui` is the source of truth for which files changed and their +/-stats. Do not invent files or stats not present in commitz_ui output.
 
 ## Your task
 
-1. Run `commitz_ui` to get the canonical file inventory, counts, and CTA chrome.
-2. Read `git diff HEAD` to understand what actually changed in each file.
-3. Cluster the files into logical commit buckets.
-4. Present the result as a single block combining commitz_ui chrome with your bucketed items.
+1. Identify the next dirty git root for the current run.
+2. Run `commitz_ui` in that root to get the canonical file inventory, counts, and CTA chrome.
+3. Read `git diff HEAD` to understand what actually changed in each file.
+4. Cluster the files into logical commit buckets for that root.
+5. Present the result as a single block combining commitz_ui chrome with the root's bucketed items.
 
 ### Output format
 
@@ -53,7 +57,6 @@ C: commit. P: commit+push. Or ignore & keep prompting.
 - Prefer fewer coherent buckets. One bucket is fine if all changes are related.
 - Keep code + its tests/docs together in the same bucket.
 - Use basenames only — no directory paths.
-
 **STOP after presenting buckets. Do not commit until the user sends a C or P token.**
 
 ## `yours` mode
