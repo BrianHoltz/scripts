@@ -154,6 +154,7 @@ Run `~/bin/safewrite -h` for full options. Run `~/bin/fhold -h` for the fhold ME
 - No VCS changes unless you're certain the user wants them
 - Commit granularity: independent changes → separate commits; interdependent → one commit
 - **Two-tier commit policy**: mechanical changes (artifacts, formatting) → commit directly; substantive changes (logic, data, content) → `git add` and summarize for user review. User can override with "just commit it".
+- **Commit message provenance**: Every commit made by an agent must include the AI model name and version in a line at the end. Format: `Model: <name>-<version>` (e.g., `Model: claude-haiku-4.5`). This makes agent provenance auditable in `git log`.
 
 ## Communication Style
 
