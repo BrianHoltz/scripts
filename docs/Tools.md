@@ -585,6 +585,27 @@ rm -rf /tmp/mcpserver_patch
 
 Applied to 2026.2 on 2026.06.30. Reapply after any MCP Server plugin update (it is a bundled plugin that auto-updates with IDEA). Restart IDEA after patching. The Services panel still exists but won't auto-open; you can open it manually via View → Tool Windows → Services if needed.
 
+### JCEF Remote Mode (built-in Markdown preview + Shuzijun both broken)
+
+**Symptom:** Built-in IDEA Markdown preview shows nothing / "No subscribers for documentReady"; Shuzijun WYSIWYG tab throws NPE in `JBCefApp.createMessageRouter()`. Both broken simultaneously.
+
+**Root cause chain:**
+
+1. IDEA 2026.2 enables registry key `ide.browser.jcef.out-of-process.enabled` by default.
+2. `JBCefApp.init()` (in `intellij.platform.ui.jcef.jar`) reads that key; when true, calls `System.setProperty("jcef.remote.enabled", "true")` unless the property was already set via vmoptions.
+3. `JCefAppConfig.isRemoteEnabled()` = `isRemoteSupported() && Boolean.getBoolean("jcef.remote.enabled")`. `isRemoteSupported()` returns true because `cef_server.app` exists at `<IDEA>/plugins/jcef-plugin/jcef/Frameworks/cef_server.app/...`. So remote mode activates.
+4. In remote mode, native CEF objects are null. `createMessageRouter()` at `JBCefApp.java:569` hits NPE; `JBCefBrowserBuilder.setOffScreenRendering(false)` is silently overridden to true; `JcefBrowserPipeImpl` never receives `documentReady`.
+
+**Fix:** add to `~/Library/Application Support/JetBrains/IntelliJIdea2026.2/idea.vmoptions`:
+
+```
+-Djcef.remote.enabled=false
+```
+
+`JBCefApp.init()` skips the `setProperty("jcef.remote.enabled", "true")` call when it sees the property is already set (non-null) — the "already set" branch logs info and jumps past the setter. Restart IDEA after editing vmoptions.
+
+**Applied:** 2026.07.02.
+
 ### Wibey Extension Patches
 
 #### New Conversation Bug Fix (v1.0.10 and v1.0.16+)
@@ -765,5 +786,6 @@ History of tool use practices, not of this doc.
 - 2026.06.15 Sun: VS Code upgraded, Zaaack updated to 0.1.15 (vditor 3.8.4 → 3.11.2). Updated `patch-zaaack.py`: (1) replaced single `P2_OLD`/`P2_NEW` with `P2_VARIANTS` list to support multiple vditor versions without per-version edits; (2) baked multi-file editor patch (`currentPanel` → `panelsByPath` Map) into `patch_extension_js_multipanel()` so it's no longer a manual prerequisite; (3) added `PKG_AE_CANDIDATES` for package.json activationEvents (0.1.15 added a 4th activation event, breaking the old anchor). Applied Wibey 1.0.16 webview.js `newParallelSession` patch (variable names changed from 1.0.10: `c`→`C`, `o`→`l`, `h`→`L`; `MultiSessionHandler.js` gone). Cosmetic: vditor 3.11.2 i18n 404 on CDN is benign — noted in doc, not fixed.
 - 2026.06.30 Mon: IDEA Services panel auto-popped on every Wibey/Claude session connect. Root cause: `com.intellij.mcpServer` plugin registers a `serviceViewContributor` (`McpServiceViewContributor`) that causes IDEA's Services tool window to auto-activate on each new SSE connection. Fix: commented out the `<serviceViewContributor>` line in `META-INF/plugin.xml` inside `mcpserver.jar` (user-plugin copy in IntelliJIdea2026.2/plugins/). Restart IDEA to take effect.
 - 2026.06.30 Mon: Shuzijun WYSIWYG editor tab disappeared in IDEA. Root cause: IDEA auto-updated from 2025.3.3 to 2026.2 EAP (build 262.8377.35) on ~2026.06.27. In 2026.2, `com.intellij.ui.jcef.JBCefApp` was moved from core to `com.intellij.modules.jcef` plugin module; Shuzijun 2.0.5 has no dependency on that module, causing `NoClassDefFoundError` in `MarkdownPreviewFileEditorProvider.accept()` on every markdown open. IDEA suppresses the error and omits the tab. Fix: added `<depends>com.intellij.modules.jcef</depends>` to `META-INF/plugin.xml` inside `markdown-editor-2.0.5.jar` (2026.2 copy only). Restart IDEA to pick up the change.
+- 2026.07.02 Wed: Both built-in Markdown preview and Shuzijun WYSIWYG tab broken in IDEA simultaneously. Root cause: IDEA 2026.2 defaults `ide.browser.jcef.out-of-process.enabled` registry key to true, causing `JBCefApp.init()` to call `System.setProperty("jcef.remote.enabled", "true")` at startup. `cef_server.app` exists in the jcef-plugin so `isRemoteSupported()=true`; combined with the property → JCEF runs in remote/OSR mode. `createMessageRouter()` NPEs (native CEF objects null in remote mode), built-in preview pipe never gets `documentReady`. Fix: add `-Djcef.remote.enabled=false` to `~/Library/Application Support/JetBrains/IntelliJIdea2026.2/idea.vmoptions`; `JBCefApp.init()` sees the property already set and skips its override. Restart IDEA.
 - 2026.06.17 Tue: Zaaack stopped working ~2026.06.01 (exact cause TBD); VS Code and Cursor fall back to typedown (3.5 pts) as best available editor. Editor subtotals drop from 7 → 3.5 for both.
 - 2026.06.18 Wed: Switched primary IDE from VS Code to IDEA. Added "IDEA editor" column to markdown table (native WYSIWYG, replaces shuzijun column). Native editor scores 8.0 pts (vs shuzijun 3.5), lifting IDEA total from 21.5 → 28.5. Parallel agents now ✅ in IDEA (was ❌); "type @ busy Wibey" renamed to "enqueue next prompt" and inverted — VS Code/Cursor now ✅, IDEA ❌. Score recalc: IDEA 28.5, VS Code 20.5, Cursor 19.5.
