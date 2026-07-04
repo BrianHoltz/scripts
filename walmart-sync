@@ -2,12 +2,10 @@
 # SPDX-FileCopyrightText: 2026 Brian Holtz
 # SPDX-License-Identifier: MIT
 """
-walmart-sync — audit ~/bin/.wibey/ mirror of relationship-shared
+walmart-sync — sync ~/bin/ with relationship-shared and origin
 
-Three checks:
-  consistency   diff bin copy vs relationship-shared (work laptop only)
-  portability   grep for Walmart-internal markers that must not leak to public GitHub
-  ref-integrity flag refs to paths/skills that don't exist on personal laptop
+Work laptop: audit mirror, copy drift, push to GitHub.
+Personal laptop: pull from GitHub.
 """
 
 import argparse
@@ -433,7 +431,7 @@ def do_sync(dry_run=False):
 # ---------------------------------------------------------------------------
 usage_msg = """\
 NAME
-    walmart-sync — sync and audit ~/bin/.wibey/ mirror of relationship-shared
+    walmart-sync — audit/sync ~/bin/ mirror; push on work laptop, pull on personal
 
 SYNOPSIS
     walmart-sync [--consistency] [--portability] [--ref-integrity]
