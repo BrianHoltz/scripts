@@ -301,18 +301,32 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
   hooks/             (empty)
 ```
 
-**Mirror-safe convention:** Skills, commands, and docs in relationship-shared that are mirror-safe contain no Walmart-proprietary content and are designed for personal-laptop use. Refresh manually when you know something changed — no scripts or hooks.
+**Mirror-safe convention:** Skills, commands, and docs in relationship-shared that are mirror-safe contain no Walmart-proprietary content and are designed for personal-laptop use. Use `~/bin/walmart-sync` to audit and sync the mirror.
+
+**Checking mirror state** (run from either laptop):
 
 ```sh
-# Refresh a mirrored skill (run from work laptop):
-cp -R ~/src/relationship-shared/.wibey/skills/<name> ~/bin/.wibey/skills/
-# Refresh a mirrored command:
-cp ~/src/relationship-shared/.wibey/commands/<name>.md ~/bin/.wibey/commands/
-# Refresh a mirrored doc:
-cp ~/src/relationship-shared/docs/<name>.md ~/bin/.wibey/docs/
-cp ~/src/relationship-shared/docs/templates/<name>.md ~/bin/.wibey/docs/templates/
-# After refreshing, commit ~/bin/ and push so personal laptop gets the update on pull.
+~/bin/walmart-sync          # full audit: consistency + portability + ref-integrity
+~/bin/walmart-sync -v       # same, also show passing items
+~/bin/walmart-sync --sync   # pull all drifted items from shared, then re-check portability
+~/bin/walmart-sync --sync --dry-run  # preview what would change without writing
 ```
+
+Three checks that `walmart-sync` runs:
+- **Consistency** — byte-diff bin copies vs relationship-shared originals (skipped automatically on personal laptop where shared is absent).
+- **Portability** — grep for Walmart-internal markers (`gecgithub01`, internal hostnames, Jira keys) that must not appear in the public `~/bin/` GitHub repo. Run this even on personal laptop to audit already-committed files.
+- **Ref-integrity** — flag references to paths/skills that dangle on personal laptop (`~/src/relationship-shared`, `shared/` symlink, non-mirrored skills like `doc-audit`).
+
+**Known pre-existing portability issues:** The SKILL.md files for `ailert`, `clipboard-read`, and `converge`, and the commands `continue`, `plando`, `tdd` all contain GHE provenance links (`gecgithub01.walmart.com`) and `relationship-shared` text references — these shipped with the initial mirror and are already committed to the public repo. To clean them up, strip the provenance block from each file in relationship-shared before re-mirroring, or patch them locally after sync.
+
+**After sync, commit to propagate to personal laptop:**
+
+```sh
+cd ~/bin && git add -p .wibey/ && git commit
+git push   # personal laptop pulls on next git pull
+```
+
+**When AgentRules.md mirror lists change**, update `MIRROR_ITEMS` and `PERSONAL_ONLY` in `~/bin/walmart-sync` to match.
 
 Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`.
 Currently mirror-safe commands: `continue`, `plando`, `tdd`.

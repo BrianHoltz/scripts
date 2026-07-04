@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Brian Holtz
+# SPDX-License-Identifier: MIT
+"""
+walmart-sync — audit ~/bin/.wibey/ mirror of relationship-shared
+
+Three checks:
+  consistency   diff bin copy vs relationship-shared (work laptop only)
+  portability   grep for Walmart-internal markers that must not leak to public GitHub
+  ref-integrity flag refs to paths/skills that don't exist on personal laptop
+"""
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Mirror manifest — keep in sync with AgentRules.md §"Currently mirror-safe"
+# ---------------------------------------------------------------------------
+BIN       = Path.home() / "bin"
+SHARED    = Path.home() / "src" / "relationship-shared"
+
+# Each entry: (shared_path_relative, bin_path_relative, is_dir)
+MIRROR_ITEMS = [
+    # skills
+    (".wibey/skills/ailert",       ".wibey/skills/ailert",       True),
+    (".wibey/skills/clipboard-read",".wibey/skills/clipboard-read",True),
+    (".wibey/skills/converge",     ".wibey/skills/converge",      True),
+    # commands
+    (".wibey/commands/continue.md",".wibey/commands/continue.md", False),
+    (".wibey/commands/plando.md",  ".wibey/commands/plando.md",   False),
+    (".wibey/commands/tdd.md",     ".wibey/commands/tdd.md",      False),
+    # docs
+    ("docs/StatusVocabulary.md",   ".wibey/docs/StatusVocabulary.md", False),
+    ("docs/IncidentRCA.md",        ".wibey/docs/IncidentRCA.md",      False),
+    ("docs/templates/Project.md",  ".wibey/docs/templates/Project.md",False),
+    ("docs/templates/Incident.md", ".wibey/docs/templates/Incident.md",False),
+]
+
+# Items in bin that are personal-only (not expected in shared; not a drift signal)
+PERSONAL_ONLY = {
+    ".wibey/skills/ftm",
+    ".wibey/commands/commitz.md",
+    ".wibey/commands/convo.md",
+    ".wibey/commands/say.md",
+}
+
+# ---------------------------------------------------------------------------
+# Portability check — patterns that signal Walmart-internal content
+# ---------------------------------------------------------------------------
+INTERNAL_PATTERNS = [
+    # Walmart GitHub Enterprise
+    (r"gecgithub01(?:\.walmart\.com)?", "Walmart GHE hostname"),
+    # Internal corp domains (exclude public-facing wibey.walmart.com for now)
+    (r"\b[\w-]+\.corp\.walmart\.com\b", "internal corp hostname"),
+    (r"\bspark\.walmart\.com\b",       "internal Spark hostname"),
+    (r"\bpc03\.my\.snyk\.io\b",        "internal Snyk hostname"),
+    # Internal service patterns
+    (r"\bWCNP\b",                      "WCNP (internal platform)"),
+    (r"\bConcord\b(?!.*open.?source)", "Concord (internal CI)"),
+    # Jira project keys — only the known internal ones
+    (r"\b(?:GENAICA|GENAITK|WICN|CATS|SUPP)-\d+\b", "internal Jira ticket ID"),
+    # Internal SSP/Kitt/WCNP config markers
+    (r"\bkitt\.ya?ml\b",               "Kitt config (WCNP-specific)"),
+    # relationship-shared references (don't belong in a public mirror)
+    (r"relationship-shared",           "relationship-shared repo reference"),
+]
+
+# ---------------------------------------------------------------------------
+# Ref-integrity check — references that break on personal laptop
+# ---------------------------------------------------------------------------
+REF_INTEGRITY_PATTERNS = [
+    # Filesystem paths that only exist on work laptop
+    (r"~/src/relationship-shared",      "~/src/relationship-shared (work laptop only)"),
+    (r'\$HOME/src/relationship-shared', "$HOME/src/relationship-shared (work laptop only)"),
+    # shared/.wibey as local symlink — only flag when not inside a URL (no http/https before it)
+    # Uses a custom match function; here we match then filter in grep_patterns_no_url()
+    # (implemented as a separate pass below)
+    # doc-audit invoked as a command (not just a prose mention or comment)
+    (r'/doc-audit\b|skill[=:\s]+doc-audit\b',
+     "doc-audit skill invocation (not in bin mirror)"),
+]
+
+# Patterns checked with URL-exclusion (line must not contain http/https before the match)
+REF_INTEGRITY_PATH_PATTERNS = [
+    (r'\bshared/\.wibey\b', "shared/ symlink path (work laptop only)"),
+]
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+GREEN  = "\033[32m"
+RED    = "\033[31m"
+YELLOW = "\033[33m"
+CYAN   = "\033[36m"
+RESET  = "\033[0m"
+BOLD   = "\033[1m"
+
+def c(color, text): return f"{color}{text}{RESET}"
+
+def collect_files(path: Path):
+    """Return list of Path objects under path (or [path] if file)."""
+    if path.is_file():
+        return [path]
+    if path.is_dir():
+        return sorted(path.rglob("*"))
+    return []
+
+def grep_patterns(file_path: Path, patterns):
+    """Return list of (lineno, line, label) hits."""
+    hits = []
+    try:
+        text = file_path.read_text(errors="replace")
+    except Exception:
+        return hits
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for pat, label in patterns:
+            if re.search(pat, line, re.IGNORECASE):
+                hits.append((lineno, line.rstrip(), label))
+                break  # one label per line
+    return hits
+
+def grep_path_patterns(file_path: Path, patterns):
+    """Like grep_patterns but skips lines that contain a URL before the match."""
+    hits = []
+    try:
+        text = file_path.read_text(errors="replace")
+    except Exception:
+        return hits
+    url_re = re.compile(r'https?://', re.IGNORECASE)
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if url_re.search(line):
+            continue  # skip lines that are URLs/links (they're portability hits, not ref hits)
+        for pat, label in patterns:
+            if re.search(pat, line, re.IGNORECASE):
+                hits.append((lineno, line.rstrip(), label))
+                break
+    return hits
+
+# ---------------------------------------------------------------------------
+# Check functions
+# ---------------------------------------------------------------------------
+def check_consistency(verbose=False):
+    if not SHARED.exists():
+        print(c(YELLOW, "  [skip] ~/src/relationship-shared not found — consistency check skipped (personal laptop?)"))
+        return True
+    all_ok = True
+    for shared_rel, bin_rel, is_dir in MIRROR_ITEMS:
+        src = SHARED / shared_rel
+        dst = BIN / bin_rel
+        label = bin_rel
+        if not src.exists():
+            print(c(YELLOW, f"  [warn] shared/{shared_rel} not found — item may have been removed or renamed"))
+            continue
+        if not dst.exists():
+            print(c(RED, f"  [MISSING] {label} not in bin (exists in shared)"))
+            all_ok = False
+            continue
+        if is_dir:
+            result = subprocess.run(
+                ["diff", "-rq", "--exclude=*.pyc", str(src), str(dst)],
+                capture_output=True, text=True
+            )
+        else:
+            result = subprocess.run(
+                ["diff", str(src), str(dst)],
+                capture_output=True, text=True
+            )
+        if result.returncode == 0:
+            print(c(GREEN, f"  [ok] {label}"))
+        else:
+            print(c(RED, f"  [DRIFT] {label}"))
+            if verbose and result.stdout:
+                for dl in result.stdout.splitlines()[:30]:
+                    print(f"        {dl}")
+            all_ok = False
+    return all_ok
+
+def check_portability(verbose=False):
+    all_ok = True
+    checked = set()
+    for _, bin_rel, is_dir in MIRROR_ITEMS:
+        dst = BIN / bin_rel
+        if not dst.exists():
+            continue
+        files = collect_files(dst) if is_dir else [dst]
+        for f in files:
+            if not f.is_file():
+                continue
+            hits = grep_patterns(f, INTERNAL_PATTERNS)
+            rel = f.relative_to(BIN)
+            if hits:
+                print(c(RED, f"  [LEAK] {rel}"))
+                for lineno, line, label in hits[:10]:
+                    print(f"        L{lineno} [{label}]: {line[:120]}")
+                all_ok = False
+            elif verbose:
+                print(c(GREEN, f"  [ok] {rel}"))
+            checked.add(str(rel))
+    return all_ok
+
+def check_ref_integrity(verbose=False):
+    all_ok = True
+    for _, bin_rel, is_dir in MIRROR_ITEMS:
+        dst = BIN / bin_rel
+        if not dst.exists():
+            continue
+        files = collect_files(dst) if is_dir else [dst]
+        for f in files:
+            if not f.is_file():
+                continue
+            # Combine and deduplicate by line number (first label wins)
+            seen_lines = set()
+            raw_hits = (grep_patterns(f, REF_INTEGRITY_PATTERNS) +
+                        grep_path_patterns(f, REF_INTEGRITY_PATH_PATTERNS))
+            hits = []
+            for h in raw_hits:
+                if h[0] not in seen_lines:
+                    hits.append(h)
+                    seen_lines.add(h[0])
+            rel = f.relative_to(BIN)
+            if hits:
+                print(c(YELLOW, f"  [ref?] {rel}"))
+                for lineno, line, label in hits[:10]:
+                    print(f"         L{lineno} [{label}]: {line[:120]}")
+                all_ok = False
+            elif verbose:
+                print(c(GREEN, f"  [ok] {rel}"))
+    return all_ok
+
+def check_personal_only():
+    """Confirm personal-only items exist in bin and are NOT in shared."""
+    all_ok = True
+    for item_rel in sorted(PERSONAL_ONLY):
+        dst = BIN / item_rel
+        if not dst.exists():
+            print(c(YELLOW, f"  [warn] personal-only item missing from bin: {item_rel}"))
+        else:
+            if SHARED.exists():
+                # warn if it leaked into shared
+                src = SHARED / item_rel
+                if src.exists():
+                    print(c(RED, f"  [LEAK] personal-only item found in shared: {item_rel}"))
+                    all_ok = False
+                else:
+                    print(c(GREEN, f"  [ok] {item_rel} (personal-only, not in shared)"))
+    return all_ok
+
+# ---------------------------------------------------------------------------
+# Sync action
+# ---------------------------------------------------------------------------
+def do_sync(dry_run=False):
+    if not SHARED.exists():
+        print(c(RED, "Cannot sync: ~/src/relationship-shared not found"))
+        return False
+    changed = []
+    for shared_rel, bin_rel, is_dir in MIRROR_ITEMS:
+        src = SHARED / shared_rel
+        dst = BIN / bin_rel
+        if not src.exists():
+            print(c(YELLOW, f"  [skip] shared/{shared_rel} not found"))
+            continue
+        if is_dir:
+            result = subprocess.run(
+                ["diff", "-rq", "--exclude=*.pyc", str(src), str(dst)],
+                capture_output=True, text=True
+            )
+            in_sync = result.returncode == 0
+        else:
+            in_sync = dst.exists() and src.read_bytes() == dst.read_bytes()
+
+        if in_sync:
+            print(f"  [=] {bin_rel}")
+        else:
+            changed.append((shared_rel, bin_rel, is_dir, src, dst))
+            print(c(YELLOW, f"  [→] {bin_rel}") + (" (would copy)" if dry_run else " (copying)"))
+            if not dry_run:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                if is_dir:
+                    if dst.exists():
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copy2(src, dst)
+
+    if changed and not dry_run:
+        print()
+        print(c(CYAN, "Re-running portability check on updated items…"))
+        all_ok = True
+        for _, bin_rel, is_dir, _, dst in changed:
+            files = collect_files(dst) if is_dir else [dst]
+            for f in files:
+                if not f.is_file():
+                    continue
+                hits = grep_patterns(f, INTERNAL_PATTERNS)
+                rel = f.relative_to(BIN)
+                if hits:
+                    print(c(RED, f"  [LEAK] {rel} — review before committing!"))
+                    for lineno, line, label in hits[:10]:
+                        print(f"        L{lineno} [{label}]: {line[:120]}")
+                    all_ok = False
+        if all_ok:
+            print(c(GREEN, "  Portability: clean — safe to commit"))
+        else:
+            print(c(RED, "  Portability: FAILURES — do NOT commit until resolved"))
+    return True
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+usage_msg = """\
+NAME
+    walmart-sync — audit ~/bin/.wibey/ mirror of relationship-shared
+
+SYNOPSIS
+    walmart-sync [--consistency] [--portability] [--ref-integrity]
+                 [--personal-only] [--sync [--dry-run]] [-v] [-h]
+
+DESCRIPTION
+    Runs three audits against the mirror-safe items declared in AgentRules.md:
+
+    Consistency   Byte-diff bin copies vs relationship-shared originals.
+                  Skipped automatically on personal laptop (shared absent).
+
+    Portability   Grep mirrored files for Walmart-internal markers (GHE hostnames,
+                  internal Jira keys, etc.) that must not appear in the public
+                  ~/bin GitHub repo.
+
+    Ref-integrity Flag references to paths/skills that dangle on personal laptop
+                  (e.g. ~/src/relationship-shared, shared/ symlink, doc-audit).
+
+    Without flags, all three audits run (+ personal-only check).
+
+OPTIONS
+    --consistency     Run consistency check only
+    --portability     Run portability check only
+    --ref-integrity   Run ref-integrity check only
+    --personal-only   Check personal-only items
+    --sync            Copy drifted items from shared → bin, then re-check portability
+    --dry-run         With --sync: show what would change, don't write
+    -v, --verbose     Show passing items too
+    -h, --help        Show this message
+
+EXIT CODES
+    0  All selected checks passed
+    1  One or more checks failed (drift, leak, or broken ref)
+    2  Usage error
+
+EXAMPLES
+    walmart-sync                   # full audit
+    walmart-sync -v                # full audit, show passing items
+    walmart-sync --consistency     # only diff vs shared
+    walmart-sync --sync            # pull updates then re-check portability
+    walmart-sync --sync --dry-run  # preview what would be synced
+
+MAINTENANCE
+    When AgentRules.md §"Currently mirror-safe" changes, update MIRROR_ITEMS
+    and PERSONAL_ONLY in this script to match.
+"""
+
+def main():
+    p = argparse.ArgumentParser(add_help=False, usage=argparse.SUPPRESS)
+    p.add_argument("--consistency",   action="store_true")
+    p.add_argument("--portability",   action="store_true")
+    p.add_argument("--ref-integrity", action="store_true")
+    p.add_argument("--personal-only", action="store_true")
+    p.add_argument("--sync",          action="store_true")
+    p.add_argument("--dry-run",       action="store_true")
+    p.add_argument("-v", "--verbose", action="store_true")
+    p.add_argument("-h", "--help",    action="store_true")
+    args = p.parse_args()
+
+    if args.help:
+        print(usage_msg)
+        sys.exit(0)
+
+    if args.sync:
+        print(c(BOLD, "── Sync ──────────────────────────────────"))
+        do_sync(dry_run=args.dry_run)
+        if not args.dry_run:
+            print()
+            print(c(CYAN, "Sync done. Review changes, then: cd ~/bin && git add -p && git commit"))
+        sys.exit(0)
+
+    run_all = not any([args.consistency, args.portability,
+                       getattr(args, "ref_integrity", False),
+                       getattr(args, "personal_only", False)])
+
+    results = []
+
+    if run_all or args.consistency:
+        print(c(BOLD, "── Consistency (bin vs shared) ───────────"))
+        results.append(check_consistency(verbose=args.verbose))
+
+    if run_all or args.portability:
+        print(c(BOLD, "── Portability (no internal markers) ────"))
+        results.append(check_portability(verbose=args.verbose))
+
+    if run_all or getattr(args, "ref_integrity", False):
+        print(c(BOLD, "── Ref-integrity (no dangling refs) ─────"))
+        results.append(check_ref_integrity(verbose=args.verbose))
+
+    if run_all or getattr(args, "personal_only", False):
+        print(c(BOLD, "── Personal-only items ───────────────────"))
+        results.append(check_personal_only())
+
+    print()
+    if all(results):
+        print(c(GREEN + BOLD, "✓ All checks passed"))
+        sys.exit(0)
+    else:
+        print(c(RED + BOLD, "✗ One or more checks failed"))
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
