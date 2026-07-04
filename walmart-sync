@@ -49,6 +49,13 @@ PERSONAL_ONLY = {
     ".wibey/commands/say.md",
 }
 
+# Files exempt from the portability push-gate: these necessarily reference internal
+# terms in a meta/documentary context and are already present in the public repo.
+PORTABILITY_PUSH_EXEMPT = {
+    "walmart-sync",       # tooling script — its pattern strings reference internal terms
+    "docs/AgentRules.md", # rules doc — documents the patterns as examples of what to avoid
+}
+
 # ---------------------------------------------------------------------------
 # Portability check — patterns that signal Walmart-internal content
 # ---------------------------------------------------------------------------
@@ -140,6 +147,117 @@ def grep_path_patterns(file_path: Path, patterns):
                 hits.append((lineno, line.rstrip(), label))
                 break
     return hits
+
+# ---------------------------------------------------------------------------
+# Git helpers
+# ---------------------------------------------------------------------------
+def run_git(*args, capture=True):
+    """Run a git command in ~/bin/, returning CompletedProcess."""
+    cmd = ["git", "-C", str(BIN)] + list(args)
+    if capture:
+        return subprocess.run(cmd, capture_output=True, text=True)
+    return subprocess.run(cmd)
+
+def detect_upstream():
+    """Return (remote, branch) for HEAD's upstream, or ('origin', current_branch) as fallback."""
+    r = run_git("rev-parse", "--abbrev-ref", "HEAD@{upstream}")
+    if r.returncode == 0:
+        parts = r.stdout.strip().split("/", 1)
+        if len(parts) == 2:
+            return parts[0], parts[1]
+    branch_r = run_git("branch", "--show-current")
+    branch = branch_r.stdout.strip() or "main"
+    return "origin", branch
+
+def do_pull():
+    """Personal laptop: check git state then pull from origin (merge, not rebase)."""
+    remote, branch = detect_upstream()
+
+    # Warn if working tree is dirty
+    status = run_git("status", "--porcelain")
+    dirty = [l for l in status.stdout.splitlines() if l.strip()]
+    if dirty:
+        print(c(RED + BOLD, "⚠⚠ AGENT ALERT: ~/bin/ has uncommitted local changes:"))
+        for line in dirty[:20]:
+            print(f"  {line}")
+        print(c(RED, "Stash or commit before pulling to avoid conflicts."))
+        print()
+
+    # Warn if local commits are ahead of upstream
+    ahead_r = run_git("rev-list", "--count", "HEAD@{upstream}..HEAD")
+    if ahead_r.returncode == 0:
+        ahead = int(ahead_r.stdout.strip() or "0")
+        if ahead > 0:
+            print(c(RED + BOLD,
+                    f"⚠⚠ AGENT ALERT: ~/bin/ has {ahead} local commit(s) not pushed to {remote}/{branch}:"))
+            log = run_git("log", "--oneline", "HEAD@{upstream}..HEAD")
+            for line in log.stdout.splitlines()[:10]:
+                print(f"  {line}")
+            print(c(YELLOW, "These diverge from origin — resolve after pull if needed."))
+            print()
+
+    # Pull (merge, not rebase — per AgentRules.md)
+    print(c(CYAN, f"Pulling ~/bin/ from {remote}/{branch} (merge)…"))
+    r = run_git("pull", "--no-rebase", remote, branch, capture=False)
+    if r.returncode != 0:
+        print()
+        print(c(RED + BOLD, "⚠⚠ AGENT ALERT: git pull failed — merge conflict likely."))
+        print(c(RED, "Resolve conflicts in ~/bin/, then re-run walmart-sync."))
+        sys.exit(1)
+
+def do_push():
+    """Work laptop: portability gate on unpushed commits, then push to origin."""
+    remote, branch = detect_upstream()
+
+    ahead_r = run_git("rev-list", "--count", "HEAD@{upstream}..HEAD")
+    if ahead_r.returncode != 0:
+        print(c(YELLOW, "Cannot determine upstream. Set one with: git branch --set-upstream-to=origin/main"))
+        sys.exit(1)
+    ahead = int(ahead_r.stdout.strip() or "0")
+    if ahead == 0:
+        print(c(YELLOW, "Nothing to push (no commits ahead of upstream)."))
+        return
+
+    log = run_git("log", "--oneline", "HEAD@{upstream}..HEAD")
+    print(c(CYAN, f"Scanning {ahead} unpushed commit(s) for portability leaks:"))
+    for line in log.stdout.splitlines()[:10]:
+        print(f"  {line}")
+    print()
+
+    # Scan only added lines (+) in the unpushed diff; skip exempt meta-files
+    diff_r = run_git("diff", "-U0", "HEAD@{upstream}..HEAD")
+    leaks = []
+    current_file = "(unknown)"
+    skip_file = False
+    for line in diff_r.stdout.splitlines():
+        if line.startswith("+++ b/"):
+            current_file = line[6:]
+            skip_file = current_file in PORTABILITY_PUSH_EXEMPT
+        elif not skip_file and line.startswith("+") and not line.startswith("+++"):
+            content = line[1:]
+            for pat, label in INTERNAL_PATTERNS:
+                if re.search(pat, content, re.IGNORECASE):
+                    leaks.append((current_file, content.rstrip(), label))
+                    break
+
+    if leaks:
+        print(c(RED + BOLD, "⚠ PORTABILITY GATE FAILED — will not push to public GitHub:"))
+        for file_path, content, label in leaks[:20]:
+            print(c(RED, f"  [{label}] {file_path}:"))
+            print(f"    {content[:120]}")
+        print()
+        print(c(YELLOW, "Strip internal markers then retry: walmart-sync --push"))
+        sys.exit(1)
+
+    print(c(GREEN, "  Portability gate: clean"))
+    print()
+    print(c(CYAN, f"Pushing ~/bin/ to {remote}/{branch}…"))
+    r = run_git("push", remote, branch, capture=False)
+    if r.returncode != 0:
+        print()
+        print(c(RED + BOLD, "⚠⚠ AGENT ALERT: git push failed."))
+        sys.exit(1)
+    print(c(GREEN + BOLD, f"✓ Pushed to {remote}/{branch}"))
 
 # ---------------------------------------------------------------------------
 # Check functions
@@ -257,6 +375,14 @@ def do_sync(dry_run=False):
     if not SHARED.exists():
         print(c(RED, "Cannot sync: ~/src/relationship-shared not found"))
         return False
+
+    # Warn if working tree already has uncommitted changes
+    status = run_git("status", "--porcelain")
+    dirty = [l for l in status.stdout.splitlines() if l.strip()]
+    if dirty:
+        print(c(YELLOW, f"  [note] ~/bin/ already has {len(dirty)} uncommitted change(s); sync will add more."))
+        print()
+
     changed = []
     for shared_rel, bin_rel, is_dir in MIRROR_ITEMS:
         src = SHARED / shared_rel
@@ -314,48 +440,61 @@ def do_sync(dry_run=False):
 # ---------------------------------------------------------------------------
 usage_msg = """\
 NAME
-    walmart-sync — audit ~/bin/.wibey/ mirror of relationship-shared
+    walmart-sync — sync and audit ~/bin/.wibey/ mirror of relationship-shared
 
 SYNOPSIS
     walmart-sync [--consistency] [--portability] [--ref-integrity]
-                 [--personal-only] [--sync [--dry-run]] [-v] [-h]
+                 [--personal-only] [--sync [--dry-run]] [--push] [-v] [-h]
 
 DESCRIPTION
-    Runs three audits against the mirror-safe items declared in AgentRules.md:
+    Behaviour depends on laptop context (detected via ~/src/relationship-shared):
+
+    PERSONAL LAPTOP (shared absent):
+      Default: check git state, warn agents of dirty tree or unpushed commits,
+      then pull from origin (merge, not rebase).
+
+    WORK LAPTOP (shared present):
+      Default (no flags): run three audits + personal-only check.
+
+      Typical sync workflow:
+        1. walmart-sync --sync          copy drifted items from shared to bin
+        2. git add -p && git commit     review and commit changes manually
+        3. walmart-sync --push          portability gate, then push to origin
+
+    Three audit checks:
 
     Consistency   Byte-diff bin copies vs relationship-shared originals.
-                  Skipped automatically on personal laptop (shared absent).
+                  Only meaningful on work laptop.
 
-    Portability   Grep mirrored files for Walmart-internal markers (GHE hostnames,
-                  internal Jira keys, etc.) that must not appear in the public
-                  ~/bin GitHub repo.
+    Portability   Grep mirrored files for Walmart-internal markers (GHE
+                  hostnames, internal Jira keys, etc.) that must not appear
+                  in the public ~/bin GitHub repo.
 
-    Ref-integrity Flag references to paths/skills that dangle on personal laptop
-                  (e.g. ~/src/relationship-shared, shared/ symlink, doc-audit).
-
-    Without flags, all three audits run (+ personal-only check).
+    Ref-integrity Flag references to paths/skills that dangle on personal
+                  laptop (e.g. ~/src/relationship-shared, shared/, doc-audit).
 
 OPTIONS
     --consistency     Run consistency check only
     --portability     Run portability check only
     --ref-integrity   Run ref-integrity check only
     --personal-only   Check personal-only items
-    --sync            Copy drifted items from shared → bin, then re-check portability
+    --sync            Copy drifted items from shared to bin, re-check portability
     --dry-run         With --sync: show what would change, don't write
+    --push            Portability gate on unpushed commits, then push to origin
     -v, --verbose     Show passing items too
     -h, --help        Show this message
 
 EXIT CODES
-    0  All selected checks passed
-    1  One or more checks failed (drift, leak, or broken ref)
-    2  Usage error
+    0  All selected checks passed / pull or push succeeded
+    1  One or more checks failed, or pull/push error
+    2  Usage error (e.g. --push on personal laptop)
 
 EXAMPLES
-    walmart-sync                   # full audit
+    walmart-sync                   # personal: pull; work: full audit
     walmart-sync -v                # full audit, show passing items
-    walmart-sync --consistency     # only diff vs shared
-    walmart-sync --sync            # pull updates then re-check portability
+    walmart-sync --sync            # copy drifted items; then commit manually
     walmart-sync --sync --dry-run  # preview what would be synced
+    walmart-sync --push            # portability gate + push committed state
 
 MAINTENANCE
     When AgentRules.md §"Currently mirror-safe" changes, update MIRROR_ITEMS
@@ -369,6 +508,7 @@ def main():
     p.add_argument("--ref-integrity", action="store_true")
     p.add_argument("--personal-only", action="store_true")
     p.add_argument("--sync",          action="store_true")
+    p.add_argument("--push",          action="store_true")
     p.add_argument("--dry-run",       action="store_true")
     p.add_argument("-v", "--verbose", action="store_true")
     p.add_argument("-h", "--help",    action="store_true")
@@ -378,18 +518,40 @@ def main():
         print(usage_msg)
         sys.exit(0)
 
+    on_work_laptop = SHARED.exists()
+
+    if args.push:
+        if not on_work_laptop:
+            print(c(RED, "ERROR: --push requires ~/src/relationship-shared (work laptop only)"))
+            sys.exit(2)
+        print(c(BOLD, "── Push to origin ────────────────────────"))
+        do_push()
+        sys.exit(0)
+
     if args.sync:
+        if not on_work_laptop:
+            print(c(RED, "ERROR: --sync requires ~/src/relationship-shared (work laptop only)"))
+            sys.exit(2)
         print(c(BOLD, "── Sync ──────────────────────────────────"))
         do_sync(dry_run=args.dry_run)
         if not args.dry_run:
             print()
-            print(c(CYAN, "Sync done. Review changes, then: cd ~/bin && git add -p && git commit"))
+            print(c(CYAN, "Sync done. Review, commit, then push:"))
+            print(c(CYAN, "  cd ~/bin && git add -p && git commit && walmart-sync --push"))
         sys.exit(0)
 
-    run_all = not any([args.consistency, args.portability,
-                       getattr(args, "ref_integrity", False),
-                       getattr(args, "personal_only", False)])
+    explicit_audit = any([args.consistency, args.portability,
+                          getattr(args, "ref_integrity", False),
+                          getattr(args, "personal_only", False)])
 
+    # Personal laptop default (no explicit audit flags): just pull
+    if not on_work_laptop and not explicit_audit:
+        print(c(BOLD, "── Pull ~/bin/ from origin ───────────────"))
+        do_pull()
+        sys.exit(0)
+
+    # Audit (work laptop, or explicit audit flags anywhere)
+    run_all = not explicit_audit
     results = []
 
     if run_all or args.consistency:

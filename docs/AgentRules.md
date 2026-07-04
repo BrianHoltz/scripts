@@ -303,28 +303,33 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
 
 **Mirror-safe convention:** Skills, commands, and docs in relationship-shared that are mirror-safe contain no Walmart-proprietary content and are designed for personal-laptop use. Use `~/bin/walmart-sync` to audit and sync the mirror.
 
-**Checking mirror state** (run from either laptop):
+**Checking mirror state** — behaviour depends on laptop:
+
+- **Personal laptop** (shared absent): `~/bin/walmart-sync` checks git state (warns on dirty tree or unpushed commits) then pulls from origin.
+- **Work laptop** (shared present): `~/bin/walmart-sync` runs the full three-check audit.
+
+**Sync workflow (work laptop only) — three steps:**
 
 ```sh
-~/bin/walmart-sync          # full audit: consistency + portability + ref-integrity
-~/bin/walmart-sync -v       # same, also show passing items
-~/bin/walmart-sync --sync   # pull all drifted items from shared, then re-check portability
-~/bin/walmart-sync --sync --dry-run  # preview what would change without writing
+~/bin/walmart-sync --sync          # copy drifted items from shared to bin
+cd ~/bin && git add -p && git commit  # review and commit manually
+~/bin/walmart-sync --push          # portability gate, then push to origin
 ```
 
-Three checks that `walmart-sync` runs:
-- **Consistency** — byte-diff bin copies vs relationship-shared originals (skipped automatically on personal laptop where shared is absent).
-- **Portability** — grep for Walmart-internal markers (`gecgithub01`, internal hostnames, Jira keys) that must not appear in the public `~/bin/` GitHub repo. Run this even on personal laptop to audit already-committed files.
+Other useful invocations:
+
+```sh
+~/bin/walmart-sync          # full audit (work) or pull (personal)
+~/bin/walmart-sync -v       # full audit, also show passing items
+~/bin/walmart-sync --sync --dry-run  # preview what would be synced
+```
+
+Three checks that `walmart-sync --` audit runs:
+- **Consistency** — byte-diff bin copies vs relationship-shared originals. Work laptop only.
+- **Portability** — grep for Walmart-internal markers (`gecgithub01`, internal hostnames, Jira keys) that must not appear in the public `~/bin/` GitHub repo.
 - **Ref-integrity** — flag references to paths/skills that dangle on personal laptop (`~/src/relationship-shared`, `shared/` symlink, non-mirrored skills like `doc-audit`).
 
 **Known pre-existing portability issues:** The SKILL.md files for `ailert`, `clipboard-read`, and `converge`, and the commands `continue`, `plando`, `tdd` all contain GHE provenance links (`gecgithub01.walmart.com`) and `relationship-shared` text references — these shipped with the initial mirror and are already committed to the public repo. To clean them up, strip the provenance block from each file in relationship-shared before re-mirroring, or patch them locally after sync.
-
-**After sync, commit to propagate to personal laptop:**
-
-```sh
-cd ~/bin && git add -p .wibey/ && git commit
-git push   # personal laptop pulls on next git pull
-```
 
 **When AgentRules.md mirror lists change**, update `MIRROR_ITEMS` and `PERSONAL_ONLY` in `~/bin/walmart-sync` to match.
 
