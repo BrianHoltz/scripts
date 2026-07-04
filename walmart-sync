@@ -60,21 +60,14 @@ PORTABILITY_PUSH_EXEMPT = {
 # Portability check — patterns that signal Walmart-internal content
 # ---------------------------------------------------------------------------
 INTERNAL_PATTERNS = [
-    # Walmart GitHub Enterprise
-    (r"gecgithub01(?:\.walmart\.com)?", "Walmart GHE hostname"),
-    # Internal corp domains (exclude public-facing wibey.walmart.com for now)
+    # Internal corp hostnames (not gecgithub01 — already public-knowledge)
     (r"\b[\w-]+\.corp\.walmart\.com\b", "internal corp hostname"),
-    (r"\bspark\.walmart\.com\b",       "internal Spark hostname"),
-    (r"\bpc03\.my\.snyk\.io\b",        "internal Snyk hostname"),
-    # Internal service patterns
-    (r"\bWCNP\b",                      "WCNP (internal platform)"),
-    (r"\bConcord\b(?!.*open.?source)", "Concord (internal CI)"),
-    # Jira project keys — only the known internal ones
+    (r"\bspark\.walmart\.com\b",        "internal Spark hostname"),
+    (r"\bpc03\.my\.snyk\.io\b",         "internal Snyk hostname"),
+    # Jira project keys — reveal internal project names/work
     (r"\b(?:GENAICA|GENAITK|WICN|CATS|SUPP)-\d+\b", "internal Jira ticket ID"),
     # Internal SSP/Kitt/WCNP config markers
     (r"\bkitt\.ya?ml\b",               "Kitt config (WCNP-specific)"),
-    # relationship-shared references (don't belong in a public mirror)
-    (r"relationship-shared",           "relationship-shared repo reference"),
 ]
 
 # ---------------------------------------------------------------------------
