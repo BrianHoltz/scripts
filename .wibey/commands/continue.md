@@ -12,17 +12,9 @@ description: Checkpoint state into the active doc, then continue working. Commit
 
 # Continue — Checkpoint and Resume
 
-Distill current state into the active doc, commit it, then keep working. Default behavior: **write → commit → continue**. Pass `--compact` to run `/compact` after committing. Pass `--no-commit` to update the doc without committing (e.g. mid-task snapshot).
+Distill current state into the active doc, commit it, call `/convo`, then keep working. Default behavior: **write → commit → /convo → continue**. Pass `--compact` to run `/compact` after committing. Pass `--no-commit` to update the doc without committing (e.g. mid-task snapshot).
 
-## When to self-invoke
-
-Invoke `/continue` proactively — do not wait for the user to interrupt:
-
-- Before calling `advisor`
-- Before `/compact` — always write and commit the doc first, then compact
-- Before any risky or irreversible operation (deploys, destructive commands, external writes)
-- After each major milestone or phase transition
-- Whenever context is getting large and you sense a compact may be needed soon
+An optional steering prompt can be appended: `/continue [optional prompt]`. If a prompt is provided, incorporate it into the doc before committing — append new subtasks to Active Work, reprioritize if the prompt implies urgency, note any ambiguity in Open Questions — then continue with the merged plan.
 
 ## Steps (execute in order — do not skip any step)
 
@@ -32,13 +24,14 @@ Search in this priority order:
 - `shared/aidocs/` — any open or recently-modified task record
 - Currently open editor file that is an incident doc or project doc (`.md`)
 - `/triage` incident doc for the current session
-- If none found, or multiple ambiguous candidates: ask the user to identify the doc, then proceed
+- If no doc exists at all: create a minimal one in `shared/aidocs/` with `## Work Log`, `## Active Work`, and `## Open Questions` sections, populate with current state, then proceed from step 2.
+- If multiple ambiguous candidates: ask the user to identify the doc, then proceed.
 
-**2. Write the doc.** Update the following sections:
+**2. Write the doc.** Update (or create) the following sections:
 
 - **`## Work Log`** — *append* a new timestamped entry (ISO datetime, local timezone). 1–3 sentences: what was done, what was found, what changed. Do not edit previous entries.
-- **`## Active Work`** — *overwrite entirely*. Current state plus what comes next: one sentence on what was just being done, then an ordered list of immediate next subtasks specific enough that a fresh agent with no prior context can resume without asking the user. If stopping, note "Handoff" and list pickup steps. Organize under `###` headings per in-progress task as the template requires.
-- **`## Open Questions`** — *append* any new unresolved questions or blockers discovered since the last checkpoint. Do not remove existing items unless they are resolved (mark resolved items with ~~strikethrough~~ and a resolution note).
+- **`## Active Work`** — *overwrite entirely*. Current state plus what comes next: one sentence on what was just being done, then an ordered list of immediate next subtasks specific enough that a fresh agent with no prior context can resume without asking the user. If a steering prompt was provided, integrate it here — append new tasks or reprioritize as appropriate. If stopping, note "Handoff" and list pickup steps.
+- **`## Open Questions`** — *append* any new unresolved questions or blockers, including ambiguity from a steering prompt. Mark resolved items with ~~strikethrough~~ and a resolution note.
 
 **Quality gate:** After writing, ask: "Could a fresh agent reading only this doc resume without asking the user anything?" If no, add what's missing before committing.
 
@@ -50,10 +43,14 @@ Follow AGENTS.md commit rules:
 - Commit message: `docs: /continue checkpoint — <one-line summary of Active Work>`
 - Attribution footer: `🌀 Magic applied with Wibey JetBrains Plugin 🪄`
 
-**4. Compact (only if `--compact` was passed, or context is >80% full and you judge it necessary).**
+**4. Call `/convo` with the task title.**
+
+Derive a short title (≤6 words) from the Active Work summary and call `/convo <title>`. This updates the conversation name in Mission Control so the user can see that state is committed and safe — and marks the natural window to steer before the agent resumes.
+
+**5. Compact (only if `--compact` was passed, or context is >80% full and you judge it necessary).**
 
 Run `/compact` now. The doc is committed — state is safe. After compacting, re-read `## Active Work` from the doc to restore orientation before continuing.
 
-**5. Continue working.**
+**6. Continue working.**
 
 Resume from `## Active Work`, top subtask first. Do not ask for confirmation — just proceed.
