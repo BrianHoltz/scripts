@@ -30,6 +30,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 - [Rules For Work Laptop](#rules-for-work-laptop)
   - [Coding Workflow](#coding-workflow)
   - [PR Diff Source of Truth](#pr-diff-source-of-truth)
+  - [Git Merge Strategy](#git-merge-strategy)
   - [Custom Commands](#custom-commands)
   - [Wibey Skills — ~/bin/.wibey/ Directory](#wibey-skills----binwibey-directory)
     - [Project-Level Commands](#project-level-commands)
@@ -224,6 +225,12 @@ When reviewing a PR or describing what a branch/PR changes relative to its base:
 - **Never** use `git diff main..branch` — branches accumulate merge commits and ancestry artifacts that don't reflect the PR diff.
 - Commits show *how* changes were made; the diff defines *what* the PR changes.
 - If `gh pr diff` and `git diff main..branch` disagree, `gh pr diff` is correct. Period.
+
+### Git Merge Strategy
+
+Use merge, not rebase. Rebase rewrites SHAs, turning every Jira comment, CI link, Slack message, and agent log that referenced the old SHAs into a broken pointer. The cleaner linear history isn't worth the audit trail damage.
+
+Merge commits are honest: they record that the integration happened at that point in time, on the file states that actually existed.
 
 ### Custom Commands
 
