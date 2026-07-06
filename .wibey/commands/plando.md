@@ -18,6 +18,20 @@ Make and execute a detailed systematic plan for the following request.
 
 - **Orient.** If `AGENTS.md` exists, read it and consult its "What to Read for a Given Task" table for any docs relevant to this request. Read the repo-specific doc in `shared/docs/repos/` if one exists.
 - **Clarify.** Ask any clarifying questions before you start.
-- **Record.** If shared/aidocs/ folder (or similar untracked task-record location) exists in the workspace, find or create a task record for this work. Keep it up-to-date with your plan, status, and datetime-stamped work log. Footnote to Evidence urls for any empirical claims so they can be checked. The point of this trail is future reference — agents cannot search previous conversations, so aidocs is how institutional memory survives across sessions. **After creating or updating an aidocs file, always open it in VS Code** using `code <filepath>`.
+- **Anchor Doc.** Find or create the anchor doc using `AnchorDoc.md §Find`.
+  (Path: `shared/docs/AnchorDoc.md` → `~/bin/.wibey/docs/AnchorDoc.md` →
+  [GitHub](https://github.com/BrianHoltz/scripts/blob/main/.wibey/docs/AnchorDoc.md).)
+  1. **Find existing:** Run steps F1–F4. If a matching doc exists: update Active Work with
+     this task's plan, add a Work Log entry, and proceed.
+  2. **Decide on new doc:** If none found, decide:
+     - **Attach** to an already-open aidocs file if this work is clearly within a larger
+       tracked task.
+     - **Create** `aidocs/yyyy-mm-dd/hhmm_CamelCase.md` (use `shared/aidocs/…` if a
+       `shared/` symlink exists) if this is a self-contained new task.
+  3. **Seed** new docs: populate `## Summary` with the task description, add a
+     timestamped `## Work Log` entry, add blank `## Active Work` and
+     `## Open Questions` sections.
+  4. **Open in VS Code:** `code <filepath>`. Update as you execute — plan phases in
+     Active Work, blockers in Open Questions.
 - **Plan.** Break the work into numbered phases with clear deliverables.
-- **Execute.** Be creative in using the deep knowledge and skills in this repo and any linked shared/ repo. If you are Wibey, also leverage your DX/MCP powers and run the /safe-browse command if you think you might need a browser. Think critically and independently about the information you encounter, and question your assumptions.
+- **Execute.** Use the deep knowledge and skills in this repo and any linked shared/ repo. If you are Wibey, leverage your DX/MCP powers and run the /safe-browse command if you might need a browser. For work with independent or parallel workstreams, you may spawn subagents — all state flows back to the anchor doc; subagents do not maintain their own docs. Think critically and question your assumptions.

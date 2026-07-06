@@ -231,31 +231,42 @@ User-level commands source from `~/bin/.wibey/commands/`. When triggered, read t
 
 User-level commands (available in all workspaces via hardlinks to `~/.wibey/commands/`):
 
-- **convo** — park conversation with visible title for Mission Control. Definition: `~/.wibey/commands/convo.md`
-- **commitz** — cluster diffs into commit buckets. Definition: `~/.wibey/commands/commitz.md`
-- **say** — text-to-speech output. Definition: `~/.wibey/commands/say.md`
+- **commitz** — cluster diffs into commit buckets
+- **continue** — checkpoint and resume: write work log, commit, keep working *(mirrored from relationship-shared)*
+- **convo** — park conversation with visible title for Mission Control
+- **plando** — structured plan-and-execute workflow *(mirrored from relationship-shared)*
+- **say** — text-to-speech output
+- **tdd** — TDD workflow enforcer: branch, baseline, red, green, verify, coverage *(mirrored from relationship-shared)*
 
 Install paths:
 
 - Source commands: `~/bin/.wibey/commands/*.md`
 - Wibey user commands: `~/.wibey/commands/*.md` — **must be hardlinks, not symlinks** (Wibey's extension filters with `entry.isFile()`, which returns `false` for symlinks, silently dropping them)
 
-To install or reinstall user commands as hardlinks:
+To install or reinstall **all** user commands as hardlinks (glob — never drifts as commands are added):
 
 ```sh
-rm ~/.wibey/commands/convo.md ~/.wibey/commands/commitz.md ~/.wibey/commands/say.md
-ln ~/bin/.wibey/commands/convo.md ~/.wibey/commands/convo.md
-ln ~/bin/.wibey/commands/commitz.md ~/.wibey/commands/commitz.md
-ln ~/bin/.wibey/commands/say.md ~/.wibey/commands/say.md
+mkdir -p ~/.wibey/commands
+for f in ~/bin/.wibey/commands/*.md; do ln -f "$f" ~/.wibey/commands/; done
+```
+
+**Agent workspace setup check (work laptop, run at session start):** Verify every command in `~/bin/.wibey/commands/` has a corresponding hardlink in `~/.wibey/commands/`. If any are missing, run the loop above and reload the IDE window.
+
+```sh
+# Quick check: list missing
+for f in ~/bin/.wibey/commands/*.md; do
+  name=$(basename "$f")
+  [ -f ~/.wibey/commands/"$name" ] || echo "MISSING: $name"
+done
 ```
 
 Maintenance/debug checklist:
 
-- If a user command is missing: check `~/.wibey/commands/` — if files are symlinks (`isSymlink: true` via Node.js), replace with hardlinks (see above).
-- Verify with: `node -e "const fs=require('fs'); fs.readdirSync(process.env.HOME+'/.wibey/commands',{withFileTypes:true}).forEach(e=>console.log(e.name,'isFile:',e.isFile(),'isSymlink:',e.isSymbolicLink()))"`
-- After adding or changing files, reload the VS Code window.
+- If a user command is missing: run the install loop above.
+- Verify hardlinks (not symlinks): `node -e "const fs=require('fs'); fs.readdirSync(process.env.HOME+'/.wibey/commands',{withFileTypes:true}).forEach(e=>console.log(e.name,'isFile:',e.isFile(),'isSymlink:',e.isSymbolicLink()))"`
+- After adding or changing files, reload the IDE window.
 - Keep the source files in `~/bin/.wibey/commands/`; do not rename or move them.
-- If discovery still fails, check YAML frontmatter first: `description` must be present and valid.
+- If discovery still fails, check YAML frontmatter: `description` must be present and valid.
 
 **Outside team repos (work laptop only):** When the current workspace has no `shared/` symlink (e.g. `~/My Drive/`, `~/Desktop/`, any personal folder), the team skills and commands are still available directly at `~/src/relationship-shared/.wibey/`. Always check there before concluding a skill or command doesn't exist.
 
@@ -293,6 +304,7 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
     plando.md        — mirrored
     tdd.md           — mirrored
   docs/
+    AnchorDoc.md                         — mirrored from relationship-shared
     StatusVocabulary.md                  — mirrored from relationship-shared
     IncidentRCA.md                       — mirrored
     templates/
@@ -335,7 +347,7 @@ Three checks that `walmart-sync --` audit runs:
 
 Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`.
 Currently mirror-safe commands: `continue`, `plando`, `tdd`.
-Currently mirror-safe docs: `StatusVocabulary.md`, `IncidentRCA.md`, `templates/Project.md`, `templates/Incident.md`.
+Currently mirror-safe docs: `AnchorDoc.md`, `StatusVocabulary.md`, `IncidentRCA.md`, `templates/Project.md`, `templates/Incident.md`.
 
 **Not mirrored:** `doc-audit` — contains Walmart-internal URLs (gecgithub01, Jira keys, service names) that are inappropriate for a public GitHub repo. Accessible only from `relationship-shared/.wibey/skills/doc-audit/` on the work laptop.
 

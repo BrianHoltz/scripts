@@ -33,6 +33,7 @@ MIRROR_ITEMS = [
     (".wibey/commands/plando.md",  ".wibey/commands/plando.md",   False),
     (".wibey/commands/tdd.md",     ".wibey/commands/tdd.md",      False),
     # docs
+    ("docs/AnchorDoc.md",          ".wibey/docs/AnchorDoc.md",        False),
     ("docs/StatusVocabulary.md",   ".wibey/docs/StatusVocabulary.md", False),
     ("docs/IncidentRCA.md",        ".wibey/docs/IncidentRCA.md",      False),
     ("docs/templates/Project.md",  ".wibey/docs/templates/Project.md",False),

@@ -18,14 +18,15 @@ An optional steering prompt can be appended: `/continue [optional prompt]`. If a
 
 ## Steps (execute in order — do not skip any step)
 
-**1. Identify the active doc.**
+**1. Find the anchor doc.**
 
-Search in this priority order:
-- `shared/aidocs/` — any open or recently-modified task record
-- Currently open editor file that is an incident doc or project doc (`.md`)
-- `/triage` incident doc for the current session
-- If no doc exists at all: create a minimal one in `shared/aidocs/` with `## Work Log`, `## Active Work`, and `## Open Questions` sections, populate with current state, then proceed from step 2.
-- If multiple ambiguous candidates: ask the user to identify the doc, then proceed.
+Run the Find Existing Anchor Doc protocol from `AnchorDoc.md §Find` (steps F1–F4).
+(Path: `shared/docs/AnchorDoc.md` → `~/bin/.wibey/docs/AnchorDoc.md` →
+[GitHub](https://github.com/BrianHoltz/scripts/blob/main/.wibey/docs/AnchorDoc.md).)
+If no doc is found: create `aidocs/yyyy-mm-dd/hhmm_CamelCase.md` (use `shared/aidocs/…`
+if a `shared/` symlink exists), seed it with `## Summary`, `## Work Log`,
+`## Active Work`, and `## Open Questions` sections, populate with current state,
+then proceed.
 
 **2. Write the doc.** Update (or create) the following sections:
 
@@ -33,15 +34,11 @@ Search in this priority order:
 - **`## Active Work`** — *overwrite entirely*. Current state plus what comes next: one sentence on what was just being done, then an ordered list of immediate next subtasks specific enough that a fresh agent with no prior context can resume without asking the user. If a steering prompt was provided, integrate it here — append new tasks or reprioritize as appropriate. If stopping, note "Handoff" and list pickup steps.
 - **`## Open Questions`** — *append* any new unresolved questions or blockers, including ambiguity from a steering prompt. Mark resolved items with ~~strikethrough~~ and a resolution note.
 
-**Quality gate:** After writing, ask: "Could a fresh agent reading only this doc resume without asking the user anything?" If no, add what's missing before committing.
+**Quality gate:** Could a fresh agent reading only this doc resume without asking the user anything? If no, add what's missing before proceeding.
 
 **3. Commit (unless `--no-commit` was passed).**
 
-Follow AGENTS.md commit rules:
-- `git add` and `git commit` from within `shared/` (relationship-shared commits directly to `main`, no branch/PR)
-- Extract Jira ticket from branch name if applicable; otherwise use `docs:` prefix
-- Commit message: `docs: /continue checkpoint — <one-line summary of Active Work>`
-- Attribution footer: `🌀 Magic applied with Wibey JetBrains Plugin 🪄`
+Per AGENTS.md commit rules, commit from within `shared/`. Message: `docs: /continue checkpoint — <one-line summary of Active Work>`.
 
 **4. Call `/convo` with the task title.**
 
