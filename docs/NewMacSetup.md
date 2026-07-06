@@ -26,12 +26,9 @@ ln -sf ~/bin/shellrc/shellrc.common ~/.shellrc.common
 ln -sfn ~/Google\ Drive ~/gdrive
 ln -sfn ~/Google\ Drive/Shared\ drives/LP\ SCC\ Financial ~/lpscc
 
-# Wibey custom commands (hardlinks, not symlinks)
+# Wibey custom commands (hardlinks, not symlinks — glob loop never drifts)
 mkdir -p ~/.wibey/commands
-ln ~/bin/wibey/commands/convo.md ~/.wibey/commands/convo.md
-ln ~/bin/wibey/commands/commitz.md ~/.wibey/commands/commitz.md
-ln ~/bin/wibey/commands/commmitz.md ~/.wibey/commands/commmitz.md
-ln ~/bin/wibey/commands/say.md ~/.wibey/commands/say.md
+for f in ~/bin/.wibey/commands/*.md; do ln -f "$f" ~/.wibey/commands/; done
 
 # VS Code + Copilot
 brew install --cask visual-studio-code
