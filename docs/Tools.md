@@ -13,9 +13,9 @@
 | └ enqueue next prompt         | ❌            | ✅            | ✅                      |
 | └ context += @ file           | ✅            | 🟡<100KB     | 🟡<100KB                |
 | └ context += selection        | ✅ cmd-' pill | ✅ cmd-L pill | 🟡 cmd-L pill via Agent |
-| └ image paste                 | ❌❌           | ✅            | ✅                      |
-| └ convo title edit            | ✅            | ✅            | ✅                      |
-| └ convo title auto            | last prompt  | last prompt  | last prompt             |
+| └ image paste                 | ✅ ⚙️        | ✅            | ✅                      |
+| └ convo title edit            | ✅✅ ⚙️      | ✅            | ✅                      |
+| └ convo title auto            | first prompt ⚙️ | last prompt  | last prompt          |
 | └ convo search                | ✅            | ✅            | ✅                      |
 | └ convo timestamps            | ✅            | ✅            | ✅                      |
 | └ convo bookmark              | ✅            | ✅            | ✅                      |
@@ -402,6 +402,50 @@ Currently applied: font size patch (13px body text), IDEA 2026.2 compat fix (`JB
 ### Wibey Extension Patches
 
 New conversation bug fix (`clearMessages` on `newParallelSession`). Full procedure: **ToolMods.md → Wibey Extension**.
+
+### Wibey IDEA — Image Paste Fix (⚙️ local branch, PR pending)
+
+**Problem:** Cmd+V with any clipboard image was silently broken. Root cause: `IdeEventQueue` intercepts Cmd+V before any Swing handler — `paste()`, input maps, and `TransferHandler` are all bypassed.
+
+**Fix:** `IdeEventQueue.addDispatcher()` in `InputAttachmentManager.setupClipboardPaste()`. Dispatcher tied to panel `Disposable` (not project) to avoid accumulating stale handlers.
+
+**Files:** `InputAttachmentManager.kt`, `UserInputPanel.kt` — 7 unit tests.
+
+**PR:** [#170](https://gecgithub01.walmart.com/genaica/wibey-jetbrains-plugin/pull/170) · **Project doc:** [WibeyIDEAImagePaste.md](https://gecgithub01.walmart.com/CatalogRelationships/relationship-shared/blob/main/projects/WibeyIDEAImagePaste.md)
+
+### Wibey IDEA — Conversation Title Features (⚙️ local branch, PR pending)
+
+Three fixes/features on top of stock 1.0.20:
+
+- **Sidecar persistence:** `autoNameFromMessage()` now persists to sidecar JSON; History panel no longer reverts to last prompt on refresh.
+- **Active-chat title strip:** 28px strip (label + pencil) above the chat area; inline rename with Enter/Escape. Previously rename only existed in the History panel.
+- **Agent-driven rename:** "rename this conversation to X" triggers `wibey_set_conversation_title` in-process MCP tool; title updates mid-stream. Requires `createSdkMcpServer` + `queryOptions.mcpServers` (not `Options.tools`).
+- **User-title guard:** once a user manually renames, subsequent prompts don't overwrite it.
+
+**Files:** `ConversationManager.kt`, `SessionManager.kt`, `NativeChatToolWindowPanel.kt`, `ChatStreamHandler.kt`, `BunBridge.kt`, `StreamChunk.kt`, bridge TS files — 22 unit tests.
+
+**PR:** [#169](https://gecgithub01.walmart.com/genaica/wibey-jetbrains-plugin/pull/169) · **Project doc:** [WibeyTitleFeatures.md](https://gecgithub01.walmart.com/CatalogRelationships/relationship-shared/blob/main/projects/WibeyTitleFeatures.md)
+
+### Installing Both Patches Locally
+
+Both fixes live on `brian/local-combined` in `~/src/wibey-jetbrains-plugin` (merge of `brian/conversation-title-features` + `brian/image-paste-fix`). Branch has `jvmToolchain(17)` local workaround committed (JDK 21 auto-provision hangs through Zscaler proxy; output bytecode is identical).
+
+**To install** (must run in Terminal.app — Wibey kills long Gradle processes):
+
+```bash
+cd ~/src/wibey-jetbrains-plugin
+git checkout brian/local-combined
+./gradlew buildAndInstall   # ~5 min warm cache
+# restart IDEA
+```
+
+**To update after either PR branch gets new commits:**
+
+```bash
+git checkout brian/local-combined
+git merge brian/conversation-title-features   # whichever changed
+./gradlew buildAndInstall
+```
 
 ---
 
