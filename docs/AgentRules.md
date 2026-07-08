@@ -35,11 +35,12 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
   - [Wibey Skills — ~/bin/.wibey/ Directory](#wibey-skills----binwibey-directory)
     - [Project-Level Commands](#project-level-commands)
 
-## The Four Commandments
+## The Five Commandments
 
-- Don't ramble: from chapters to words, omit or condense until meaning changes.
+- Don't ramble: From sections to words, cut or condense until meaning changes.
+- Seriously, don't ramble: Cut everything that performs helpfulness without delivering it, or completeness without informing.
 - Don't clobber: Every file write must follow the [Write Rules](#write-rules).
-- Don't quit: Do not give up on the best tool for the job: if it is missing or broken, diagnose and repair/install it first; fallback only when repair fails and user is unresponsive, and state the fallback + reason.
+- Don't quit: Do not give up on the best tool for the job: if it is missing or broken or needs auth, invest in getting it to work, and fallback only when repair fails and user is unresponsive, and state the fallback + reason.
 - Don't spam: Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing other git or Confluence operations.
 
 ## ~/bin/ structure
@@ -288,11 +289,12 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
 
 **Three-tier taxonomy:**
 
-| Tier | Location | Tracked | Available on |
-| --- | --- | --- | --- |
-| 1 — Team | `relationship-shared/.wibey/` (via `shared/` symlink) | Walmart GHE | Work laptop, team repos |
-| 2 — Portable | `~/bin/.wibey/` | Public GitHub | Both laptops |
-| 3 — Personal Walmart-only | `~/.wibey/` | Untracked | Work laptop only (keep empty) |
+
+| Tier                       | Location                                              | Tracked       | Available on                  |
+| -------------------------- | ----------------------------------------------------- | ------------- | ----------------------------- |
+| 1 — Team                  | `relationship-shared/.wibey/` (via `shared/` symlink) | Walmart GHE   | Work laptop, team repos       |
+| 2 — Portable              | `~/bin/.wibey/`                                       | Public GitHub | Both laptops                  |
+| 3 — Personal Walmart-only | `~/.wibey/`                                           | Untracked     | Work laptop only (keep empty) |
 
 **`~/bin/.wibey/` directory layout:**
 
@@ -344,6 +346,7 @@ Other useful invocations:
 ```
 
 Three checks that `walmart-sync --` audit runs:
+
 - **Consistency** — byte-diff bin copies vs relationship-shared originals. Work laptop only.
 - **Portability** — grep for Walmart-internal markers (`gecgithub01`, internal hostnames, Jira keys) that must not appear in the public `~/bin/` GitHub repo.
 - **Ref-integrity** — flag references to paths/skills that dangle on personal laptop (`~/src/relationship-shared`, `shared/` symlink, non-mirrored skills like `doc-audit`).
