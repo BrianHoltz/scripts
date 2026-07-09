@@ -1,6 +1,6 @@
 ---
 description: Display a conversation banner
-allowed-tools: Bash, mcp__jetbrains-mcp__open_file_in_editor
+allowed-tools: Bash, mcp__jetbrains-mcp__open_file_in_editor, mcp__wibey_bridge__wibey_set_conversation_title
 ---
 
 Interpolate values into the template block below and render it as Markdown exactly as shown.
@@ -13,7 +13,7 @@ Interpolate values into the template block below and render it as Markdown exact
 
 **Conversation title (`#` line):**
 
-Check whether the current conversation has an official title visible in the IDE or agent history sidebar. Use it verbatim if it is substantive — not a single-prompt echo, not a default like "New Conversation", and not merely the most recent message rephrased. If the official title is good, use it. If you must synthesize a title: generate a terse one-line summary of the whole conversation, then attempt to set the official conversation title using any available MCP tool or mechanism; skip that step silently if no such mechanism is known.
+Check whether the current conversation has an official title visible in the IDE or agent history sidebar. Use it verbatim if it is substantive — not a single-prompt echo, not a default like "New Conversation", and not merely the most recent message rephrased. If the official title is good, use it. If you must synthesize a title: generate a terse one-line summary of the whole conversation, then call `mcp__wibey_bridge__wibey_set_conversation_title` with a concise title (2–6 words, ≤60 chars) to set the official IDE conversation title — skip silently if the tool is unavailable.
 
 **Doc detection (run before rendering):**
 

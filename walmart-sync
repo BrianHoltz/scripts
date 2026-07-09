@@ -48,6 +48,12 @@ PERSONAL_ONLY = {
     ".wibey/commands/say.md",
 }
 
+# Files exempt from the ref-integrity check: guarded probe loops that gracefully
+# no-op when a path is absent on personal laptop (for D in ...; do [ -d "$D" ]).
+REF_INTEGRITY_EXEMPT = {
+    ".wibey/skills/ailert/SKILL.md",  # $HOME/src/relationship-shared probe — guarded for-D loop
+}
+
 # Files exempt from the portability push-gate: these necessarily reference internal
 # terms in a meta/documentary context and are already present in the public repo.
 PORTABILITY_PUSH_EXEMPT = {
@@ -323,6 +329,11 @@ def check_ref_integrity(verbose=False):
         for f in files:
             if not f.is_file():
                 continue
+            rel = f.relative_to(BIN)
+            if str(rel) in REF_INTEGRITY_EXEMPT:
+                if verbose:
+                    print(c(GREEN, f"  [ok] {rel} (ref-integrity exempt)"))
+                continue
             # Combine and deduplicate by line number (first label wins)
             seen_lines = set()
             raw_hits = (grep_patterns(f, REF_INTEGRITY_PATTERNS) +
@@ -332,7 +343,6 @@ def check_ref_integrity(verbose=False):
                 if h[0] not in seen_lines:
                     hits.append(h)
                     seen_lines.add(h[0])
-            rel = f.relative_to(BIN)
             if hits:
                 print(c(YELLOW, f"  [ref?] {rel}"))
                 for lineno, line, label in hits[:10]:
