@@ -3,42 +3,42 @@
 ## IDEs
 
 
-| Feature                        | IDEA         | VS Code      | Cursor                  |
-| ------------------------------ |--------------|--------------| ----------------------- |
-| Score                          | 28.5         | 20.5 ⚙️      | 19.5                    |
-| IDE                            | 2026.2 EAP   | 1.125.1      | 3.10.17                 |
-| VSCode engine                  | —            | —            | 1.105.1                 |
-| Wibey                          | 1.0.20       | 1.0.16 ⚙️    | 1.0.18                  |
-| └ parallel agents             | ✅            | ✅            | ✅                      |
-| └ enqueue next prompt         | ❌            | ✅            | ✅                      |
-| └ context += @ file           | ✅            | 🟡<100KB     | 🟡<100KB                |
-| └ context += selection        | ✅ cmd-' pill | ✅ cmd-L pill | 🟡 cmd-L pill via Agent |
-| └ image paste                 | ✅ ⚙️        | ✅            | ✅                      |
-| └ convo title edit            | ✅✅ ⚙️      | ✅            | ✅                      |
-| └ convo title auto            | first prompt ⚙️ | last prompt  | last prompt          |
-| └ convo search                | ✅            | ✅            | ✅                      |
-| └ convo timestamps            | ✅            | ✅            | ✅                      |
-| └ convo bookmark              | ✅            | ✅            | ✅                      |
-| └ rich/linked paste           | ❌            | ❌            | ❌                      |
-| Github Copilot                 | 1.11.2-251   | 0.39.0       | 1.388.0 ????            |
-| └ parallel agents             | ✅            | ✅            | ✅                      |
-| └ context += selection        | ✅ auto       | ❌            | ❌                      |
-| └ convo title                 | 🟡 manual    | ✅ auto       | ✅ auto                 |
-| AI diff review                 | ✅ per delta  | 🟡 per file  | 🟡 per file             |
-| AI diff in linked repo         | ✅            | ❌            | ❌                      |
-| git ops in linked repo         | ✅            | ✅            | ✅                      |
-| approval UX                    | ✅            | ✅            | ✅                      |
-| md preview                     | ✅            | 🟡 only 1    | ✅✅ wysiwyg            |
-| md preview search              | ✅            | ✅            | ❌❌ neither            |
-| md table format                | ✅✅ auto      | 🟡 manual    | 🟡 manual               |
-| md pastes details block        | ❌            | ✔️           | ✔️                    |
-| md headers paste bold to Slack | ✅            | ❌            | ❌                      |
-| search/find                    | ✅            | ✅            | ✅                      |
-| git                            | 🟡           | ✅✅           | ✅✅                    |
-| debug                          | ✅            | ?            | ?                       |
-| database                       | ✅            | ❌            | ❌                      |
-| http                           | ✅            | ❌            | ❌                      |
-| editor history UI              | ✅            | 🟡           | 🟡                      |
+| Feature                        | IDEA              | VS Code       | Cursor                  |
+| ------------------------------ | ----------------- | ------------- | ----------------------- |
+| Score                          | 28.5              | 20.5 ⚙️     | 19.5                    |
+| IDE                            | 2026.2 EAP        | 1.125.1       | 3.10.17                 |
+| VSCode engine                  | —                | —            | 1.105.1                 |
+| Wibey                          | 1.0.21            | 1.0.16 ⚙️   | 1.0.18                  |
+| └ parallel agents             | ✅                | ✅            | ✅                      |
+| └ enqueue next prompt         | ❌                | ✅            | ✅                      |
+| └ context += @ file           | ✅                | 🟡<100KB      | 🟡<100KB                |
+| └ context += selection        | ✅ cmd-' pill     | ✅ cmd-L pill | 🟡 cmd-L pill via Agent |
+| └ image paste                 | ✅ ⚙️           | ✅            | ✅                      |
+| └ convo title edit            | ✅✅ ⚙️         | ✅            | ✅                      |
+| └ convo title auto            | first prompt ⚙️ | last prompt   | last prompt             |
+| └ convo search                | ✅                | ✅            | ✅                      |
+| └ convo timestamps            | ✅                | ✅            | ✅                      |
+| └ convo bookmark              | ✅                | ✅            | ✅                      |
+| └ rich/linked paste           | ❌                | ❌            | ❌                      |
+| Github Copilot                 | 1.11.2-251        | 0.39.0        | 1.388.0 ????            |
+| └ parallel agents             | ✅                | ✅            | ✅                      |
+| └ context += selection        | ✅ auto           | ❌            | ❌                      |
+| └ convo title                 | 🟡 manual         | ✅ auto       | ✅ auto                 |
+| AI diff review                 | ✅ per delta      | 🟡 per file   | 🟡 per file             |
+| AI diff in linked repo         | ✅                | ❌            | ❌                      |
+| git ops in linked repo         | ✅                | ✅            | ✅                      |
+| approval UX                    | ✅                | ✅            | ✅                      |
+| md preview                     | ✅                | 🟡 only 1     | ✅✅ wysiwyg            |
+| md preview search              | ✅                | ✅            | ❌❌ neither            |
+| md table format                | ✅✅ auto         | 🟡 manual     | 🟡 manual               |
+| md pastes details block        | ❌                | ✔️          | ✔️                    |
+| md headers paste bold to Slack | ✅                | ❌            | ❌                      |
+| search/find                    | ✅                | ✅            | ✅                      |
+| git                            | 🟡                | ✅✅          | ✅✅                    |
+| debug                          | ✅                | ?             | ?                       |
+| database                       | ✅                | ❌            | ❌                      |
+| http                           | ✅                | ❌            | ❌                      |
+| editor history UI              | ✅                | 🟡            | 🟡                      |
 
 Score rubric
 
