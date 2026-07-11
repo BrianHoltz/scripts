@@ -8,7 +8,7 @@
 | Score                          | 28.5              | 20.5 ⚙️     | 19.5                    |
 | IDE                            | 2026.2 EAP        | 1.125.1       | 3.10.17                 |
 | VSCode engine                  | —                | —            | 1.105.1                 |
-| Wibey                          | 1.0.21            | 1.0.16 ⚙️   | 1.0.18                  |
+| Wibey                          | 1.0.21            | 1.0.18 ⚙️   | 1.0.18 ⚙️              |
 | └ parallel agents             | ✅                | ✅            | ✅                      |
 | └ enqueue next prompt         | ❌                | ✅            | ✅                      |
 | └ context += @ file           | ✅                | 🟡<100KB      | 🟡<100KB                |
@@ -61,7 +61,7 @@ Score rubric
 
 | Behavior                 | IDEA viewer | IDEA editor | typedown     | zaaack                            | Cursor native |
 | ------------------------ | ----------- | ----------- | ------------ | --------------------------------- | ------------- |
-| version                  | 2026.2 EAP  | 2026.2 EAP  | 1.1.7        | 0.1.15 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
+| version                  | 2026.2 EAP  | 2026.2 EAP  | 1.1.7        | 0.1.17 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
 | >1 tab at a time         | ✅          | ✅✅        | ✅✅         | ✅✅                              | ✅✅          |
 | re-read changed file     | ?           | ?           | ✅           | ?                                 | ?             |
 | wide tables              | ✅          | ✅          | ❌ truncates | ✅✅                              | ❌ truncates  |
