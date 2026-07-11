@@ -28,6 +28,7 @@ MIRROR_ITEMS = [
     (".wibey/skills/ailert",       ".wibey/skills/ailert",       True),
     (".wibey/skills/clipboard-read",".wibey/skills/clipboard-read",True),
     (".wibey/skills/converge",     ".wibey/skills/converge",      True),
+    (".wibey/skills/doc-audit",    ".wibey/skills/doc-audit",    True),
     # commands
     (".wibey/commands/continue.md",".wibey/commands/continue.md", False),
     (".wibey/commands/plando.md",  ".wibey/commands/plando.md",   False),
@@ -85,9 +86,7 @@ REF_INTEGRITY_PATTERNS = [
     # shared/.wibey as local symlink — only flag when not inside a URL (no http/https before it)
     # Uses a custom match function; here we match then filter in grep_patterns_no_url()
     # (implemented as a separate pass below)
-    # doc-audit invoked as a command (not just a prose mention or comment)
-    (r'/doc-audit\b|skill[=:\s]+doc-audit\b',
-     "doc-audit skill invocation (not in bin mirror)"),
+    # (doc-audit is now mirrored — no ref-integrity check needed)
 ]
 
 # Patterns checked with URL-exclusion (line must not contain http/https before the match)
@@ -473,7 +472,7 @@ DESCRIPTION
                   in the public ~/bin GitHub repo.
 
     Ref-integrity Flag references to paths/skills that dangle on personal
-                  laptop (e.g. ~/src/relationship-shared, shared/, doc-audit).
+                  laptop (e.g. ~/src/relationship-shared, shared/).
 
 OPTIONS
     --consistency     Run consistency check only
