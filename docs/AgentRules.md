@@ -65,6 +65,7 @@ Canonical personal path aliases in `~/`:
 - `~/lpscc` → `~/Google Drive/Shared drives/LP SCC Financial` — preferred short path for LP SCC Financial
 
 Use these aliases in local tool/IDE config when possible to avoid space-heavy paths and keep paths consistent across settings.
+For workspace roots, attach `~/lpscc` itself; do **not** attach `~/My Drive/Libertarian/LPSCC` directly.
 
 The `~/bin/` repo also contains personal tool settings and reference docs (not symlinked):
 
@@ -275,6 +276,7 @@ Maintenance/debug checklist:
 - After adding or changing files, reload the IDE window.
 - Keep the source files in `~/bin/.wibey/commands/`; do not rename or move them.
 - If discovery still fails, check YAML frontmatter: `description` must be present and valid.
+- TODO: design and implement a bridge so Wibey/Claude custom skills and commands are discoverable and usable from GitHub Copilot (not just Wibey/Claude command loaders).
 
 **Outside team repos (work laptop only):** When the current workspace has no `shared/` symlink (e.g. `~/My Drive/`, `~/Desktop/`, any personal folder), the team skills and commands are still available directly at `~/src/relationship-shared/.wibey/`. Always check there before concluding a skill or command doesn't exist.
 
