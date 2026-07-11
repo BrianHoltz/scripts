@@ -8,7 +8,7 @@
   - **2026.04.24.Fri** [`CATGTRLSHP-193`](https://jira.megacorp.com/browse/CATGTRLSHP-193) VP creation activities stuck *(Jira: date bold, ID linked, title after)*
   - [`2026.04.24.Fri Brian Holtz #quarth-support`](https://slack.megacorp.com/archives/C...) seller variant grouping blocked *(Slack: entire string linked, context after)*
 - [**What**](#scope) Business Impact: envs=stg|prod, tenants=list *(both mandatory, both lowercase). What broke for whom. Volumes if known.*
-- [**Why**](#root-cause-analysis) It Happened: *Current leading hypothesis. Will change — that's fine, update it.*
+- [**Why**](#diagnosis) It Happened: *Current leading hypothesis. Will change — that's fine, update it.*
 - [**How**](#symptoms) It Manifests — [Scope](#scope): *Synthesis of Symptoms + Scope: what the problem looks like and how far it reaches. 2–3 bullets max; not root cause. Must include 1–2 direct evidence links — ideally an OLS Discover permalink (Share → Copy URL, encodes query + time histogram) and/or a Grafana panel — that let any reader (1) confirm the symptoms are real and when they began, and (2) check whether they're still happening now. Capture the OLS permalink while you're in OLS before closing the tab — it's nearly impossible to reconstruct later.*
 - **Which** Systems Involved: *list of systems, each proper noun linked to most relevant target in docs/ or in this doc*.
 - **Who:** *One sub-bullet per person. Always include the team member(s) who investigated. Reporter is often already named in Where Tracked.*
@@ -33,16 +33,16 @@
 - [Tasks](#tasks)
 - [Active Work](#active-work)
 - [Draft Next Comms](#draft-next-comms)
-- [Open Questions](#open-questions)
+- [Undecided Questions](#undecided-questions)
 - [Symptoms](#symptoms)
 - [Scope](#scope)
+- [Diagnosis](#diagnosis)
 - [Investigation Sections](#incident-specific-investigation-sections)
 - [Timeline](#timeline)
-- [Root Cause Analysis](#root-cause-analysis)
 - [Learnings](#learnings)
 - [Action Items](#action-items)
 - [Context](#context)
-- [Closed Questions](#closed-questions)
+- [Decided Questions](#decided-questions)
 - [Evidence](#evidence)
 - [Work Log](#work-log)
 
@@ -64,9 +64,9 @@ Current sub-steps, blockers, and partial results for the in-progress thread. Mut
 
 Pre-composed messages ready to send — Slack replies, Jira comments, emails. Each draft is a `###` sub-heading with target, a `Status: DRAFT` or `Status: READY` line, and the message body in a blockquote. Include an [incident doc](link) reference in every draft. When a draft is sent, delete it from here entirely and record one Work Log entry with the destination and Slack `ts` or message URL.
 
-## Open Questions
+## Undecided Questions
 
-Unresolved decisions that need an *answer* from your own team — not an action, and not a response from another team. If a question turns out to need an external answer, *convert* it: remove it from here, create a Draft Next Comms entry, and mark any blocking task 🛑 — never leave a question in both places. Every question that blocks an investigative thread must have a corresponding ▶️ (or 🛑) row in the Tasks table. Name a tool or owner if known — don't let uncertainty about that stop you from writing the question. Move to Closed Questions once answered — never delete.
+Unresolved decisions your team needs to make — distinct from investigative leads (which belong in [Diagnosis → Pending Investigations](#diagnosis)) and external blockers (which belong in [Draft Next Comms](#draft-next-comms)). If a question turns out to need an external answer, *convert* it: remove it from here, create a Draft Next Comms entry, and mark any blocking task 🛑 — never leave a question in both places. Move to Decided Questions once resolved — never delete.
 
 ## Symptoms
 
@@ -81,6 +81,33 @@ Documents the footprint of the incident across five dimensions: impact, systems,
 - **People/Teams:** Reporters, on-call, adjacent teams engaged. xMatters/Slack handles.
 - **Entities:** Specific catalog records in play — WPIDs, GTINs, DGIDs, feed IDs, item_ids. The sample set for verification queries.
 - **Time:** Impact duration synthesized from [Summary → When](#summary) timestamps — do not repeat raw timestamps here. Cover the total customer-impact window (Started → Resolved or mitigation); whether it crossed peak hours, a release window, or a maintenance window; whether impact was continuous or intermittent.
+
+## Diagnosis
+
+### Differential Diagnosis
+
+Candidate causes ranked by probability, highest first. P% is a betting odd — the likelihood this theory is a significant contributor to the incident. Theories need not sum to 100% (causes may overlap or be non-exclusive). Update probabilities as evidence arrives; reordering is a claim that must be justifiable from the Work Log.
+
+| Theory | P% | Status |
+| ------ | --- | ------ |
+
+Status glyphs: ▶️ Active · ⏭️ Queued · ✅ Ruled out
+
+Ruled-out rows stay in the table as an investigation record. When a theory is ruled out, log how and why in the Work Log. Do not delete rows.
+
+### Pending Investigations
+
+Investigative threads not yet pursued, ordered by diagnostic value — the check that would most update the Differential Diagnosis runs first. Each entry states what to check and what each outcome would mean for the Differential Diagnosis.
+
+*Format: Check [X] — if [outcome A], supports/rules in theory N; if [outcome B], rules out theory M.*
+
+When a thread completes: remove it from here, update the relevant Differential Diagnosis row's P% and Status, and log the finding in Work Log.
+
+### Cause
+
+*[Withheld from template — add this subsection only when a theory is Leading: tested against named alternatives with none falsifying it. Creating it speculatively is a violation. When written, update Status to `🎯 DIAGNOSED`.]*
+
+*When writing: distinguish the proximate trigger (the immediate cause) from the systemic root cause (the underlying condition that made the trigger possible). Use "supported by [†](#e-slug)" for each supporting claim and "leading" to characterize the overall theory. For complex incidents, trace causation with 5 Whys: start from the symptom and ask Why until you reach something structural. For contested causes, apply the counterfactual methodology in [IncidentRCA.md](../IncidentRCA.md#counterfactual-analysis). See also [AgentAntiPatterns.md](../AgentAntiPatterns.md).*
 
 ## [Incident-specific investigation sections]
 
@@ -102,16 +129,6 @@ Unified chronological record of what happened, including events discovered retro
 - Include: deploys, config changes, upstream events, alerts, stakeholder communications, mitigations
 - Exclude: routine investigation steps — those belong in Work Log
 - Retroactive entries are fine; note them as such if timing is approximate
-
-## Root Cause Analysis
-
-The definitive explanation of why the incident happened. Distinguish the proximate trigger (the immediate cause) from the systemic root cause (the underlying condition that made the trigger possible). Never skip this section — even a one-liner is better than leaving it blank. For complex incidents, use the 5 Whys: start with the symptom and ask Why until you reach something structural, not just operational.
-
-Avoid "confirmed" for active claims — use "evidenced by [†]" or "undefeated" (tested against named alternatives; all failed to falsify) until disconfirming checks pass. See [AgentAntiPatterns.md](../AgentAntiPatterns.md) (your local library of painful lessons).
-
-### Counterfactual Analysis
-
-Required when root cause is contested or non-obvious. Apply the methodology in [IncidentRCA.md](../IncidentRCA.md#counterfactual-analysis).
 
 ## Learnings
 
@@ -154,9 +171,9 @@ Definitions of terms, acronyms, and system components specific to this incident.
 - **Quote or link official definitions first.** If the term is defined in `shared/docs/` (or wherever you keep your shared docs) (e.g., `CatalogIDs.md`, `CatalogRelationships.md`, a `repos/<service>.md`), quote or paraphrase from there and link to the source rather than writing a new definition from scratch. This keeps terminology consistent across all incident docs.
 - **Add new terms back to shared/docs/.** If you define a concept here that belongs in a shared doc (a new acronym, a system component, a platform behavior), add it there too. Incident docs are ephemeral; `shared/docs/` (or wherever you keep your shared docs) is the long-lived reference.
 
-## Closed Questions
+## Decided Questions
 
-Open Questions that have been resolved. Move entries here verbatim; add the resolution and date. Do not delete — the record of what we ruled out and why is part of the investigation audit trail.
+Resolved entries from [Undecided Questions](#undecided-questions). Move entries here verbatim; add the resolution and date. Do not delete — the record of what we decided and why is part of the investigation audit trail.
 
 ## Evidence
 

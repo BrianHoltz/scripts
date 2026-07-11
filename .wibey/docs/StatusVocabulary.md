@@ -39,6 +39,22 @@
 - **SN / ITIL** — ServiceNow Incidents ticketing system (lifecycle: New → Assigned → In Progress → On Hold → Resolved → Closed → Canceled; P1 Critical – P5 Very Low). [ITIL](https://en.wikipedia.org/wiki/ITIL) (IT Infrastructure Library) is the industry process standard that ServiceNow implements.
 - **Google SRE** — [Google Site Reliability Engineering](https://sre.google/sre-book/table-of-contents/) uses overlapping lifecycle *phases* rather than discrete states: Detection → Response → Mitigation → Resolution → Post-Incident. Column values indicate which phase each status falls within.
 
+## Confidence Ladder
+
+Vocabulary for characterizing the epistemic strength of a claim or theory during investigation. Use the lowest rung the evidence actually supports — never skip rungs to signal confidence you don't have.
+
+| Term | Meaning | Use when |
+| ---- | ------- | -------- |
+| **Hypothesized** | Plausible; no supporting evidence yet | A theory has been named but not yet checked against any data |
+| **Candidate** | Plausible; circumstantially supported | Early signals point toward it; no direct evidence yet |
+| **Tenable** | Evidence fits; alternatives not yet tested | Direct evidence is consistent with the theory; no disconfirming check has been run |
+| **Supported** | Specific evidence cited; alternatives not ruled out | One or more Evidence entries back the claim; alternatives still in play |
+| **Corroborated** | Independently evidenced by 2+ sources | Multiple independent evidence entries converge on the same conclusion |
+| **Leading** | Tested against named alternatives; none falsified it | Disconfirming checks were run against specific rival theories; all failed to falsify this one. This is the threshold for writing `### Cause` in a Diagnosis section and updating Status to `🎯 DIAGNOSED`. |
+| **Established** | Multiple independent sources; all disconfirming tests passed | The strongest non-"confirmed" claim; appropriate post-incident in a finalized postmortem |
+
+**"Confirmed" is not on this ladder.** It implies certainty that incident investigations almost never warrant. The word actively suppresses further inquiry — readers stop questioning; agents stop testing. Use **Established** for the strongest claims. See [AgentAntiPatterns.md](AgentAntiPatterns.md) for the canonical example of premature confirmation causing a 30-minute investigative detour.
+
 ## Sources
 
 **Industry SOTA (general knowledge + external research 2026.04.24):**
