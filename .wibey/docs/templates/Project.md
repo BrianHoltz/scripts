@@ -46,12 +46,12 @@ Verbatim excerpt of selected Tasks rows: recent completions and upcoming work. U
 - [Tasks](#tasks)
 - [Active Work](#active-work)
 - [Draft Next Comms](#draft-next-comms) *(optional)*
-- [Open Questions](#open-questions)
+- [Undecided Questions](#undecided-questions)
 - [Ad Hoc Sections](#ad-hoc-sections)
 - [Interfaces](#interfaces)
 - [Engineering Considerations](#engineering-considerations)
 - [Context](#context)
-- [Closed Questions](#closed-questions)
+- [Decided Questions](#decided-questions)
 - [Appendices](#appendices)
 - [Evidence](#evidence)
 - [Work Log](#work-log)
@@ -95,11 +95,11 @@ The mutable present: fine-grained subtasks and cached state for whichever [Tasks
 
 *Optional.* Pre-composed outbound communications — stakeholder status updates, PR announcements, release notifications, team posts. Each draft is a `###` sub-heading with target, a `Status: DRAFT` or `Status: READY` line, and the message body in a blockquote. When a draft is sent, delete it from here entirely and record one Work Log entry with the destination and message URL.
 
-## Open Questions
+## Undecided Questions
 
-Unresolved decisions that need an *answer* from your own team — not an action, and not a response from another team. If resolving a question requires doing something, that doing is a Task; the question stays here until answered. If a question turns out to need an external answer, *convert* it: remove it from here, create a Draft Next Comms entry, and mark any blocking Task 🛑 — never leave a question in both places. Every question that blocks a Task must have a corresponding ▶️ (or 🛑) row in the Tasks table. Move to Closed Questions once answered — never delete.
+Unresolved decisions or questions that need an *answer* from your own team — not an action, and not a response from another team. If resolving a question requires doing something, that doing is a Task; the question stays here until answered. If a question turns out to need an external answer, *convert* it: remove it from here, create a Draft Next Comms entry, and mark any blocking Task 🛑 — never leave a question in both places. Every question that blocks a Task must have a corresponding ▶️ (or 🛑) row in the Tasks table. Move to Decided Questions once answered — never delete.
 
-See [Closed Questions](#closed-questions) for resolved items.
+See [Decided Questions](#decided-questions) for resolved items.
 
 ## Ad Hoc Sections
 
@@ -179,10 +179,10 @@ Cross-cutting concerns that any reviewer or on-call engineer would want to know.
 
 *Optional. Definitions of terms, acronyms, or system components specific to this project. Define inline if brief; add an entry here if the explanation is longer than a parenthetical.*
 
-## Closed Questions
+## Decided Questions
 
 - Resolved questions archived for context. Each entry states what was decided, why, and when.
-- By default, Closed Questions should be all and only the questions that were previously in Open Questions. Do not add questions here that were never open: those are just decisions, and belong in the narrative sections or appendices. Do not remove questions when closing them: move them here verbatim and add the resolution.
+- By default, Decided Questions should be all and only the questions that were previously in Undecided Questions. Do not add questions here that were never open: those are just decisions, and belong in the narrative sections or appendices. Do not remove questions when closing them: move them here verbatim and add the resolution.
 
 ## Appendices
 

@@ -68,6 +68,7 @@ P1_ORIGINAL = 'toolbarConfig:{pin:!0},'
 P2_VARIANTS = [
     ('after(){V_(),Y_(),sB(),K_()}',  'after(){V_(),Y_(),sB(),K_(),window.__zaaackEnhance&&window.__zaaackEnhance()}'),  # vditor 3.8.4 (Zaaack 0.1.13)
     ('after(){vE(),wE(),VH(),bE()}',  'after(){vE(),wE(),VH(),bE(),window.__zaaackEnhance&&window.__zaaackEnhance()}'),  # vditor 3.11.2 (Zaaack 0.1.15)
+    ('after(){xE(),SE(),XH(),EE(),vditor.focus(),window.__vmdSearch||(window.__vmdSearch=JH())}',  'after(){xE(),SE(),XH(),EE(),vditor.focus(),window.__vmdSearch||(window.__vmdSearch=JH()),window.__zaaackEnhance&&window.__zaaackEnhance()}'),  # vditor 3.11.2 (Zaaack 0.1.17)
 ]
 
 # Patch 4: wrap vscode.postMessage to drop intra-doc open-link messages
@@ -370,16 +371,32 @@ P5_NEW = (
 MULTIPANEL_CHECK = 'EditorPanel.panelsByPath'
 
 # 1. Remove singleton disposal + reveal block from createOrShow
-MULTIPANEL_SINGLETON_OLD = (
-    '        if (EditorPanel.currentPanel && uri !== ((_a = EditorPanel.currentPanel) === null || _a === void 0 ? void 0 : _a._uri)) {\n'
-    '            EditorPanel.currentPanel.dispose();\n'
-    '        }\n'
-    '        // If we already have a panel, show it.\n'
-    '        if (EditorPanel.currentPanel) {\n'
-    '            EditorPanel.currentPanel._panel.reveal(column);\n'
-    '            return;\n'
-    '        }'
-)
+# List of variants because 0.1.17 added a postMessage({command:'focus'}) before the return.
+MULTIPANEL_SINGLETON_OLD_VARIANTS = [
+    # Zaaack ≤0.1.15 — no postMessage on reveal
+    (
+        '        if (EditorPanel.currentPanel && uri !== ((_a = EditorPanel.currentPanel) === null || _a === void 0 ? void 0 : _a._uri)) {\n'
+        '            EditorPanel.currentPanel.dispose();\n'
+        '        }\n'
+        '        // If we already have a panel, show it.\n'
+        '        if (EditorPanel.currentPanel) {\n'
+        '            EditorPanel.currentPanel._panel.reveal(column);\n'
+        '            return;\n'
+        '        }'
+    ),
+    # Zaaack 0.1.17+ — adds webview.postMessage({ command: 'focus' }) before return
+    (
+        '        if (EditorPanel.currentPanel && uri !== ((_a = EditorPanel.currentPanel) === null || _a === void 0 ? void 0 : _a._uri)) {\n'
+        '            EditorPanel.currentPanel.dispose();\n'
+        '        }\n'
+        '        // If we already have a panel, show it.\n'
+        '        if (EditorPanel.currentPanel) {\n'
+        '            EditorPanel.currentPanel._panel.reveal(column);\n'
+        '            EditorPanel.currentPanel._panel.webview.postMessage({ command: \'focus\' });\n'
+        '            return;\n'
+        '        }'
+    ),
+]
 MULTIPANEL_SINGLETON_NEW = ''  # replaced by per-file lookup inserted below
 
 # 2. Insert per-file check just before panel creation
@@ -421,8 +438,9 @@ def patch_extension_js_multipanel(path):
 
     ok = True
 
-    if src.count(MULTIPANEL_SINGLETON_OLD) == 1:
-        src = src.replace(MULTIPANEL_SINGLETON_OLD, MULTIPANEL_SINGLETON_NEW, 1)
+    _mp1_match = next((v for v in MULTIPANEL_SINGLETON_OLD_VARIANTS if src.count(v) == 1), None)
+    if _mp1_match is not None:
+        src = src.replace(_mp1_match, MULTIPANEL_SINGLETON_NEW, 1)
         print('    [MP1] singleton block removed')
     else:
         print('    [MP1] singleton block anchor not found — skipped (manual apply may be needed)')

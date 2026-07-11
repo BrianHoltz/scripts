@@ -306,6 +306,7 @@ Wibey discovers project-level skills from `<workspace>/.wibey/skills/`. The `~/b
     ailert/          SKILL.md + assets/  — mirrored from relationship-shared
     clipboard-read/  SKILL.md            — mirrored
     converge/        SKILL.md            — mirrored
+    doc-audit/       SKILL.md            — mirrored
     ftm/             SKILL.md            — personal-only (Family Tree Maker integration)
   commands/
     commitz.md       — personal-only (cluster diffs into commit buckets)
@@ -351,17 +352,16 @@ Three checks that `walmart-sync --` audit runs:
 
 - **Consistency** — byte-diff bin copies vs relationship-shared originals. Work laptop only.
 - **Portability** — grep for Walmart-internal markers (`gecgithub01`, internal hostnames, Jira keys) that must not appear in the public `~/bin/` GitHub repo.
-- **Ref-integrity** — flag references to paths/skills that dangle on personal laptop (`~/src/relationship-shared`, `shared/` symlink, non-mirrored skills like `doc-audit`).
+- **Ref-integrity** — flag references to paths/skills that dangle on personal laptop (`~/src/relationship-shared`, `shared/` symlink).
 
 **Known pre-existing portability issues:** The SKILL.md files for `ailert`, `clipboard-read`, and `converge`, and the commands `continue`, `plando`, `tdd` all contain GHE provenance links (`gecgithub01.walmart.com`) and `relationship-shared` text references — these shipped with the initial mirror and are already committed to the public repo. To clean them up, strip the provenance block from each file in relationship-shared before re-mirroring, or patch them locally after sync.
 
 **When AgentRules.md mirror lists change**, update `MIRROR_ITEMS` and `PERSONAL_ONLY` in `~/bin/walmart-sync` to match.
 
-Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`.
+Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`, `doc-audit`.
 Currently mirror-safe commands: `continue`, `plando`, `tdd`.
 Currently mirror-safe docs: `AnchorDoc.md`, `StatusVocabulary.md`, `IncidentRCA.md`, `templates/Project.md`, `templates/Incident.md`.
 
-**Not mirrored:** `doc-audit` — contains Walmart-internal URLs (gecgithub01, Jira keys, service names) that are inappropriate for a public GitHub repo. Accessible only from `relationship-shared/.wibey/skills/doc-audit/` on the work laptop.
 
 ### Project-Level Commands
 

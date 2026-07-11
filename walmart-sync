@@ -28,6 +28,7 @@ MIRROR_ITEMS = [
     (".wibey/skills/ailert",       ".wibey/skills/ailert",       True),
     (".wibey/skills/clipboard-read",".wibey/skills/clipboard-read",True),
     (".wibey/skills/converge",     ".wibey/skills/converge",      True),
+    (".wibey/skills/doc-audit",    ".wibey/skills/doc-audit",    True),
     # commands
     (".wibey/commands/continue.md",".wibey/commands/continue.md", False),
     (".wibey/commands/plando.md",  ".wibey/commands/plando.md",   False),
@@ -46,6 +47,12 @@ PERSONAL_ONLY = {
     ".wibey/commands/commitz.md",
     ".wibey/commands/convo.md",
     ".wibey/commands/say.md",
+}
+
+# Files exempt from the ref-integrity check: guarded probe loops that gracefully
+# no-op when a path is absent on personal laptop (for D in ...; do [ -d "$D" ]).
+REF_INTEGRITY_EXEMPT = {
+    ".wibey/skills/ailert/SKILL.md",  # $HOME/src/relationship-shared probe — guarded for-D loop
 }
 
 # Files exempt from the portability push-gate: these necessarily reference internal
@@ -79,9 +86,7 @@ REF_INTEGRITY_PATTERNS = [
     # shared/.wibey as local symlink — only flag when not inside a URL (no http/https before it)
     # Uses a custom match function; here we match then filter in grep_patterns_no_url()
     # (implemented as a separate pass below)
-    # doc-audit invoked as a command (not just a prose mention or comment)
-    (r'/doc-audit\b|skill[=:\s]+doc-audit\b',
-     "doc-audit skill invocation (not in bin mirror)"),
+    # (doc-audit is now mirrored — no ref-integrity check needed)
 ]
 
 # Patterns checked with URL-exclusion (line must not contain http/https before the match)
@@ -323,6 +328,11 @@ def check_ref_integrity(verbose=False):
         for f in files:
             if not f.is_file():
                 continue
+            rel = f.relative_to(BIN)
+            if str(rel) in REF_INTEGRITY_EXEMPT:
+                if verbose:
+                    print(c(GREEN, f"  [ok] {rel} (ref-integrity exempt)"))
+                continue
             # Combine and deduplicate by line number (first label wins)
             seen_lines = set()
             raw_hits = (grep_patterns(f, REF_INTEGRITY_PATTERNS) +
@@ -332,7 +342,6 @@ def check_ref_integrity(verbose=False):
                 if h[0] not in seen_lines:
                     hits.append(h)
                     seen_lines.add(h[0])
-            rel = f.relative_to(BIN)
             if hits:
                 print(c(YELLOW, f"  [ref?] {rel}"))
                 for lineno, line, label in hits[:10]:
@@ -463,7 +472,7 @@ DESCRIPTION
                   in the public ~/bin GitHub repo.
 
     Ref-integrity Flag references to paths/skills that dangle on personal
-                  laptop (e.g. ~/src/relationship-shared, shared/, doc-audit).
+                  laptop (e.g. ~/src/relationship-shared, shared/).
 
 OPTIONS
     --consistency     Run consistency check only
