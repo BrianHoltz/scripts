@@ -43,6 +43,8 @@ DESCRIPTION
 
 OPTIONS
     --run             Execute immediately (skip dry-run). Overrides safety checks.
+    -X, --delete-excluded
+                      Also delete files on DEST that match exclude patterns.
     -H, --raw-help    Show this raw usage text and exit.
     -h, --help        Show colorized usage and exit (no state changes).
 
@@ -75,6 +77,10 @@ EXAMPLES
 
     # Sync backup bundle to remote, execute immediately
     $ rsynk --run Backups.sparsebundle brian@livingroommac.local:~/Backups/Backups/
+
+    # Backup $HOME to livingroom server (dry-run, then repeat to execute)
+    $ rsynk "$HOME/" brian@LivingRoomMac.local:~/Backups/Backups/BrianMacBook
+    $ rsynk "$HOME/" brian@LivingRoomMac.local:~/Backups/Backups/BrianMacBook  # repeat to run
 
     # Nesting risk: no trailing slash, same basename → blocks.
     $ rsynk /Volumes/Archive/Family ~/Backups/Family
@@ -190,6 +196,7 @@ def main() -> int:
 
     dry_run = True
     explicit_run = False
+    delete_excluded = False
     src = None
     dest = None
 
@@ -199,6 +206,9 @@ def main() -> int:
         if args[i] == "--run":
             dry_run = False
             explicit_run = True
+            i += 1
+        elif args[i] in ("--delete-excluded", "-X"):
+            delete_excluded = True
             i += 1
         else:
             positional.append(args[i])
@@ -239,9 +249,10 @@ def main() -> int:
         "--delete-after",
         "--modify-window=60",
         "--exclude-from", os.path.join(script_dir, "rsync_excludes"),
-        src,
-        dest
     ])
+    if delete_excluded:
+        base_cmd.append("--delete-excluded")
+    base_cmd.extend([src, dest])
 
     cmd_display = " ".join(base_cmd)
     if dry_run:
