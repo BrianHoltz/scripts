@@ -125,6 +125,8 @@ Hardlinks (not symlinks — required by Wibey):
 | `~/.wibey/commands/commitz.md` | `wibey/commands/commitz.md` |
 | `~/.wibey/commands/convo.md`   | `wibey/commands/convo.md`   |
 
+For IDE workspace roots, use `~/lpscc` (the symlink) instead of `~/My Drive/Libertarian/LPSCC`; that keeps the LPSCC root attached to the shared-drive root rather than the local folder tree.
+
 ## SEE ALSO
 
 - `docs/AgentRules.md` — full agent behavior spec including write rules, fhold protocol, and communication style
