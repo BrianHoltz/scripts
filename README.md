@@ -137,4 +137,4 @@ For IDE workspace roots, use `~/lpscc` (the symlink) instead of `~/My Drive/Libe
 
 ## AUTHOR
 
-Brian Holtz `<brian@holtz.org>` — `github.com/BrianHoltz/scripts`
+Brian Holtz `<brian@holtz.org>` — `github.com/BrianHoltz/tools`

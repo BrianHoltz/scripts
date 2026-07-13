@@ -22,7 +22,7 @@ An optional steering prompt can be appended: `/continue [optional prompt]`. If a
 
 Run the Find Existing Anchor Doc protocol from `AnchorDoc.md §Find` (steps F1–F4).
 (Path: `shared/docs/AnchorDoc.md` → `~/bin/.wibey/docs/AnchorDoc.md` →
-[GitHub](https://github.com/BrianHoltz/scripts/blob/main/.wibey/docs/AnchorDoc.md).)
+[GitHub](https://github.com/BrianHoltz/tools/blob/main/.wibey/docs/AnchorDoc.md).)
 If no doc is found: create `aidocs/yyyy-mm-dd/hhmm_CamelCase.md` (use `shared/aidocs/…`
 if a `shared/` symlink exists), seed it with `## Summary`, `## Work Log`,
 `## Active Work`, and `## Open Questions` sections, populate with current state,

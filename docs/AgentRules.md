@@ -45,13 +45,13 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 
 ## ~/bin/ structure
 
-The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). **`~/bin/` is the cross-laptop sync mechanism** — push on work laptop, pull on personal laptop. No symlinks across machines; just git. The following paths are symlinks to this file:
+The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the public tools repo (`github.com/BrianHoltz/tools`) checked out at `~/src/tools` and exposed locally at `~/bin`. **The `tools` repo is the cross-laptop sync mechanism, and `~/bin` is the stable local entrypoint** — push on work laptop, pull on personal laptop. The following paths are symlinks to this file:
 
 - `~/.claude/CLAUDE.md` — read by Claude Code CLI (and Wibey at Walmart)
 - `~/.cursor/cursorrules` — read by Cursor
 - `.github/copilot-instructions.md` symlink in each repo root — read by GitHub Copilot (VS Code). GitHub Copilot does NOT read `~/.claude/CLAUDE.md`; it only reads this file from the open repo root.
 
-**Canonical-vs-adapter rule:** personal agent machinery lives canonically in the `~/bin/` repo (north-star: `~/Documents/tools/`). Home-directory special folders such as `~/.claude/commands/`, `~/.claude/CLAUDE.md`, `~/.cursor/cursorrules`, and `~/.wibey/commands/` are adapter/install locations. Workspace-local `.github/` trees are also adapters for GitHub Copilot. Do **not** treat `~/IdeaProjects/Personal/.github/skills/` or any other workspace-local `.github/skills/` directory as a primary source of truth.
+**Canonical-vs-adapter rule:** personal agent machinery lives canonically in the `tools` repo at `~/src/tools/`, exposed locally at `~/bin/`. Home-directory special folders such as `~/.claude/commands/`, `~/.claude/CLAUDE.md`, `~/.cursor/cursorrules`, and `~/.wibey/commands/` are adapter/install locations. Workspace-local `.github/` trees are also adapters for GitHub Copilot. Do **not** treat `~/IdeaProjects/Personal/.github/skills/` or any other workspace-local `.github/skills/` directory as a primary source of truth.
 
 Other `~/bin/` files symlinked into `~/`:
 

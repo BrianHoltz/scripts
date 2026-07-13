@@ -16,7 +16,9 @@ brew install gh
 gh auth login
 
 # ~/bin/ shell integrations
-git clone git@github.com:BrianHoltz/scripts.git ~/bin
+mkdir -p ~/src
+git clone git@github.com:BrianHoltz/tools.git ~/src/tools
+ln -sfn ~/src/tools ~/bin
 ln -sf ~/bin/docs/AgentRules.md ~/.claude/CLAUDE.md
 ln -sf ~/bin/shellrc/zprofile ~/.zprofile
 ln -sf ~/bin/shellrc/zshrc ~/.zshrc
