@@ -51,6 +51,8 @@ The canonical source of this file is `~/bin/docs/AgentRules.md`, version-control
 - `~/.cursor/cursorrules` — read by Cursor
 - `.github/copilot-instructions.md` symlink in each repo root — read by GitHub Copilot (VS Code). GitHub Copilot does NOT read `~/.claude/CLAUDE.md`; it only reads this file from the open repo root.
 
+**Canonical-vs-adapter rule:** personal agent machinery lives canonically in the `~/bin/` repo (north-star: `~/Documents/tools/`). Home-directory special folders such as `~/.claude/commands/`, `~/.claude/CLAUDE.md`, `~/.cursor/cursorrules`, and `~/.wibey/commands/` are adapter/install locations. Workspace-local `.github/` trees are also adapters for GitHub Copilot. Do **not** treat `~/IdeaProjects/Personal/.github/skills/` or any other workspace-local `.github/skills/` directory as a primary source of truth.
+
 Other `~/bin/` files symlinked into `~/`:
 
 - `~/.shellrc.common` → `~/bin/shellrc/shellrc.common` — shared PATH/env for zsh + bash
@@ -236,7 +238,7 @@ Merge commits are honest: they record that the integration happened at that poin
 
 ### Custom Commands
 
-User-level commands source from `~/bin/.wibey/commands/`. When triggered, read the source file before executing.
+User-level commands source from `~/bin/.wibey/commands/`. When triggered, read the source file before executing. On the personal laptop, these source files should also be installed into the real home-directory adapter locations used by local agents (for example `~/.claude/commands/` and, when relevant, `~/.wibey/commands/`), rather than relying on a particular workspace such as `~/IdeaProjects/Personal`.
 
 User-level commands (available in all workspaces via hardlinks to `~/.wibey/commands/`):
 
