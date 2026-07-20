@@ -360,6 +360,10 @@ IDEA keybinding overrides are stored in `~/Library/Application Support/JetBrains
 
 - Preferred LPSCC root: `~/lpscc` (the symlink to the shared-drive root).
 - In Project view and attached directories, use `~/lpscc` rather than `~/My Drive/Libertarian/LPSCC`.
+- For the tools repo, attach the **real repo path** `~/src/tools` as both an IDEA content root and a VCS root. Do **not** rely on the `~/bin` symlink for IDE root configuration.
+- If a module file exists on disk but the root does not appear in IDEA, check `~/IdeaProjects/Personal/.idea/modules.xml` first. A stray `*.iml` file is inert until `modules.xml` actually lists it.
+- If the folder appears in Project view but git status does not surface in the Commit tool window, check `~/IdeaProjects/Personal/.idea/vcs.xml` for a matching `<mapping ... vcs="Git" />` entry.
+- For the tools repo specifically, the desired pair is a module pointing at `file://$USER_HOME$/src/tools` and a VCS mapping for `$USER_HOME$/src/tools`.
 - If the wrong root shows up, remove the direct `My Drive/.../LPSCC` entry and reattach the symlinked root so the workspace stays stable across Drive remounts.
 - Do not let agents rewrite unrelated module/root config while doing this cleanup; even removing one stale root can have side effects on IDEA layout state and Copilot's local session/history mapping after restart.
 
