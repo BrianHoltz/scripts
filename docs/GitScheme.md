@@ -125,18 +125,20 @@ Current state (2026-07-16, post-recovery, Northstar achieved):
 IDE project at `~/IdeaProjects/Personal/`:
 
 **Content roots:**
-- Documents, My Drive, lpscc (three bounded modules for IDE visibility)
+- Documents, My Drive, `~/src/tools`, lpscc (four bounded modules for IDE visibility)
 
 **Version control roots (`.idea/vcs.xml`):**
 - `~` (home monorepo root)
 - `~/Documents`
 - `~/My Drive`
 - `~/Documents/HoltzDotOrg/Thoughts/wiki`
+- `~/src/tools` ← standalone public repo; surfaces tools changes in commit pane
 - `~/lpscc` ← standalone repo; surfaces lpscc changes in commit pane
 
 **Workspace-local files:**
 - `.github/` at `~/IdeaProjects/Personal/` are adapters only
 - Canonical agent machinery belongs in `BrianHoltz/tools` repo
+- Attach the real repo path `~/src/tools` as the IDEA content root and VCS root; do not rely on the `~/bin` symlink for IDE root configuration.
 
 ## Operating Rules
 
@@ -145,6 +147,16 @@ IDE project at `~/IdeaProjects/Personal/`:
 - `~/Documents` is the primary source; GitHub is the durable backup and publication mechanism.
 - `~/lpscc` changes commit and push to `BrianHoltz/lpscc`, not to `home`.
 - **CRITICAL:** Google Drive sync is NOT a backup mechanism. Files deleted from disk are deleted from Google Drive automatically. Keep important files in git.
+
+## Google Docs access plan
+
+For agent access to Google Docs content, prefer a real OAuth flow first and use browser-auth/CDP as the fallback.
+
+1. **Primary path:** create a Google Cloud Desktop OAuth client, enable Google Drive API and Google Docs API, and keep the downloaded client JSON in a user-local location that is not committed.
+2. **Token handling:** let local tooling exchange that client JSON for refreshable user tokens stored outside git, then export/read docs by id.
+3. **Fallback path:** when OAuth is not yet wired up, launch Google Chrome with `--remote-debugging-port` and a dedicated shared agent profile (for example `/tmp/agent-chrome-profile`), then have the human user sign in there.
+4. **Security posture:** never point agent automation at the user's personal Chrome profile and never copy cookies out of that profile into agent tooling.
+5. **Operational rule:** if a `.gdoc` stub is present but the content is needed, agents should first try OAuth export, then fall back to the dedicated CDP browser session.
 
 ## Recovery: July 2026 Data Loss Incident
 

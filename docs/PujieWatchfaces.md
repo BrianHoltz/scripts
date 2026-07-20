@@ -13,6 +13,8 @@ Searched `~/src` first, then expanded across all of `$HOME`.
 
 Main custom Pujie helper script currently found in home.
 
+This is your custom JS library that you upload into the watchface to run on the **Pixel 1** watch. The newer **Pixel 3** setup does not allow this same custom-library machinery.
+
 What it contains:
 
 - Pujie meta-variable date/time shim via `[year]`, `[month_n]`, `[day_n]`, `[h24]`, `[m]`, `[s]`, `[ms]`, `[gmt_offset]`
@@ -89,6 +91,8 @@ This looks like the source/prototyping area behind the later watchface-friendly 
 
 ## Notes that identify the watchface as "Infovore"
 
+**Infovore** was the name of the custom watchface you designed in `2023`.
+
 ### `~/My Drive/HoltzBot/FamilyLogs.md`
 ### `~/My Drive/HoltzBot/Log Family.txt`
 
@@ -117,7 +121,7 @@ Feature list for **Infovore**:
 - heartbeats until death (`2052.03.30` U.S. solar eclipse)
 - battery % for watch and phone
 
-Not all of these features were found in the recovered JS backups, so some watchface logic may live in:
+Not all of these features appear in the recovered standalone JS backups, which is expected because much of the watchface uses built-in Pujie functionality exposed through its JS/meta-variable API. Relevant logic may therefore live in:
 
 - Pujie designer configuration rather than standalone JS
 - other unrecovered snippets
@@ -143,7 +147,7 @@ This screenshot matches the `2023.11.14` note that Infovore included **Unix time
 
 ### `~/My Drive/Pujie Watch Face Baseline Features V2.gdoc`
 
-Google Drive shortcut/stub only. Current contents expose:
+Google Drive shortcut/stub. Current contents expose:
 
 - Google doc id: `1XHfhAW6AmrtjNeoZc95N8S00Rylz_Jpwf8C57EkDvnw`
 - owner email: `brianholtz1965@gmail.com`
@@ -152,21 +156,75 @@ Probable URL:
 
 <https://docs.google.com/document/d/1XHfhAW6AmrtjNeoZc95N8S00Rylz_Jpwf8C57EkDvnw/edit>
 
-## Current best reconstruction
+Additional evidence recovered locally:
 
-The most likely recovered implementation split is:
+- Chrome Docs IndexedDB cache confirms the same doc id and title
+- unauthenticated direct export of the doc text returned HTTP 401
+- authenticated browser-session export succeeded via a dedicated Chrome CDP profile
 
-1. **Infovore base watchface concept** — documented in notes on `2023.11.14`
-2. **Death-clock display JS** — `~/src/DeathClock.js` with `~/src/DeathClock.js~` as backup
-3. **Home bearing / date plumbing / astronomy additions** — `~/src/PujieUtils.js` with `~/src/PujieUtils.js.bak` as backup
-4. **Astronomy prototype/source workspace** — `~/src/PujieUtils20231125.js` and `~/src/PujieUtils/`
+Recovered document contents:
 
-## Known gaps
+**Pujie Watch Face Baseline Features**
 
-- No recovered file literally named `Infovore`
-- No recovered JS yet for:
-  - altitude/latest city
-  - weather
-  - steps/heart-rate
-  - watch/phone battery
-- Those features may have lived in watchface configuration, data providers, or separate text expressions not yet recovered
+Line spacing: `1.25`
+
+### Infovore Core design and functional elements
+
+This document establishes the baseline configuration for the current custom Pujie watch face layout, tracking active operational fields and complications.
+
+### 1. Time, date, and astronomy
+
+- 12-hour/24-hour time layout
+- seconds counter placeholder
+- date
+- day of week
+- active timezone
+- digital sunrise/sunset times
+- orange horizon tick marks showing where the sun crosses the horizon line
+- custom celestial ring mapping the active position of the Sun, Moon, and visible planets along the horizon/sky line
+
+### 2. Geolocation and environmental mapping
+
+- real-time distance calculation to home in meters/kilometers
+- compass direction to home (example: `ENE`)
+- hardcoded home GPS coordinate
+- current city string
+- altitude tracker (`121m`)
+
+### 3. Weather and scheduling
+
+- next upcoming Google Calendar event title
+- side-by-side 2-day high/low forecast
+- today's anticipated precipitation depth in inches
+
+### 4. Biometrics and system metrics
+
+- current heart rate
+- computed average daily heart rate
+- computed maximum daily heart rate
+- daily step counter
+- dual-device battery percentages for watch vs phone
+
+## InfoVore 2026: Android Widget
+
+Next project: make a modified version of the Infovore watchface for use only as an Android widget.
+
+### Widget Limits
+
+- no second hand / seconds counter, because the widget updates only once every 60 seconds
+- the step counter has never worked on the widget
+- rainfall and wind data are uncertain on the widget; suspected to work, but not confirmed
+- the celestial calculations for placing planets around the watch face do not work in the widget
+- calendar event fetching does not work for you in the widget; **TODO:** check whether this can be debugged or restored
+- watch battery percentage no longer works there because the Pixel 3 watch does not connect to Pujie
+
+### TODO
+
+- debug step count
+- N-day forecast: high, low, precip inches, wind speed
+- moonrise, moonset, fraction, wax vs wane indicator
+- death clock: no. of seconds until estimated death
+- fix sun horizon markers
+- add moon horizon markers
+- add moon orrery position
+- debug planet positions
