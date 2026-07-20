@@ -209,6 +209,8 @@ With these modifications:
 
 For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use the doc-audit skill as the shared reference. On the work laptop, it is at `shared/.wibey/skills/doc-audit/SKILL.md` (team repo). It is **not** in `~/bin/.wibey/` because it contains Walmart-internal URLs (gecgithub01, Jira keys, service names) that would be exposed in a public GitHub push.
 
+For questions about the personal Git/repo/workspace layout, consult `~/bin/docs/GitScheme.md` first. It is the authoritative cross-laptop reference for the `home` monorepo, `~/My Drive`, `~/lpscc`, and how `~/src/tools` plus the `~/bin` symlink fit into that scheme. Use `~/bin/docs/GitScheme_RCA.md` for the 2026.07 recovery incident and rationale behind the current layout.
+
 ## Rules For Personal Laptop
 
 ### Family Reference Documents
