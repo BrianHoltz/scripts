@@ -124,6 +124,12 @@ Extension command IDs:
   - **Multi-file edits in agent mode with @workspace**
   - *No MCP (Model Context Protocol) support*
 
+### IDEA Copilot Session History
+
+Copilot chat history is stored per session in `~/.config/github-copilot/iu/chat-agent-sessions/<session-id>/copilot-agent-sessions-nitrite.db`; background agent state lives under `bg-agent-sessions/`. Cross-session history and sync only work when `cloudSessionStorageEnabled` is on, so an empty history pane after restart usually means either a fresh session/profile or that cloud session storage is disabled for this account/org. Current local session DBs I saw were `3FMXwLrUerHmiiZCqfXVjWufjm7`, `3FLCWBn65rrleMeg45Km2BjhCNf`, `3FjwlRcsTTFtmIbTOVR9yags5jH`, and `3GCdRF0lFhyiiQ9zf2TUGxaFHGH`.
+
+**Caution:** IDEA project/root cleanup is not purely cosmetic. Editing attached roots, `.idea/modules.xml`, `*.iml`, `.idea/vcs.xml`, or Copilot-related project state can make IDEA reopen as a different project/session, which can reset UI customizations and cause Copilot to reconnect to a different set of local conversations after restart. Before agent edits, back up the affected IDEA config files and treat root changes as a smallest-possible patch, not a broad "tidy up" pass.
+
 ## Cursor
 
 **GitHub Copilot Chat is not supported in Cursor** — the Chat extension requires VS Code ^1.111.0 and Cursor is on 1.105.x, so it cannot be installed.
@@ -349,6 +355,17 @@ IDEA keybinding overrides are stored in `~/Library/Application Support/JetBrains
 - **Toggle Line Numbers**: `⌥L`
   - Action ID: `EditorToggleShowLineNumbers`
   - Keystroke format: `alt l`
+
+### IDEA Workspace Roots
+
+- Preferred LPSCC root: `~/lpscc` (the symlink to the shared-drive root).
+- In Project view and attached directories, use `~/lpscc` rather than `~/My Drive/Libertarian/LPSCC`.
+- For the tools repo, attach the **real repo path** `~/src/tools` as both an IDEA content root and a VCS root. Do **not** rely on the `~/bin` symlink for IDE root configuration.
+- If a module file exists on disk but the root does not appear in IDEA, check `~/IdeaProjects/Personal/.idea/modules.xml` first. A stray `*.iml` file is inert until `modules.xml` actually lists it.
+- If the folder appears in Project view but git status does not surface in the Commit tool window, check `~/IdeaProjects/Personal/.idea/vcs.xml` for a matching `<mapping ... vcs="Git" />` entry.
+- For the tools repo specifically, the desired pair is a module pointing at `file://$USER_HOME$/src/tools` and a VCS mapping for `$USER_HOME$/src/tools`.
+- If the wrong root shows up, remove the direct `My Drive/.../LPSCC` entry and reattach the symlinked root so the workspace stays stable across Drive remounts.
+- Do not let agents rewrite unrelated module/root config while doing this cleanup; even removing one stale root can have side effects on IDEA layout state and Copilot's local session/history mapping after restart.
 
 ### Markdown Preview
 

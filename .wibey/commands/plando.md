@@ -20,7 +20,7 @@ Make and execute a detailed systematic plan for the following request.
 - **Clarify.** Ask any clarifying questions before you start.
 - **Anchor Doc.** Find or create the anchor doc using `AnchorDoc.md §Find`.
   (Path: `shared/docs/AnchorDoc.md` → `~/bin/.wibey/docs/AnchorDoc.md` →
-  [GitHub](https://github.com/BrianHoltz/scripts/blob/main/.wibey/docs/AnchorDoc.md).)
+  [GitHub](https://github.com/BrianHoltz/tools/blob/main/.wibey/docs/AnchorDoc.md).)
   1. **Find existing:** Run steps F1–F4. If a matching doc exists: update Active Work with
      this task's plan, add a Work Log entry, and proceed.
   2. **Decide on new doc:** If none found, decide:

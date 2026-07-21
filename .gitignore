@@ -9,6 +9,7 @@ bin.iml
 /aidocs/
 /shared
 /tmp/
+/.venv/
 __pycache__/
 # installed software
 groupgrep/

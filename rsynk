@@ -12,20 +12,17 @@ SYNOPSIS
 
 DESCRIPTION
     rsynk runs rsync with standard flags, an exclude list, and tracks
-    execution time. It defaults to a dry run for safety.
+    execution time. It defaults to a dry run for safety, use -y/--run
+    to execute for real.
 
     Nesting detection: if SRC lacks a trailing slash and basename(SRC) ==
     basename(DEST), rsynk blocks execution (would create DEST/DEST/...).
-    Add trailing slash to SRC, or use --run to override.
-
-    Repeat-to-run: repeat the same default (dry-run) command to execute
-    for real. Auto-promotion is disabled if nesting is detected.
+    Add trailing slash to SRC, or use -y/--run to override.
 
     Stderr output (dry-run):
       rsynk dry-running: rsync -naPvO [other standard flags] SRC DEST
       [rsync output]
       rsynk dry-ran for Nh Mm Ks: rsync -naPvO [other standard flags] SRC DEST
-      rsynk hint: to run for real, repeat exact same command or use --run
 
     Stderr output (real run):
       rsynk running: rsync -aPvO [other standard flags] SRC DEST
@@ -40,9 +37,14 @@ DESCRIPTION
       --delete-after                    delete extra files, at end of transfer
       --modify-window=60                allow 60s mtime skew
       --exclude-from rsync_excludes     read exclude patterns from rsynk directory
+      --timeout=60                      (remote only) fail on prolonged I/O stall
+      -e 'ssh -o ConnectTimeout=10'     (remote only) fail fast on SSH connect
 
 OPTIONS
-    --run             Execute immediately (skip dry-run). Overrides safety checks.
+    -y, --run         Execute immediately (skip dry-run). Overrides safety checks.
+    -n                Force dry-run mode and pass -n to rsync.
+    -X, --delete-excluded
+                      Also delete files on DEST that match exclude patterns.
     -H, --raw-help    Show this raw usage text and exit.
     -h, --help        Show colorized usage and exit (no state changes).
 
@@ -53,7 +55,6 @@ EXIT CODES
 
 FILES
     rsync_excludes                 exclude patterns, same directory as rsynk
-    /tmp/rsynk_last_$UID.json      repeat-to-run state file; stores only last SRC+DEST
 
 SEE ALSO
     rsync(1), time(1)
@@ -64,17 +65,21 @@ AUTHOR
 EXAMPLES
     # Make DEST be a mirror of SRC. Thus "SRC/" is like "SRC/*" but smarter.
     $ rsynk /Volumes/Archive/Family/ ~/Backups/Family
-    $ rsynk /Volumes/Archive/Family/ ~/Backups/Family  # repeat to run for real
+    $ rsynk -y /Volumes/Archive/Family/ ~/Backups/Family  # run for real
 
     # Make DEST contain SRC as a subdirectory mirror
     $ rsynk /Volumes/Archive/Family ~/Backups
 
-    # Sync to a remote backup path (dry-run, then repeat to execute)
+    # Sync to a remote backup path (dry-run, then run for real)
     $ rsynk /Volumes/Archive/Family/ brian@livingroommac.local:~/Backups/Backups
-    $ rsynk /Volumes/Archive/Family/ brian@livingroommac.local:~/Backups/Backups  # repeat to run
+    $ rsynk -y /Volumes/Archive/Family/ brian@livingroommac.local:~/Backups/Backups  # run for real
 
     # Sync backup bundle to remote, execute immediately
     $ rsynk --run Backups.sparsebundle brian@livingroommac.local:~/Backups/Backups/
+
+    # Backup $HOME to livingroom server with excluded-file deletes
+    $ rsynk -X "$HOME/" brian@LivingRoomMac.local:~/Backups/Backups/BrianMacBook
+    $ rsynk -y -X "$HOME/" brian@LivingRoomMac.local:~/Backups/Backups/BrianMacBook  # run for real
 
     # Nesting risk: no trailing slash, same basename → blocks.
     $ rsynk /Volumes/Archive/Family ~/Backups/Family
@@ -84,12 +89,14 @@ EXAMPLES
 """
 
 import os
-import json
 import re
 import subprocess
 import sys
-import tempfile
 from datetime import datetime
+
+def is_remote_path(path: str) -> bool:
+    return ":" in path and not path.startswith(("/", "./", "../"))
+
 
 def show_usage() -> None:
     RESET = "\033[0m"
@@ -189,16 +196,21 @@ def main() -> int:
         return 1
 
     dry_run = True
-    explicit_run = False
+    delete_excluded = False
     src = None
     dest = None
 
     positional = []
     i = 0
     while i < len(args):
-        if args[i] == "--run":
+        if args[i] in ("--run", "-y"):
             dry_run = False
-            explicit_run = True
+            i += 1
+        elif args[i] == "-n":
+            dry_run = True
+            i += 1
+        elif args[i] in ("--delete-excluded", "-X"):
+            delete_excluded = True
             i += 1
         else:
             positional.append(args[i])
@@ -211,26 +223,6 @@ def main() -> int:
 
     src, dest = positional
 
-    # If the user repeats an identical default dry-run command, promote it to --run.
-    state_path = os.path.join(tempfile.gettempdir(), f"rsynk_last_{os.getuid()}.json")
-    invocation_key = json.dumps({"src": src, "dest": dest}, sort_keys=True)
-    auto_promoted_run = False
-    if dry_run and not explicit_run:
-        try:
-            with open(state_path, "r", encoding="utf-8") as f:
-                prev = json.load(f)
-            if (
-                prev.get("invocation_key") == invocation_key
-                and prev.get("mode") == "dry-default"
-            ):
-                dry_run = False
-                auto_promoted_run = True
-        except (OSError, json.JSONDecodeError):
-            pass
-
-    if auto_promoted_run:
-        print("rsynk: repeated command detected; running for real (as if --run)")
-
     base_cmd = ["rsync", "-aPvO"]
     if dry_run:
         base_cmd[1] = "-naPvO"
@@ -239,9 +231,12 @@ def main() -> int:
         "--delete-after",
         "--modify-window=60",
         "--exclude-from", os.path.join(script_dir, "rsync_excludes"),
-        src,
-        dest
     ])
+    if delete_excluded:
+        base_cmd.append("--delete-excluded")
+    if is_remote_path(src) or is_remote_path(dest):
+        base_cmd.extend(["--timeout=60", "-e", "ssh -o ConnectTimeout=10"])
+    base_cmd.extend([src, dest])
 
     cmd_display = " ".join(base_cmd)
     if dry_run:
@@ -269,13 +264,6 @@ def main() -> int:
         
         print(f"rsynk ran for {time_str}: {cmd_display}", file=sys.stderr)
 
-        try:
-            mode = "dry-default" if dry_run and not explicit_run else "other"
-            with open(state_path, "w", encoding="utf-8") as f:
-                json.dump({"invocation_key": invocation_key, "mode": mode}, f)
-        except OSError:
-            pass
-        
         return result.returncode
     except KeyboardInterrupt:
         print("\nrsynk: interrupted", file=sys.stderr)

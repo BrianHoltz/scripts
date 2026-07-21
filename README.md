@@ -62,6 +62,8 @@ All files in `shellrc/` are symlinked into `~/`:
 
 #### Commands (`wibey/commands/`)
 
+Canonical source lives in this repo. Install/adapt outward from here; do **not** treat any workspace-local `.github/` folder as the source of truth.
+
 Custom slash commands in Claude markdown format. Install paths:
 
 - Claude Code CLI: `~/.claude/commands/` (symlinks OK)
@@ -76,6 +78,8 @@ Commands:
 #### Skills (`wibey/skills/`)
 
 Markdown context documents invoked as skills in Wibey; usable as `@file` references in Claude Code.
+
+For GitHub Copilot, any `.github/copilot-instructions.md` or `.github/skills/...` under a workspace is only an adapter layer. Keep the canonical content in this repo and project it into workspace-local Copilot hooks only where needed.
 
 - **`doc-audit`** — consolidated reference for documentation authoring, task record format, audit checklist, and DRY principles.
 - **`ftm`** — Family Tree Maker 2019 automation for Claude Desktop (screenshot + mouse/keyboard); navigates, edits, and sources facts in the Holtz Lusin tree.
@@ -125,10 +129,12 @@ Hardlinks (not symlinks — required by Wibey):
 | `~/.wibey/commands/commitz.md` | `wibey/commands/commitz.md` |
 | `~/.wibey/commands/convo.md`   | `wibey/commands/convo.md`   |
 
+For IDE workspace roots, use `~/lpscc` (the symlink) instead of `~/My Drive/Libertarian/LPSCC`; that keeps the LPSCC root attached to the shared-drive root rather than the local folder tree.
+
 ## SEE ALSO
 
 - `docs/AgentRules.md` — full agent behavior spec including write rules, fhold protocol, and communication style
 
 ## AUTHOR
 
-Brian Holtz `<brian@holtz.org>` — `github.com/BrianHoltz/scripts`
+Brian Holtz `<brian@holtz.org>` — `github.com/BrianHoltz/tools`

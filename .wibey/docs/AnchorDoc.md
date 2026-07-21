@@ -3,7 +3,7 @@
 > [!NOTE]
 > **Mirror-safe doc.** Contains no Walmart-proprietary content; designed to be manually
 > mirrored to personal laptops. Canonical copy: `relationship-shared/docs/AnchorDoc.md`
-> (also mirrored to [GitHub](https://github.com/BrianHoltz/scripts/blob/main/.wibey/docs/AnchorDoc.md)).
+> (also mirrored to [GitHub](https://github.com/BrianHoltz/tools/blob/main/.wibey/docs/AnchorDoc.md)).
 
 An *anchor doc* is the single authoritative task record for a work session. It persists
 across agent sessions via git commits — agents cannot search prior conversations, so the

@@ -45,11 +45,13 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 
 ## ~/bin/ structure
 
-The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the `~/bin/` repo (`github.com/BrianHoltz/scripts`). **`~/bin/` is the cross-laptop sync mechanism** — push on work laptop, pull on personal laptop. No symlinks across machines; just git. The following paths are symlinks to this file:
+The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the public tools repo (`github.com/BrianHoltz/tools`) checked out at `~/src/tools` and exposed locally at `~/bin`. **The `tools` repo is the cross-laptop sync mechanism, and `~/bin` is the stable local entrypoint** — push on work laptop, pull on personal laptop. The following paths are symlinks to this file:
 
 - `~/.claude/CLAUDE.md` — read by Claude Code CLI (and Wibey at Walmart)
 - `~/.cursor/cursorrules` — read by Cursor
 - `.github/copilot-instructions.md` symlink in each repo root — read by GitHub Copilot (VS Code). GitHub Copilot does NOT read `~/.claude/CLAUDE.md`; it only reads this file from the open repo root.
+
+**Canonical-vs-adapter rule:** personal agent machinery lives canonically in the `tools` repo at `~/src/tools/`, exposed locally at `~/bin/`. Home-directory special folders such as `~/.claude/commands/`, `~/.claude/CLAUDE.md`, `~/.cursor/cursorrules`, and `~/.wibey/commands/` are adapter/install locations. Workspace-local `.github/` trees are also adapters for GitHub Copilot. Do **not** treat `~/IdeaProjects/Personal/.github/skills/` or any other workspace-local `.github/skills/` directory as a primary source of truth.
 
 Other `~/bin/` files symlinked into `~/`:
 
@@ -65,6 +67,7 @@ Canonical personal path aliases in `~/`:
 - `~/lpscc` → `~/Google Drive/Shared drives/LP SCC Financial` — preferred short path for LP SCC Financial
 
 Use these aliases in local tool/IDE config when possible to avoid space-heavy paths and keep paths consistent across settings.
+For workspace roots, attach `~/lpscc` itself; do **not** attach `~/My Drive/Libertarian/LPSCC` directly.
 
 The `~/bin/` repo also contains personal tool settings and reference docs (not symlinked):
 
@@ -206,6 +209,8 @@ With these modifications:
 
 For documentation authoring, planning docs, status/task/work-log hygiene, evidence conventions, and doc audits, use the doc-audit skill as the shared reference. On the work laptop, it is at `shared/.wibey/skills/doc-audit/SKILL.md` (team repo). It is **not** in `~/bin/.wibey/` because it contains Walmart-internal URLs (gecgithub01, Jira keys, service names) that would be exposed in a public GitHub push.
 
+For questions about the personal Git/repo/workspace layout, consult `~/bin/docs/GitScheme.md` first. It is the authoritative cross-laptop reference for the `home` monorepo, `~/My Drive`, `~/lpscc`, and how `~/src/tools` plus the `~/bin` symlink fit into that scheme. Use `~/bin/docs/GitScheme_RCA.md` for the 2026.07 recovery incident and rationale behind the current layout.
+
 ## Rules For Personal Laptop
 
 ### Family Reference Documents
@@ -235,7 +240,7 @@ Merge commits are honest: they record that the integration happened at that poin
 
 ### Custom Commands
 
-User-level commands source from `~/bin/.wibey/commands/`. When triggered, read the source file before executing.
+User-level commands source from `~/bin/.wibey/commands/`. When triggered, read the source file before executing. On the personal laptop, these source files should also be installed into the real home-directory adapter locations used by local agents (for example `~/.claude/commands/` and, when relevant, `~/.wibey/commands/`), rather than relying on a particular workspace such as `~/IdeaProjects/Personal`.
 
 User-level commands (available in all workspaces via hardlinks to `~/.wibey/commands/`):
 
@@ -275,6 +280,7 @@ Maintenance/debug checklist:
 - After adding or changing files, reload the IDE window.
 - Keep the source files in `~/bin/.wibey/commands/`; do not rename or move them.
 - If discovery still fails, check YAML frontmatter: `description` must be present and valid.
+- TODO: design and implement a bridge so Wibey/Claude custom skills and commands are discoverable and usable from GitHub Copilot (not just Wibey/Claude command loaders).
 
 **Outside team repos (work laptop only):** When the current workspace has no `shared/` symlink (e.g. `~/My Drive/`, `~/Desktop/`, any personal folder), the team skills and commands are still available directly at `~/src/relationship-shared/.wibey/`. Always check there before concluding a skill or command doesn't exist.
 

@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tarfile
+import time
+from datetime import datetime
+from glob import glob
+from pathlib import Path
+
+
+def iso_now() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def expand(path: str) -> Path:
+    return Path(os.path.expanduser(path)).resolve()
+
+
+def idea_running(process_match: str) -> bool:
+    proc = subprocess.run(
+        ["ps", "-ax", "-o", "command="],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return any(process_match in line for line in proc.stdout.splitlines())
+
+
+def load_plan(path: Path) -> dict:
+    with path.open() as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict) or not isinstance(data.get("operations", []), list):
+        raise ValueError(f"Invalid plan format: {path}")
+    return data
+
+
+def collect_backup_targets(workspace: Path, project_dir: Path) -> list[Path]:
+    targets = [workspace, project_dir / ".idea" / "modules.xml", project_dir / ".idea" / "vcs.xml"]
+    targets.extend(Path(p) for p in sorted(glob(str(project_dir / "*.iml"))))
+    missing = [str(p) for p in targets if not p.exists()]
+    if missing:
+        raise FileNotFoundError("Missing backup target(s): " + ", ".join(missing))
+    return targets
+
+
+def write_status(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Wait for IntelliJ IDEA to exit, then back up and optionally rewrite project files."
+    )
+    parser.add_argument("--dryrun", action="store_true", help="Do not modify target project files.")
+    parser.add_argument("--skip-wait", action="store_true", help="Do not wait for IDEA to exit.")
+    parser.add_argument(
+        "--process-match",
+        default="/Applications/IntelliJ IDEA.app/Contents/MacOS/idea",
+        help="Substring to match in ps output while waiting for IDEA to exit.",
+    )
+    parser.add_argument("--timeout-secs", type=int, default=1800, help="Maximum wait time for IDEA exit.")
+    parser.add_argument("--poll-secs", type=float, default=2.0, help="Polling interval while waiting.")
+    parser.add_argument("--workspace", default="~/Personal.code-workspace")
+    parser.add_argument("--project-dir", default="~/IdeaProjects/Personal")
+    parser.add_argument("--archive", help="Tar.gz backup path. Default: ~/tmp/idea-handoff-backup-<ts>.tar.gz")
+    parser.add_argument("--plan", help="JSON plan file with write/replace operations.")
+    parser.add_argument("--log", help="Log path. Default: ~/tmp/idea-handoff-<ts>.log")
+    parser.add_argument("--status", help="Status JSON path. Default: ~/tmp/idea-handoff-<ts>.status.json")
+    args = parser.parse_args()
+
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = expand(args.log or f"~/tmp/idea-handoff-{stamp}.log")
+    status_path = expand(args.status or f"~/tmp/idea-handoff-{stamp}.status.json")
+    archive_path = expand(args.archive or f"~/tmp/idea-handoff-backup-{stamp}.tar.gz")
+    workspace = expand(args.workspace)
+    project_dir = expand(args.project_dir)
+    plan_path = expand(args.plan) if args.plan else None
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    status = {
+        "started_at": iso_now(),
+        "dryrun": args.dryrun,
+        "skip_wait": args.skip_wait,
+        "process_match": args.process_match,
+        "workspace": str(workspace),
+        "project_dir": str(project_dir),
+        "archive": str(archive_path),
+        "plan": str(plan_path) if plan_path else None,
+        "log": str(log_path),
+        "status": str(status_path),
+        "result": "running",
+    }
+
+    def log(msg: str) -> None:
+        line = f"{iso_now()} {msg}"
+        print(line)
+        with log_path.open("a") as fh:
+            fh.write(line + "\n")
+
+    try:
+        log("idea-handoff starting")
+        targets = collect_backup_targets(workspace, project_dir)
+        status["backup_targets"] = [str(p) for p in targets]
+
+        plan = load_plan(plan_path) if plan_path else {"operations": []}
+        status["operation_count"] = len(plan["operations"])
+        if plan_path:
+            log(f"loaded plan {plan_path} with {len(plan['operations'])} operation(s)")
+
+        running_at_start = idea_running(args.process_match)
+        status["idea_running_at_start"] = running_at_start
+        waited = 0.0
+        if not args.skip_wait:
+            log(f"waiting for process match '{args.process_match}' to exit")
+            while idea_running(args.process_match):
+                if waited >= args.timeout_secs:
+                    raise TimeoutError(f"Timed out waiting for {args.process_match} to exit")
+                time.sleep(args.poll_secs)
+                waited += args.poll_secs
+            log(f"process match '{args.process_match}' is no longer running")
+        else:
+            log("skip-wait enabled")
+        status["waited_seconds"] = waited
+
+        if args.dryrun:
+            log(f"dryrun: would create backup archive {archive_path}")
+            for op in plan["operations"]:
+                log(f"dryrun: would {op['type']} {op['path']}")
+        else:
+            archive_path.parent.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(archive_path, "w:gz") as tf:
+                for target in targets:
+                    tf.add(target, arcname=target.relative_to(Path.home()))
+            log(f"created backup archive {archive_path}")
+            for op in plan["operations"]:
+                op_type = op["type"]
+                path = expand(op["path"])
+                if op_type == "write":
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(op["content"])
+                    log(f"wrote {path}")
+                elif op_type == "replace":
+                    text = path.read_text()
+                    old = op["old"]
+                    new = op["new"]
+                    count = op.get("count")
+                    if old not in text:
+                        raise ValueError(f"replace target not found in {path}: {old!r}")
+                    text = text.replace(old, new, count if count is not None else -1)
+                    path.write_text(text)
+                    log(f"replaced content in {path}")
+                else:
+                    raise ValueError(f"Unsupported operation type: {op_type}")
+
+        status["finished_at"] = iso_now()
+        status["result"] = "ok"
+        write_status(status_path, status)
+        log(f"wrote status {status_path}")
+        return 0
+    except Exception as exc:
+        status["finished_at"] = iso_now()
+        status["result"] = "error"
+        status["error"] = f"{type(exc).__name__}: {exc}"
+        write_status(status_path, status)
+        log(status["error"])
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
