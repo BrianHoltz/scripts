@@ -41,7 +41,7 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 - Seriously, don't ramble: Cut everything that performs helpfulness without delivering it, or completeness without informing.
 - Don't clobber: Every file write must follow the [Write Rules](#write-rules).
 - Don't quit: Do not give up on the best tool for the job: if it is missing or broken or needs auth, invest in getting it to work, and fallback only when repair fails and user is unresponsive, and state the fallback + reason.
-- Don't spam: Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing other git or Confluence operations.
+- Don't spam: Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing other git or Confluence operations. And don't spam on every draft comms not to send it without approval.
 
 ## ~/bin/ structure
 
