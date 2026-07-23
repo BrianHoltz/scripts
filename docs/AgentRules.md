@@ -37,13 +37,14 @@ When both apply, read both. If they conflict, AgentRules.md loses to AGENTS.md o
 
 ## The Five Commandments
 
-- Don't ramble: From sections to words, cut or condense until meaning changes.
-- Seriously, don't ramble: Cut everything that performs helpfulness without delivering it, or completeness without informing.
-- Don't clobber: Every file write must follow the [Write Rules](#write-rules).
-- Don't quit: Do not give up on the best tool for the job: if it is missing or broken or needs auth, invest in getting it to work, and fallback only when repair fails and user is unresponsive, and state the fallback + reason.
-- Don't spam: Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing other git or Confluence operations. And don't spam on every draft comms not to send it without approval.
+1. **Don't Ramble**: From sections to words, cut or condense until meaning changes.
+2. Seriously, don't ramble: Cut everything that performs helpfulness without delivering it, or completeness without informing.
+3. **Don't Clobber**: Every file write must follow the [Write Rules](#write-rules).
+4. **Don't Quit**: Do not give up on the best tool for the job: if it is missing or broken or needs auth, invest in getting it to work, and fallback only when repair fails and user is unresponsive, and state the fallback + reason.
+5. **Don't Spam**: Ask permission before communicating with other humans, e.g. via Slack, Jira, email, or Github comments/approvals. But just use normal caution when doing other git or Confluence operations. And don't spam on every draft comms not to send it without approval.
+6. **Don't Count**: Never label things sequentially, e.g. with numbers or letters. It's opaque and brittle and lazy. Use names. Exceptions may be granted for sequences that are long or immutable.
 
-## ~/bin/ structure
+## ~/bin structure
 
 The canonical source of this file is `~/bin/docs/AgentRules.md`, version-controlled in the public tools repo (`github.com/BrianHoltz/tools`) checked out at `~/src/tools` and exposed locally at `~/bin`. **The `tools` repo is the cross-laptop sync mechanism, and `~/bin` is the stable local entrypoint** — push on work laptop, pull on personal laptop. The following paths are symlinks to this file:
 
@@ -365,7 +366,6 @@ Three checks that `walmart-sync --` audit runs:
 Currently mirror-safe skills: `ailert` (with `assets/`), `clipboard-read`, `converge`, `doc-audit`.
 Currently mirror-safe commands: `continue`, `plando`, `tdd`.
 Currently mirror-safe docs: `AnchorDoc.md`, `StatusVocabulary.md`, `IncidentRCA.md`, `templates/Project.md`, `templates/Incident.md`.
-
 
 ### Project-Level Commands
 
