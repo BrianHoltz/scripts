@@ -150,7 +150,7 @@ Acceptable columns (not all required):
 
 - **Never add a task and mark it complete in the same work session.** Work already finished when the task would be written belongs in the Work Log, not the task table.
 - **Never backfill completed work into Tasks.** Completed rows stay in the table (useful record), but Tasks is forward-looking only. If work was completed before the task was planned, it belongs in Work Log.
-- **Future work appears only in task lists, Undecided Questions, Draft Next Comms, and TODOs.** No "Critical/Important/Urgent" labels — use order. No capitalized exclamations (Bug, Gap, Pending, Next). No ⚠️ in task tables — see [Cross-References for Pending Work](#cross-references-for-pending-work) for the ⚠️ antipattern rule.
+- **Future work appears only in task lists, Undecided Questions, Draft Next Comms, and TODOs.** No "Critical/Important/Urgent/Deprioritized" labels — use order. No capitalized exclamations (Bug, Gap, Pending, Next). No ⚠️ in task tables — see [Cross-References for Pending Work](#cross-references-for-pending-work) for the ⚠️ antipattern rule.
 
 ### Active Work
 
@@ -582,3 +582,4 @@ Never use these. They are imprecise, imply unstated alternatives, or create conf
 - **"Note:"**, **"Important:"**, **"Warning:"** as standalone paragraph prefixes — use bold inline or a callout glyph (⚠️) where severity warrants it. These labels add no information beyond emphasis.
 - **"As of [date]"** at the start of sentences — write the claim timelessly; if the date matters, cite it as evidence with a † link.
 - **"currently"**, **"at this time"**, **"now"** in non-Work-Log prose — these rot immediately. Write the claim as a timeless fact or use absolute dates.
+- **"deprioritized", "low/high priority", "urgent", "critical", "immediate"** as editorial labels on any task, item, or work — anywhere in the doc, not just Tasks tables. Priority is conveyed by position: order the list. If a decision to lower/raise priority happened at a point in time, record that fact once in Work Log; do not carry the adjective forward as a live status.

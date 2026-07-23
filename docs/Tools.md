@@ -6,7 +6,7 @@
 | Feature                        | IDEA              | VS Code       | Cursor                  |
 | ------------------------------ | ----------------- | ------------- | ----------------------- |
 | Score                          | 28.5              | 20.5 ⚙️     | 19.5                    |
-| IDE                            | 2026.2 EAP        | 1.125.1       | 3.10.17                 |
+| IDE                            | 2026.2            | 1.125.1       | 3.10.17                 |
 | VSCode engine                  | —                | —            | 1.105.1                 |
 | Wibey                          | 1.0.21            | 1.0.18 ⚙️   | 1.0.18 ⚙️              |
 | └ parallel agents             | ✅                | ✅            | ✅                      |
@@ -61,7 +61,7 @@ Score rubric
 
 | Behavior                 | IDEA viewer | IDEA editor | typedown     | zaaack                            | Cursor native |
 | ------------------------ | ----------- | ----------- | ------------ | --------------------------------- | ------------- |
-| version                  | 2026.2 EAP  | 2026.2 EAP  | 1.1.7        | 0.1.17 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
+| version                  | 2026.2      | 2026.2      | 1.1.7        | 0.1.17 (VSCode) / 0.1.13 (Cursor) | 2.6.19        |
 | >1 tab at a time         | ✅          | ✅✅        | ✅✅         | ✅✅                              | ✅✅          |
 | re-read changed file     | ?           | ?           | ✅           | ?                                 | ?             |
 | wide tables              | ✅          | ✅          | ❌ truncates | ✅✅                              | ❌ truncates  |
@@ -314,7 +314,8 @@ Line-height, table padding, list spacing, and focus bug patches. Full procedure:
 ## IDEA
 
 - **Superior features: search/find, git, debug, database, http, yaml preview**
-- **Currently on 2026.2 EAP** (auto-updated ~2026.06.27). EAP auto-updates disabled as of 2026.07.04. Intend to return to stable releases once 2026.x stable ships. EAP brought two breaking changes requiring JAR patches (see ToolMods.md).
+- **Currently on 2026.2 GA/stable** (build 262.8665.258, released 2026.07.16; installed on Walmart laptop 2026.07.16). The 2026.2 EAP (auto-updated ~2026.06.27) has now shipped as stable — the config dir (`IntelliJIdea2026.2`) carried over from EAP → GA, so all EAP-era JAR patches survived the upgrade. The two 2026.2 breaking changes still require JAR patches (see ToolMods.md).
+- **Patch audit 2026.07.17 (Walmart laptop, 2026.2 GA):** verified all fixes present in the running build — JCEF remote disabled (`idea.vmoptions`), Shuzijun `com.intellij.modules.jcef` depends + 13px font (`markdown-editor-2.0.5.jar`), MCP Server Services-panel suppression (`mcpserver.jar`), keymap overrides (`macOS copy.xml`), and the patched Wibey plugin `1.0.23.jar` from `brian/local-combined` (image-paste `setupClipboardPaste`/`handleImagePaste` + session-title fields all confirmed via `javap`). The one gap — the "Allow Edits to Sensitive Files" dialog suppression (`idea.readonly.fragments.notification.enabled=false`) missing from `early-access-registry.txt` — was reapplied (IDEA quit first; file method). All patches now applied.
 - *Terminal Blindness observed on personal laptop in IDEA; not observed on Walmart laptop as of 2026.04.04.*
 - *command-approval constipation*
 - *Parallel agents now supported (as of 2026.06)*
@@ -371,19 +372,19 @@ IDEA keybinding overrides are stored in `~/Library/Application Support/JetBrains
 
 The built-in Markdown preview uses `options/markdown.xml` under `MarkdownSettings`. Font size is 15px.
 
-**Rendering engines (2026.2 EAP):**
+**Rendering engines (2026.2):**
 
 - **JCEF preview** (`MarkdownJCEFHtmlPanel`) — right pane in "Markdown Split Editor" and the standalone Preview tab. Respects custom CSS. Default body font: `Helvetica, Arial, freesans, sans-serif` (bundled `default.css`).
 - **Compose WYSIWYG editor** (`intellij.markdown.compose.preview.jar`, class `JcefLikeMarkdownStylingKt`) — the "Markdown Editor" tab (H/B/I toolbar). Hardcodes `FontFamily.SansSerif` (= SF Pro on macOS); reads `fontSize` from settings; ignores `fontFamily` and all CSS. **Table font size and cell wrapping are also hardcoded** — not configurable without patching the JAR.
 
-**Valid `MarkdownSettingsState` fields in 2026.2 EAP:**
+**Valid `MarkdownSettingsState` fields in 2026.2:**
 
 - `fontSize` (int) — affects both JCEF preview and Compose editor
 - `fontFamily` (string) — passed to JCEF preview; ignored by Compose editor
 - `useCustomStylesheetPath` (bool) + `customStylesheetPath` (string) — single external CSS file; path **must be inside the open project**, otherwise IDEA rejects it with an "unsafe custom stylesheet" warning and falls back to the default
 - `useCustomStylesheetText` (bool) + `customStylesheetText` (string) — inline CSS text embedded in the XML; no path restriction, preferred approach
 
-**⚠️ Dead field in 2026.2:** `customStylesheets` (the list form used by 2025.3 and earlier) is silently ignored in 2026.2 EAP. IDEA never logs an error — the CSS is simply never applied.
+**⚠️ Dead field in 2026.2:** `customStylesheets` (the list form used by 2025.3 and earlier) is silently ignored in 2026.2. IDEA never logs an error — the CSS is simply never applied.
 
 **To apply custom CSS in 2026.2:** Settings → Languages & Frameworks → Markdown → choose "Custom stylesheet text" (inline mode) and paste CSS there. Do not use the file-path option unless the CSS file lives inside the current project.
 
@@ -395,14 +396,20 @@ Quick notes:
 
 ### Disable "Allow Edits to Sensitive Files" Dialog
 
-Add this to `~/Library/Application Support/JetBrains/IntelliJIdea2026.2/early-access-registry.txt`:
+Set registry key `idea.readonly.fragments.notification.enabled` to `false`.
+
+**Status 2026.07.17:** APPLIED on the Walmart laptop's 2026.2 GA config (file method, IDEA quit first).
+
+**Preferred (IDEA running):** Help → Find Action (`⇧⌘A`) → "Registry..." → search `idea.readonly.fragments.notification.enabled` → uncheck. Takes effect immediately, no restart.
+
+**File method (IDEA must be QUIT first):** append to `~/Library/Application Support/JetBrains/IntelliJIdea2026.2/early-access-registry.txt`, then restart:
 
 ```
 idea.readonly.fragments.notification.enabled
 false
 ```
 
-Restart IDEA for changes to take effect.
+⚠️ Do NOT edit this file while IDEA is running — IDEA reads the registry at startup and rewrites this file on exit, clobbering any manual additions.
 
 ### Shuzijun Markdown Editor Patches
 
