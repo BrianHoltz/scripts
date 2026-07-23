@@ -148,62 +148,120 @@ def grep_path_patterns(file_path: Path, patterns):
 # ---------------------------------------------------------------------------
 # Git helpers
 # ---------------------------------------------------------------------------
-def run_git(*args, capture=True):
-    """Run a git command in ~/bin/, returning CompletedProcess."""
-    cmd = ["git", "-C", str(BIN)] + list(args)
+def run_git_in(repo: Path, *args, capture=True):
+    """Run a git command in `repo`, returning CompletedProcess."""
+    cmd = ["git", "-C", str(repo)] + list(args)
     if capture:
         return subprocess.run(cmd, capture_output=True, text=True)
     return subprocess.run(cmd)
 
-def detect_upstream():
-    """Return (remote, branch) for HEAD's upstream, or ('origin', current_branch) as fallback."""
-    r = run_git("rev-parse", "--abbrev-ref", "HEAD@{upstream}")
+def run_git(*args, capture=True):
+    """Run a git command in ~/bin/, returning CompletedProcess."""
+    return run_git_in(BIN, *args, capture=capture)
+
+def parse_porcelain_paths(porcelain_text: str):
+    """Return normalized file paths from `git status --porcelain` output."""
+    paths = []
+    for raw in porcelain_text.splitlines():
+        if len(raw) < 4:
+            continue
+        path = raw[3:]
+        if " -> " in path:  # rename/copy form: old -> new
+            path = path.split(" -> ", 1)[1]
+        paths.append(path.strip())
+    return paths
+
+def walmart_sync_path_specs():
+    """Return (exact_paths, directory_prefixes) for files managed by walmart-sync."""
+    exact = {"walmart-sync"} | set(PORTABILITY_PUSH_EXEMPT)
+    prefixes = []
+    for _, bin_rel, is_dir in MIRROR_ITEMS:
+        if is_dir:
+            prefixes.append(bin_rel.rstrip("/") + "/")
+        else:
+            exact.add(bin_rel)
+    for item in PERSONAL_ONLY:
+        if item.endswith("/"):
+            prefixes.append(item.rstrip("/") + "/")
+        else:
+            exact.add(item)
+    return exact, prefixes
+
+def is_walmart_sync_managed(path: str):
+    exact, prefixes = walmart_sync_path_specs()
+    if path in exact:
+        return True
+    return any(path.startswith(prefix) for prefix in prefixes)
+
+def block_if_managed_changes(action_label: str):
+    """
+    Enforce commit-first policy for walmart-sync-managed files.
+    Returns True when safe to proceed; prints guidance and returns False otherwise.
+    """
+    status = run_git("status", "--porcelain")
+    dirty_paths = parse_porcelain_paths(status.stdout)
+    managed = [p for p in dirty_paths if is_walmart_sync_managed(p)]
+    if not managed:
+        return True
+
+    print(c(RED + BOLD, f"⚠ Commit-first policy: cannot {action_label} with local walmart-sync changes."))
+    print(c(RED, "Commit these files first, then rerun walmart-sync:"))
+    for p in managed:
+        print(f"  - {p}")
+    print()
+    print(c(CYAN, "Suggested:"))
+    print(c(CYAN, "  cd ~/bin && git add <files> && git commit"))
+    return False
+
+def detect_upstream(repo=BIN):
+    """Return (remote, branch) for repo HEAD upstream, or ('origin', current_branch)."""
+    r = run_git_in(repo, "rev-parse", "--abbrev-ref", "HEAD@{upstream}")
     if r.returncode == 0:
         parts = r.stdout.strip().split("/", 1)
         if len(parts) == 2:
             return parts[0], parts[1]
-    branch_r = run_git("branch", "--show-current")
+    branch_r = run_git_in(repo, "branch", "--show-current")
     branch = branch_r.stdout.strip() or "main"
     return "origin", branch
 
-def do_pull():
-    """Personal laptop: check git state then pull from origin (merge, not rebase)."""
-    remote, branch = detect_upstream()
+def list_dirty_paths(repo=BIN):
+    status = run_git_in(repo, "status", "--porcelain")
+    return parse_porcelain_paths(status.stdout)
 
-    # Warn if working tree is dirty
-    status = run_git("status", "--porcelain")
-    dirty = [l for l in status.stdout.splitlines() if l.strip()]
+def pull_repo(repo: Path, label: str):
+    """Commit-first pull: refuse dirty tree, then pull (merge, not rebase)."""
+    dirty = list_dirty_paths(repo)
     if dirty:
-        print(c(RED + BOLD, "⚠⚠ AGENT ALERT: ~/bin/ has uncommitted local changes:"))
-        for line in dirty[:20]:
-            print(f"  {line}")
-        print(c(RED, "Stash or commit before pulling to avoid conflicts."))
+        print(c(RED + BOLD, f"⚠ Commit-first policy: cannot pull {label} with local changes."))
+        print(c(RED, "Commit these files first, then rerun walmart-sync:"))
+        for p in dirty:
+            print(f"  - {p}")
         print()
+        print(c(CYAN, f"Suggested: cd {repo} && git add <files> && git commit"))
+        return False
 
-    # Warn if local commits are ahead of upstream
-    ahead_r = run_git("rev-list", "--count", "HEAD@{upstream}..HEAD")
-    if ahead_r.returncode == 0:
-        ahead = int(ahead_r.stdout.strip() or "0")
-        if ahead > 0:
-            print(c(RED + BOLD,
-                    f"⚠⚠ AGENT ALERT: ~/bin/ has {ahead} local commit(s) not pushed to {remote}/{branch}:"))
-            log = run_git("log", "--oneline", "HEAD@{upstream}..HEAD")
-            for line in log.stdout.splitlines()[:10]:
-                print(f"  {line}")
-            print(c(YELLOW, "These diverge from origin — resolve after pull if needed."))
-            print()
-
-    # Pull (merge, not rebase — per AgentRules.md)
-    print(c(CYAN, f"Pulling ~/bin/ from {remote}/{branch} (merge)…"))
-    r = run_git("pull", "--no-rebase", remote, branch, capture=False)
+    remote, branch = detect_upstream(repo=repo)
+    print(c(CYAN, f"Pulling {label} from {remote}/{branch} (merge)…"))
+    r = run_git_in(repo, "pull", "--no-rebase", remote, branch, capture=False)
     if r.returncode != 0:
         print()
-        print(c(RED + BOLD, "⚠⚠ AGENT ALERT: git pull failed — merge conflict likely."))
-        print(c(RED, "Resolve conflicts in ~/bin/, then re-run walmart-sync."))
+        print(c(RED + BOLD, f"⚠⚠ AGENT ALERT: git pull failed for {label}."))
+        print(c(RED, "Resolve conflicts, then re-run walmart-sync."))
+        return False
+    return True
+
+def do_pull():
+    """Personal laptop: check git state then pull from origin (merge, not rebase)."""
+    if not block_if_managed_changes("pull"):
+        sys.exit(1)
+    if not pull_repo(BIN, "~/bin/"):
         sys.exit(1)
 
 def do_push():
     """Work laptop: portability gate on unpushed commits, then push to origin."""
+    if not block_if_managed_changes("push"):
+        sys.exit(1)
+
     remote, branch = detect_upstream()
 
     ahead_r = run_git("rev-list", "--count", "HEAD@{upstream}..HEAD")
@@ -377,12 +435,13 @@ def do_sync(dry_run=False):
         print(c(RED, "Cannot sync: ~/src/relationship-shared not found"))
         return False
 
-    # Warn if working tree already has uncommitted changes
-    status = run_git("status", "--porcelain")
-    dirty = [l for l in status.stdout.splitlines() if l.strip()]
-    if dirty:
-        print(c(YELLOW, f"  [note] ~/bin/ already has {len(dirty)} uncommitted change(s); sync will add more."))
-        print()
+    if not block_if_managed_changes("sync"):
+        return False
+    print(c(CYAN, "Pre-sync pull sequence: shared first, then ~/bin."))
+    if not pull_repo(SHARED, "~/src/relationship-shared"):
+        return False
+    if not pull_repo(BIN, "~/bin/"):
+        return False
 
     changed = []
     for shared_rel, bin_rel, is_dir in MIRROR_ITEMS:
@@ -451,16 +510,17 @@ DESCRIPTION
     Behaviour depends on laptop context (detected via ~/src/relationship-shared):
 
     PERSONAL LAPTOP (shared absent):
-      Default: check git state, warn agents of dirty tree or unpushed commits,
+      Default: enforce commit-first policy for walmart-sync-managed files,
       then pull from origin (merge, not rebase).
 
     WORK LAPTOP (shared present):
       Default (no flags): run three audits + personal-only check.
 
       Typical sync workflow:
-        1. walmart-sync --sync          copy drifted items from shared to bin
-        2. git add -p && git commit     review and commit changes manually
-        3. walmart-sync --push          portability gate, then push to origin
+        1. Commit local walmart-sync changes in ~/bin
+        2. walmart-sync --sync          auto-pulls shared then ~/bin; copies drift
+        3. git add -p && git commit     review and commit changes manually
+        4. walmart-sync --push          portability gate, then push to origin
 
     Three audit checks:
 
@@ -479,7 +539,7 @@ OPTIONS
     --portability     Run portability check only
     --ref-integrity   Run ref-integrity check only
     --personal-only   Check personal-only items
-    --sync            Copy drifted items from shared to bin, re-check portability
+    --sync            Pull shared + ~/bin, copy drifted items, re-check portability
     --dry-run         With --sync: show what would change, don't write
     --push            Portability gate on unpushed commits, then push to origin
     -v, --verbose     Show passing items too
