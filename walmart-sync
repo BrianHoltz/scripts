@@ -2,235 +2,142 @@
 # SPDX-FileCopyrightText: 2026 Brian Holtz
 # SPDX-License-Identifier: MIT
 """
-walmart-sync — sync ~/bin/ with relationship-shared and origin
+walmart-sync — deterministic mirror audit/sync helper
 
-Work laptop: audit mirror, copy drift, push to GitHub.
-Personal laptop: pull from GitHub.
+Design:
+- Thin orchestrator logic in this file
+- Declarative policy/manifest in walmart-sync.json
 """
 
 import argparse
-import os
+import json
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Mirror manifest — keep in sync with AgentRules.md §"Currently mirror-safe"
-# ---------------------------------------------------------------------------
-BIN       = Path.home() / "bin"
-SHARED    = Path.home() / "src" / "relationship-shared"
+BIN = Path.home() / "bin"
+SHARED = Path.home() / "src" / "relationship-shared"
+CFG_PATH = Path(__file__).with_suffix(".json")
 
-# Each entry: (shared_path_relative, bin_path_relative, is_dir)
-MIRROR_ITEMS = [
-    # skills
-    (".wibey/skills/ailert",       ".wibey/skills/ailert",       True),
-    (".wibey/skills/clipboard-read",".wibey/skills/clipboard-read",True),
-    (".wibey/skills/converge",     ".wibey/skills/converge",      True),
-    (".wibey/skills/doc-audit",    ".wibey/skills/doc-audit",    True),
-    # commands
-    (".wibey/commands/continue.md",".wibey/commands/continue.md", False),
-    (".wibey/commands/plando.md",  ".wibey/commands/plando.md",   False),
-    (".wibey/commands/tdd.md",     ".wibey/commands/tdd.md",      False),
-    # docs
-    ("docs/AnchorDoc.md",          ".wibey/docs/AnchorDoc.md",        False),
-    ("docs/StatusVocabulary.md",   ".wibey/docs/StatusVocabulary.md", False),
-    ("docs/IncidentRCA.md",        ".wibey/docs/IncidentRCA.md",      False),
-    ("docs/templates/Project.md",  ".wibey/docs/templates/Project.md",False),
-    ("docs/templates/Incident.md", ".wibey/docs/templates/Incident.md",False),
-]
-
-# Items in bin that are personal-only (not expected in shared; not a drift signal)
-PERSONAL_ONLY = {
-    ".wibey/skills/ftm",
-    ".wibey/commands/commitz.md",
-    ".wibey/commands/convo.md",
-    ".wibey/commands/say.md",
-}
-
-# Files exempt from the ref-integrity check: guarded probe loops that gracefully
-# no-op when a path is absent on personal laptop (for D in ...; do [ -d "$D" ]).
-REF_INTEGRITY_EXEMPT = {
-    ".wibey/skills/ailert/SKILL.md",  # $HOME/src/relationship-shared probe — guarded for-D loop
-}
-
-# Files exempt from the portability push-gate: these necessarily reference internal
-# terms in a meta/documentary context and are already present in the public repo.
-PORTABILITY_PUSH_EXEMPT = {
-    "walmart-sync",       # tooling script — its pattern strings reference internal terms
-    "docs/AgentRules.md", # rules doc — documents the patterns as examples of what to avoid
-}
-
-# ---------------------------------------------------------------------------
-# Portability check — patterns that signal Walmart-internal content
-# ---------------------------------------------------------------------------
-INTERNAL_PATTERNS = [
-    # Internal corp hostnames (not gecgithub01 — already public-knowledge)
-    (r"\b[\w-]+\.corp\.walmart\.com\b", "internal corp hostname"),
-    (r"\bspark\.walmart\.com\b",        "internal Spark hostname"),
-    (r"\bpc03\.my\.snyk\.io\b",         "internal Snyk hostname"),
-    # Jira project keys — reveal internal project names/work
-    (r"\b(?:GENAICA|GENAITK|WICN|CATS|SUPP)-\d+\b", "internal Jira ticket ID"),
-    # Internal SSP/Kitt/WCNP config markers
-    (r"\bkitt\.ya?ml\b",               "Kitt config (WCNP-specific)"),
-]
-
-# ---------------------------------------------------------------------------
-# Ref-integrity check — references that break on personal laptop
-# ---------------------------------------------------------------------------
-REF_INTEGRITY_PATTERNS = [
-    # Filesystem paths that only exist on work laptop
-    (r"~/src/relationship-shared",      "~/src/relationship-shared (work laptop only)"),
-    (r'\$HOME/src/relationship-shared', "$HOME/src/relationship-shared (work laptop only)"),
-    # shared/.wibey as local symlink — only flag when not inside a URL (no http/https before it)
-    # Uses a custom match function; here we match then filter in grep_patterns_no_url()
-    # (implemented as a separate pass below)
-    # (doc-audit is now mirrored — no ref-integrity check needed)
-]
-
-# Patterns checked with URL-exclusion (line must not contain http/https before the match)
-REF_INTEGRITY_PATH_PATTERNS = [
-    (r'\bshared/\.wibey\b', "shared/ symlink path (work laptop only)"),
-]
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-GREEN  = "\033[32m"
-RED    = "\033[31m"
+GREEN = "\033[32m"
+RED = "\033[31m"
 YELLOW = "\033[33m"
-CYAN   = "\033[36m"
-RESET  = "\033[0m"
-BOLD   = "\033[1m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
 
-def c(color, text): return f"{color}{text}{RESET}"
+
+def c(color, text):
+    return f"{color}{text}{RESET}"
+
+
+def run_git(repo: Path, *args, capture=True):
+    cmd = ["git", "-C", str(repo)] + list(args)
+    return subprocess.run(cmd, capture_output=capture, text=capture)
+
+
+def load_cfg():
+    try:
+        return json.loads(CFG_PATH.read_text())
+    except Exception as e:
+        print(c(RED + BOLD, f"ERROR: cannot read {CFG_PATH}: {e}"))
+        sys.exit(1)
+
+
+def parse_porcelain_paths(text):
+    paths = []
+    for raw in text.splitlines():
+        if len(raw) < 4:
+            continue
+        path = raw[3:]
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        paths.append(path.strip())
+    return paths
+
+
+def detect_upstream(repo: Path):
+    r = run_git(repo, "rev-parse", "--abbrev-ref", "HEAD@{upstream}")
+    if r.returncode == 0:
+        parts = r.stdout.strip().split("/", 1)
+        if len(parts) == 2:
+            return parts[0], parts[1]
+    b = run_git(repo, "branch", "--show-current")
+    return "origin", (b.stdout.strip() or "main")
+
+
+def compile_patterns(pattern_specs):
+    return [(re.compile(pat, re.IGNORECASE), label) for pat, label in pattern_specs]
+
 
 def collect_files(path: Path):
-    """Return list of Path objects under path (or [path] if file)."""
     if path.is_file():
         return [path]
     if path.is_dir():
         return sorted(path.rglob("*"))
     return []
 
-def grep_patterns(file_path: Path, patterns):
-    """Return list of (lineno, line, label) hits."""
-    hits = []
-    try:
-        text = file_path.read_text(errors="replace")
-    except Exception:
-        return hits
-    for lineno, line in enumerate(text.splitlines(), 1):
-        for pat, label in patterns:
-            if re.search(pat, line, re.IGNORECASE):
-                hits.append((lineno, line.rstrip(), label))
-                break  # one label per line
-    return hits
 
-def grep_path_patterns(file_path: Path, patterns):
-    """Like grep_patterns but skips lines that contain a URL before the match."""
+def grep_patterns(path: Path, compiled, skip_url_lines=False):
     hits = []
     try:
-        text = file_path.read_text(errors="replace")
+        text = path.read_text(errors="replace")
     except Exception:
         return hits
-    url_re = re.compile(r'https?://', re.IGNORECASE)
     for lineno, line in enumerate(text.splitlines(), 1):
-        if url_re.search(line):
-            continue  # skip lines that are URLs/links (they're portability hits, not ref hits)
-        for pat, label in patterns:
-            if re.search(pat, line, re.IGNORECASE):
+        if skip_url_lines and re.search(r"https?://", line, re.IGNORECASE):
+            continue
+        for rx, label in compiled:
+            if rx.search(line):
                 hits.append((lineno, line.rstrip(), label))
                 break
     return hits
 
-# ---------------------------------------------------------------------------
-# Git helpers
-# ---------------------------------------------------------------------------
-def run_git_in(repo: Path, *args, capture=True):
-    """Run a git command in `repo`, returning CompletedProcess."""
-    cmd = ["git", "-C", str(repo)] + list(args)
-    if capture:
-        return subprocess.run(cmd, capture_output=True, text=True)
-    return subprocess.run(cmd)
 
-def run_git(*args, capture=True):
-    """Run a git command in ~/bin/, returning CompletedProcess."""
-    return run_git_in(BIN, *args, capture=capture)
-
-def parse_porcelain_paths(porcelain_text: str):
-    """Return normalized file paths from `git status --porcelain` output."""
-    paths = []
-    for raw in porcelain_text.splitlines():
-        if len(raw) < 4:
-            continue
-        path = raw[3:]
-        if " -> " in path:  # rename/copy form: old -> new
-            path = path.split(" -> ", 1)[1]
-        paths.append(path.strip())
-    return paths
-
-def walmart_sync_path_specs():
-    """Return (exact_paths, directory_prefixes) for files managed by walmart-sync."""
-    exact = {"walmart-sync"} | set(PORTABILITY_PUSH_EXEMPT)
-    prefixes = []
-    for _, bin_rel, is_dir in MIRROR_ITEMS:
-        if is_dir:
-            prefixes.append(bin_rel.rstrip("/") + "/")
+def walmart_sync_specs(cfg):
+    exact = set(cfg.get("managed_exact", []))
+    prefixes = [p.rstrip("/") + "/" for p in cfg.get("managed_prefixes", [])]
+    for item in cfg["mirror_items"]:
+        dst = item["bin_rel"]
+        if item["is_dir"]:
+            prefixes.append(dst.rstrip("/") + "/")
         else:
-            exact.add(bin_rel)
-    for item in PERSONAL_ONLY:
+            exact.add(dst)
+    for item in cfg["personal_only"]:
         if item.endswith("/"):
             prefixes.append(item.rstrip("/") + "/")
         else:
             exact.add(item)
     return exact, prefixes
 
-def is_walmart_sync_managed(path: str):
-    exact, prefixes = walmart_sync_path_specs()
+
+def is_managed(path: str, exact, prefixes):
     if path in exact:
         return True
     return any(path.startswith(prefix) for prefix in prefixes)
 
-def block_if_managed_changes(action_label: str):
-    """
-    Enforce commit-first policy for walmart-sync-managed files.
-    Returns True when safe to proceed; prints guidance and returns False otherwise.
-    """
-    status = run_git("status", "--porcelain")
-    dirty_paths = parse_porcelain_paths(status.stdout)
-    managed = [p for p in dirty_paths if is_walmart_sync_managed(p)]
+
+def block_if_managed_changes(cfg, action_label: str):
+    exact, prefixes = walmart_sync_specs(cfg)
+    status = run_git(BIN, "status", "--porcelain")
+    dirty = parse_porcelain_paths(status.stdout)
+    managed = [p for p in dirty if is_managed(p, exact, prefixes)]
     if not managed:
         return True
-
     print(c(RED + BOLD, f"⚠ Commit-first policy: cannot {action_label} with local walmart-sync changes."))
     print(c(RED, "Commit these files first, then rerun walmart-sync:"))
     for p in managed:
         print(f"  - {p}")
     print()
-    print(c(CYAN, "Suggested:"))
-    print(c(CYAN, "  cd ~/bin && git add <files> && git commit"))
+    print(c(CYAN, "Suggested: cd ~/bin && git add <files> && git commit"))
     return False
 
-def detect_upstream(repo=BIN):
-    """Return (remote, branch) for repo HEAD upstream, or ('origin', current_branch)."""
-    r = run_git_in(repo, "rev-parse", "--abbrev-ref", "HEAD@{upstream}")
-    if r.returncode == 0:
-        parts = r.stdout.strip().split("/", 1)
-        if len(parts) == 2:
-            return parts[0], parts[1]
-    branch_r = run_git_in(repo, "branch", "--show-current")
-    branch = branch_r.stdout.strip() or "main"
-    return "origin", branch
-
-def list_dirty_paths(repo=BIN):
-    status = run_git_in(repo, "status", "--porcelain")
-    return parse_porcelain_paths(status.stdout)
 
 def pull_repo(repo: Path, label: str):
-    """Commit-first pull: refuse dirty tree, then pull (merge, not rebase)."""
-    dirty = list_dirty_paths(repo)
+    status = run_git(repo, "status", "--porcelain")
+    dirty = parse_porcelain_paths(status.stdout)
     if dirty:
         print(c(RED + BOLD, f"⚠ Commit-first policy: cannot pull {label} with local changes."))
         print(c(RED, "Commit these files first, then rerun walmart-sync:"))
@@ -239,405 +146,290 @@ def pull_repo(repo: Path, label: str):
         print()
         print(c(CYAN, f"Suggested: cd {repo} && git add <files> && git commit"))
         return False
-
-    remote, branch = detect_upstream(repo=repo)
+    remote, branch = detect_upstream(repo)
     print(c(CYAN, f"Pulling {label} from {remote}/{branch} (merge)…"))
-    r = run_git_in(repo, "pull", "--no-rebase", remote, branch, capture=False)
+    r = run_git(repo, "pull", "--no-rebase", remote, branch, capture=False)
     if r.returncode != 0:
-        print()
-        print(c(RED + BOLD, f"⚠⚠ AGENT ALERT: git pull failed for {label}."))
-        print(c(RED, "Resolve conflicts, then re-run walmart-sync."))
+        print(c(RED + BOLD, f"⚠ Pull failed for {label}. Resolve and rerun."))
         return False
     return True
 
-def do_pull():
-    """Personal laptop: check git state then pull from origin (merge, not rebase)."""
-    if not block_if_managed_changes("pull"):
-        sys.exit(1)
-    if not pull_repo(BIN, "~/bin/"):
-        sys.exit(1)
 
-def do_push():
-    """Work laptop: portability gate on unpushed commits, then push to origin."""
-    if not block_if_managed_changes("push"):
-        sys.exit(1)
-
-    remote, branch = detect_upstream()
-
-    ahead_r = run_git("rev-list", "--count", "HEAD@{upstream}..HEAD")
-    if ahead_r.returncode != 0:
-        print(c(YELLOW, "Cannot determine upstream. Set one with: git branch --set-upstream-to=origin/main"))
-        sys.exit(1)
-    ahead = int(ahead_r.stdout.strip() or "0")
-    if ahead == 0:
-        print(c(YELLOW, "Nothing to push (no commits ahead of upstream)."))
-        return
-
-    log = run_git("log", "--oneline", "HEAD@{upstream}..HEAD")
-    print(c(CYAN, f"Scanning {ahead} unpushed commit(s) for portability leaks:"))
-    for line in log.stdout.splitlines()[:10]:
-        print(f"  {line}")
-    print()
-
-    # Scan only added lines (+) in the unpushed diff; skip exempt meta-files
-    diff_r = run_git("diff", "-U0", "HEAD@{upstream}..HEAD")
-    leaks = []
-    current_file = "(unknown)"
-    skip_file = False
-    for line in diff_r.stdout.splitlines():
-        if line.startswith("+++ b/"):
-            current_file = line[6:]
-            skip_file = current_file in PORTABILITY_PUSH_EXEMPT
-        elif not skip_file and line.startswith("+") and not line.startswith("+++"):
-            content = line[1:]
-            for pat, label in INTERNAL_PATTERNS:
-                if re.search(pat, content, re.IGNORECASE):
-                    leaks.append((current_file, content.rstrip(), label))
-                    break
-
-    if leaks:
-        print(c(RED + BOLD, "⚠ PORTABILITY GATE FAILED — will not push to public GitHub:"))
-        for file_path, content, label in leaks[:20]:
-            print(c(RED, f"  [{label}] {file_path}:"))
-            print(f"    {content[:120]}")
-        print()
-        print(c(YELLOW, "Strip internal markers then retry: walmart-sync --push"))
-        sys.exit(1)
-
-    print(c(GREEN, "  Portability gate: clean"))
-    print()
-    print(c(CYAN, f"Pushing ~/bin/ to {remote}/{branch}…"))
-    r = run_git("push", remote, branch, capture=False)
-    if r.returncode != 0:
-        print()
-        print(c(RED + BOLD, "⚠⚠ AGENT ALERT: git push failed."))
-        sys.exit(1)
-    print(c(GREEN + BOLD, f"✓ Pushed to {remote}/{branch}"))
-
-# ---------------------------------------------------------------------------
-# Check functions
-# ---------------------------------------------------------------------------
-def check_consistency(verbose=False):
+def check_consistency(cfg, verbose=False):
     if not SHARED.exists():
-        print(c(YELLOW, "  [skip] ~/src/relationship-shared not found — consistency check skipped (personal laptop?)"))
+        print(c(YELLOW, "  [skip] shared repo not found"))
         return True
     all_ok = True
-    for shared_rel, bin_rel, is_dir in MIRROR_ITEMS:
-        src = SHARED / shared_rel
-        dst = BIN / bin_rel
-        label = bin_rel
+    for item in cfg["mirror_items"]:
+        src = SHARED / item["shared_rel"]
+        dst = BIN / item["bin_rel"]
+        label = item["bin_rel"]
         if not src.exists():
-            print(c(YELLOW, f"  [warn] shared/{shared_rel} not found — item may have been removed or renamed"))
+            print(c(YELLOW, f"  [warn] missing in shared: {item['shared_rel']}"))
             continue
         if not dst.exists():
-            print(c(RED, f"  [MISSING] {label} not in bin (exists in shared)"))
+            print(c(RED, f"  [missing] {label}"))
             all_ok = False
             continue
-        if is_dir:
-            result = subprocess.run(
-                ["diff", "-rq", "--exclude=*.pyc", str(src), str(dst)],
-                capture_output=True, text=True
-            )
+        if item["is_dir"]:
+            r = subprocess.run(["diff", "-rq", "--exclude=*.pyc", str(src), str(dst)],
+                               capture_output=True, text=True)
+            same = (r.returncode == 0)
         else:
-            result = subprocess.run(
-                ["diff", str(src), str(dst)],
-                capture_output=True, text=True
-            )
-        if result.returncode == 0:
+            same = src.read_bytes() == dst.read_bytes()
+            r = None
+        if same:
             print(c(GREEN, f"  [ok] {label}"))
         else:
-            print(c(RED, f"  [DRIFT] {label}"))
-            if verbose and result.stdout:
-                for dl in result.stdout.splitlines()[:30]:
-                    print(f"        {dl}")
+            print(c(RED, f"  [drift] {label}"))
+            if verbose and r and r.stdout:
+                for line in r.stdout.splitlines()[:20]:
+                    print(f"    {line}")
             all_ok = False
     return all_ok
 
-def check_portability(verbose=False):
-    all_ok = True
-    checked = set()
-    for _, bin_rel, is_dir in MIRROR_ITEMS:
-        dst = BIN / bin_rel
+
+def iter_mirror_files(cfg):
+    for item in cfg["mirror_items"]:
+        dst = BIN / item["bin_rel"]
         if not dst.exists():
             continue
-        files = collect_files(dst) if is_dir else [dst]
-        for f in files:
-            if not f.is_file():
-                continue
-            hits = grep_patterns(f, INTERNAL_PATTERNS)
-            rel = f.relative_to(BIN)
-            if hits:
-                print(c(RED, f"  [LEAK] {rel}"))
-                for lineno, line, label in hits[:10]:
-                    print(f"        L{lineno} [{label}]: {line[:120]}")
-                all_ok = False
-            elif verbose:
-                print(c(GREEN, f"  [ok] {rel}"))
-            checked.add(str(rel))
+        for f in (collect_files(dst) if item["is_dir"] else [dst]):
+            if f.is_file():
+                yield f
+
+
+def check_portability(cfg, verbose=False):
+    compiled = compile_patterns(cfg["internal_patterns"])
+    all_ok = True
+    for f in iter_mirror_files(cfg):
+        rel = f.relative_to(BIN)
+        hits = grep_patterns(f, compiled)
+        if hits:
+            print(c(RED, f"  [leak] {rel}"))
+            for ln, line, label in hits[:10]:
+                print(f"    L{ln} [{label}]: {line[:120]}")
+            all_ok = False
+        elif verbose:
+            print(c(GREEN, f"  [ok] {rel}"))
     return all_ok
 
-def check_ref_integrity(verbose=False):
+
+def check_ref_integrity(cfg, verbose=False):
+    compiled = compile_patterns(cfg["ref_integrity_patterns"])
+    path_compiled = compile_patterns(cfg["ref_integrity_path_patterns"])
+    exempt = set(cfg["ref_integrity_exempt"])
     all_ok = True
-    for _, bin_rel, is_dir in MIRROR_ITEMS:
-        dst = BIN / bin_rel
-        if not dst.exists():
+    for f in iter_mirror_files(cfg):
+        rel = str(f.relative_to(BIN))
+        if rel in exempt:
+            if verbose:
+                print(c(GREEN, f"  [ok] {rel} (exempt)"))
             continue
-        files = collect_files(dst) if is_dir else [dst]
-        for f in files:
-            if not f.is_file():
-                continue
-            rel = f.relative_to(BIN)
-            if str(rel) in REF_INTEGRITY_EXEMPT:
-                if verbose:
-                    print(c(GREEN, f"  [ok] {rel} (ref-integrity exempt)"))
-                continue
-            # Combine and deduplicate by line number (first label wins)
-            seen_lines = set()
-            raw_hits = (grep_patterns(f, REF_INTEGRITY_PATTERNS) +
-                        grep_path_patterns(f, REF_INTEGRITY_PATH_PATTERNS))
-            hits = []
-            for h in raw_hits:
-                if h[0] not in seen_lines:
-                    hits.append(h)
-                    seen_lines.add(h[0])
-            if hits:
-                print(c(YELLOW, f"  [ref?] {rel}"))
-                for lineno, line, label in hits[:10]:
-                    print(f"         L{lineno} [{label}]: {line[:120]}")
-                all_ok = False
-            elif verbose:
-                print(c(GREEN, f"  [ok] {rel}"))
+        raw = grep_patterns(f, compiled) + grep_patterns(f, path_compiled, skip_url_lines=True)
+        dedup = {}
+        for hit in raw:
+            dedup.setdefault(hit[0], hit)
+        hits = [dedup[k] for k in sorted(dedup.keys())]
+        if hits:
+            print(c(YELLOW, f"  [ref?] {rel}"))
+            for ln, line, label in hits[:10]:
+                print(f"    L{ln} [{label}]: {line[:120]}")
+            all_ok = False
+        elif verbose:
+            print(c(GREEN, f"  [ok] {rel}"))
     return all_ok
 
-def check_personal_only():
-    """Confirm personal-only items exist in bin and are NOT in shared."""
+
+def check_personal_only(cfg):
     all_ok = True
-    for item_rel in sorted(PERSONAL_ONLY):
-        dst = BIN / item_rel
+    for rel in sorted(cfg["personal_only"]):
+        dst = BIN / rel
         if not dst.exists():
-            print(c(YELLOW, f"  [warn] personal-only item missing from bin: {item_rel}"))
+            print(c(YELLOW, f"  [warn] missing personal-only item: {rel}"))
+            continue
+        if SHARED.exists() and (SHARED / rel).exists():
+            print(c(RED, f"  [leak] personal-only found in shared: {rel}"))
+            all_ok = False
         else:
-            if SHARED.exists():
-                # warn if it leaked into shared
-                src = SHARED / item_rel
-                if src.exists():
-                    print(c(RED, f"  [LEAK] personal-only item found in shared: {item_rel}"))
-                    all_ok = False
-                else:
-                    print(c(GREEN, f"  [ok] {item_rel} (personal-only, not in shared)"))
+            print(c(GREEN, f"  [ok] {rel}"))
     return all_ok
 
-# ---------------------------------------------------------------------------
-# Sync action
-# ---------------------------------------------------------------------------
-def do_sync(dry_run=False):
-    if not SHARED.exists():
-        print(c(RED, "Cannot sync: ~/src/relationship-shared not found"))
-        return False
 
-    if not block_if_managed_changes("sync"):
+def do_sync(cfg, dry_run=False):
+    if not SHARED.exists():
+        print(c(RED, "ERROR: --sync requires ~/src/relationship-shared"))
         return False
-    print(c(CYAN, "Pre-sync pull sequence: shared first, then ~/bin."))
+    if not block_if_managed_changes(cfg, "sync"):
+        return False
+    print(c(CYAN, "Pre-sync pull sequence: shared, then ~/bin"))
     if not pull_repo(SHARED, "~/src/relationship-shared"):
         return False
-    if not pull_repo(BIN, "~/bin/"):
+    if not pull_repo(BIN, "~/bin"):
         return False
 
     changed = []
-    for shared_rel, bin_rel, is_dir in MIRROR_ITEMS:
-        src = SHARED / shared_rel
-        dst = BIN / bin_rel
+    for item in cfg["mirror_items"]:
+        src = SHARED / item["shared_rel"]
+        dst = BIN / item["bin_rel"]
         if not src.exists():
-            print(c(YELLOW, f"  [skip] shared/{shared_rel} not found"))
+            print(c(YELLOW, f"  [skip] missing in shared: {item['shared_rel']}"))
             continue
-        if is_dir:
-            result = subprocess.run(
-                ["diff", "-rq", "--exclude=*.pyc", str(src), str(dst)],
-                capture_output=True, text=True
-            )
-            in_sync = result.returncode == 0
+        if item["is_dir"]:
+            r = subprocess.run(["diff", "-rq", "--exclude=*.pyc", str(src), str(dst)],
+                               capture_output=True, text=True)
+            in_sync = (r.returncode == 0)
         else:
             in_sync = dst.exists() and src.read_bytes() == dst.read_bytes()
-
         if in_sync:
-            print(f"  [=] {bin_rel}")
+            print(f"  [=] {item['bin_rel']}")
+            continue
+        changed.append(item["bin_rel"])
+        print(c(YELLOW, f"  [→] {item['bin_rel']}") + (" (would copy)" if dry_run else " (copying)"))
+        if dry_run:
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if item["is_dir"]:
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(src, dst)
         else:
-            changed.append((shared_rel, bin_rel, is_dir, src, dst))
-            print(c(YELLOW, f"  [→] {bin_rel}") + (" (would copy)" if dry_run else " (copying)"))
-            if not dry_run:
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                if is_dir:
-                    if dst.exists():
-                        shutil.rmtree(dst)
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
+            shutil.copy2(src, dst)
 
-    if changed and not dry_run:
-        print()
-        print(c(CYAN, "Re-running portability check on updated items…"))
-        all_ok = True
-        for _, bin_rel, is_dir, _, dst in changed:
-            files = collect_files(dst) if is_dir else [dst]
-            for f in files:
-                if not f.is_file():
-                    continue
-                hits = grep_patterns(f, INTERNAL_PATTERNS)
-                rel = f.relative_to(BIN)
-                if hits:
-                    print(c(RED, f"  [LEAK] {rel} — review before committing!"))
-                    for lineno, line, label in hits[:10]:
-                        print(f"        L{lineno} [{label}]: {line[:120]}")
-                    all_ok = False
-        if all_ok:
-            print(c(GREEN, "  Portability: clean — safe to commit"))
-        else:
-            print(c(RED, "  Portability: FAILURES — do NOT commit until resolved"))
-    return True
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-usage_msg = """\
-NAME
-    walmart-sync — audit/sync ~/bin/ mirror; push on work laptop, pull on personal
-
-SYNOPSIS
-    walmart-sync [--consistency] [--portability] [--ref-integrity]
-                 [--personal-only] [--sync [--dry-run]] [--push] [-v] [-h]
-
-DESCRIPTION
-    Behaviour depends on laptop context (detected via ~/src/relationship-shared):
-
-    PERSONAL LAPTOP (shared absent):
-      Default: enforce commit-first policy for walmart-sync-managed files,
-      then pull from origin (merge, not rebase).
-
-    WORK LAPTOP (shared present):
-      Default (no flags): run three audits + personal-only check.
-
-      Typical sync workflow:
-        1. Commit local walmart-sync changes in ~/bin
-        2. walmart-sync --sync          auto-pulls shared then ~/bin; copies drift
-        3. git add -p && git commit     review and commit changes manually
-        4. walmart-sync --push          portability gate, then push to origin
-
-    Three audit checks:
-
-    Consistency   Byte-diff bin copies vs relationship-shared originals.
-                  Only meaningful on work laptop.
-
-    Portability   Grep mirrored files for Walmart-internal markers (GHE
-                  hostnames, internal Jira keys, etc.) that must not appear
-                  in the public ~/bin GitHub repo.
-
-    Ref-integrity Flag references to paths/skills that dangle on personal
-                  laptop (e.g. ~/src/relationship-shared, shared/).
-
-OPTIONS
-    --consistency     Run consistency check only
-    --portability     Run portability check only
-    --ref-integrity   Run ref-integrity check only
-    --personal-only   Check personal-only items
-    --sync            Pull shared + ~/bin, copy drifted items, re-check portability
-    --dry-run         With --sync: show what would change, don't write
-    --push            Portability gate on unpushed commits, then push to origin
-    -v, --verbose     Show passing items too
-    -h, --help        Show this message
-
-EXIT CODES
-    0  All selected checks passed / pull or push succeeded
-    1  One or more checks failed, or pull/push error
-    2  Usage error (e.g. --push on personal laptop)
-
-EXAMPLES
-    walmart-sync                   # personal: pull; work: full audit
-    walmart-sync -v                # full audit, show passing items
-    walmart-sync --sync            # copy drifted items; then commit manually
-    walmart-sync --sync --dry-run  # preview what would be synced
-    walmart-sync --push            # portability gate + push committed state
-
-MAINTENANCE
-    When AgentRules.md §"Currently mirror-safe" changes, update MIRROR_ITEMS
-    and PERSONAL_ONLY in this script to match.
-"""
-
-def main():
-    p = argparse.ArgumentParser(add_help=False, usage=argparse.SUPPRESS)
-    p.add_argument("--consistency",   action="store_true")
-    p.add_argument("--portability",   action="store_true")
-    p.add_argument("--ref-integrity", action="store_true")
-    p.add_argument("--personal-only", action="store_true")
-    p.add_argument("--sync",          action="store_true")
-    p.add_argument("--push",          action="store_true")
-    p.add_argument("--dry-run",       action="store_true")
-    p.add_argument("-v", "--verbose", action="store_true")
-    p.add_argument("-h", "--help",    action="store_true")
-    args = p.parse_args()
-
-    if args.help:
-        print(usage_msg)
-        sys.exit(0)
-
-    on_work_laptop = SHARED.exists()
-
-    if args.push:
-        if not on_work_laptop:
-            print(c(RED, "ERROR: --push requires ~/src/relationship-shared (work laptop only)"))
-            sys.exit(2)
-        print(c(BOLD, "── Push to origin ────────────────────────"))
-        do_push()
-        sys.exit(0)
-
-    if args.sync:
-        if not on_work_laptop:
-            print(c(RED, "ERROR: --sync requires ~/src/relationship-shared (work laptop only)"))
-            sys.exit(2)
-        print(c(BOLD, "── Sync ──────────────────────────────────"))
-        do_sync(dry_run=args.dry_run)
-        if not args.dry_run:
-            print()
-            print(c(CYAN, "Sync done. Review, commit, then push:"))
-            print(c(CYAN, "  cd ~/bin && git add -p && git commit && walmart-sync --push"))
-        sys.exit(0)
-
-    explicit_audit = any([args.consistency, args.portability,
-                          getattr(args, "ref_integrity", False),
-                          getattr(args, "personal_only", False)])
-
-    # Personal laptop default (no explicit audit flags): just pull
-    if not on_work_laptop and not explicit_audit:
-        print(c(BOLD, "── Pull ~/bin/ from origin ───────────────"))
-        do_pull()
-        sys.exit(0)
-
-    # Audit (work laptop, or explicit audit flags anywhere)
-    run_all = not explicit_audit
-    results = []
-
-    if run_all or args.consistency:
-        print(c(BOLD, "── Consistency (bin vs shared) ───────────"))
-        results.append(check_consistency(verbose=args.verbose))
-
-    if run_all or args.portability:
-        print(c(BOLD, "── Portability (no internal markers) ────"))
-        results.append(check_portability(verbose=args.verbose))
-
-    if run_all or getattr(args, "ref_integrity", False):
-        print(c(BOLD, "── Ref-integrity (no dangling refs) ─────"))
-        results.append(check_ref_integrity(verbose=args.verbose))
-
-    if run_all or getattr(args, "personal_only", False):
-        print(c(BOLD, "── Personal-only items ───────────────────"))
-        results.append(check_personal_only())
+    if dry_run or not changed:
+        return True
 
     print()
-    if all(results):
-        print(c(GREEN + BOLD, "✓ All checks passed"))
-        sys.exit(0)
-    else:
-        print(c(RED + BOLD, "✗ One or more checks failed"))
-        sys.exit(1)
+    print(c(CYAN, "Rechecking portability on changed items…"))
+    compiled = compile_patterns(cfg["internal_patterns"])
+    leak = False
+    for rel in changed:
+        p = BIN / rel
+        files = collect_files(p) if p.is_dir() else [p]
+        for f in files:
+            if not f.is_file():
+                continue
+            hits = grep_patterns(f, compiled)
+            if hits:
+                leak = True
+                show = str(f.relative_to(BIN))
+                print(c(RED, f"  [leak] {show}"))
+                for ln, line, label in hits[:10]:
+                    print(f"    L{ln} [{label}]: {line[:120]}")
+    if leak:
+        print(c(RED, "Portability check failed after sync; do not commit yet."))
+        return False
+    print(c(GREEN, "Portability clean on synced changes."))
+    return True
+
+
+def do_push(cfg):
+    if not SHARED.exists():
+        print(c(RED, "ERROR: --push requires ~/src/relationship-shared"))
+        return False
+    if not block_if_managed_changes(cfg, "push"):
+        return False
+
+    remote, branch = detect_upstream(BIN)
+    ahead_r = run_git(BIN, "rev-list", "--count", "HEAD@{upstream}..HEAD")
+    if ahead_r.returncode != 0:
+        print(c(RED, "Cannot determine upstream; set one first."))
+        return False
+    ahead = int(ahead_r.stdout.strip() or "0")
+    if ahead == 0:
+        print(c(YELLOW, "Nothing to push."))
+        return True
+
+    exempt = set(cfg["portability_push_exempt"])
+    compiled = compile_patterns(cfg["internal_patterns"])
+    diff_r = run_git(BIN, "diff", "-U0", "HEAD@{upstream}..HEAD")
+    leaks = []
+    current_file = "(unknown)"
+    skip = False
+    for line in diff_r.stdout.splitlines():
+        if line.startswith("+++ b/"):
+            current_file = line[6:]
+            skip = current_file in exempt
+            continue
+        if skip or not line.startswith("+") or line.startswith("+++"):
+            continue
+        content = line[1:]
+        for rx, label in compiled:
+            if rx.search(content):
+                leaks.append((current_file, content.rstrip(), label))
+                break
+
+    if leaks:
+        print(c(RED + BOLD, "Portability push gate failed; refusing push."))
+        for fp, line, label in leaks[:20]:
+            print(c(RED, f"  [{label}] {fp}"))
+            print(f"    {line[:120]}")
+        return False
+
+    print(c(CYAN, f"Pushing ~/bin to {remote}/{branch}…"))
+    r = run_git(BIN, "push", remote, branch, capture=False)
+    if r.returncode != 0:
+        print(c(RED + BOLD, "Push failed."))
+        return False
+    print(c(GREEN + BOLD, "Push succeeded."))
+    return True
+
+
+def run_audit(cfg, args):
+    run_all = not any([args.consistency, args.portability, args.ref_integrity, args.personal_only])
+    results = []
+    if run_all or args.consistency:
+        print(c(BOLD, "── Consistency"))
+        results.append(check_consistency(cfg, verbose=args.verbose))
+    if run_all or args.portability:
+        print(c(BOLD, "── Portability"))
+        results.append(check_portability(cfg, verbose=args.verbose))
+    if run_all or args.ref_integrity:
+        print(c(BOLD, "── Ref-integrity"))
+        results.append(check_ref_integrity(cfg, verbose=args.verbose))
+    if run_all or args.personal_only:
+        print(c(BOLD, "── Personal-only"))
+        results.append(check_personal_only(cfg))
+    ok = all(results) if results else True
+    print()
+    print(c((GREEN if ok else RED) + BOLD, "✓ All checks passed" if ok else "✗ One or more checks failed"))
+    return ok
+
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="Audit/sync ~/bin mirror; push on work laptop, pull on personal"
+    )
+    p.add_argument("--consistency", action="store_true")
+    p.add_argument("--portability", action="store_true")
+    p.add_argument("--ref-integrity", action="store_true")
+    p.add_argument("--personal-only", action="store_true")
+    p.add_argument("--sync", action="store_true")
+    p.add_argument("--push", action="store_true")
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("-v", "--verbose", action="store_true")
+    return p.parse_args()
+
+
+def main():
+    cfg = load_cfg()
+    args = parse_args()
+    on_work = SHARED.exists()
+
+    if args.push:
+        sys.exit(0 if do_push(cfg) else 1)
+
+    if args.sync:
+        sys.exit(0 if do_sync(cfg, dry_run=args.dry_run) else 1)
+
+    explicit_audit = any([args.consistency, args.portability, args.ref_integrity, args.personal_only])
+    if not on_work and not explicit_audit:
+        if not block_if_managed_changes(cfg, "pull"):
+            sys.exit(1)
+        sys.exit(0 if pull_repo(BIN, "~/bin") else 1)
+
+    sys.exit(0 if run_audit(cfg, args) else 1)
+
 
 if __name__ == "__main__":
     main()
