@@ -1,0 +1,48 @@
+{
+  "mirror_items": [
+    { "shared_rel": ".wibey/skills/ailert", "bin_rel": ".wibey/skills/ailert", "is_dir": true },
+    { "shared_rel": ".wibey/skills/clipboard-read", "bin_rel": ".wibey/skills/clipboard-read", "is_dir": true },
+    { "shared_rel": ".wibey/skills/converge", "bin_rel": ".wibey/skills/converge", "is_dir": true },
+    { "shared_rel": ".wibey/skills/doc-audit", "bin_rel": ".wibey/skills/doc-audit", "is_dir": true },
+    { "shared_rel": ".wibey/commands/continue.md", "bin_rel": ".wibey/commands/continue.md", "is_dir": false },
+    { "shared_rel": ".wibey/commands/plando.md", "bin_rel": ".wibey/commands/plando.md", "is_dir": false },
+    { "shared_rel": ".wibey/commands/tdd.md", "bin_rel": ".wibey/commands/tdd.md", "is_dir": false },
+    { "shared_rel": "docs/AnchorDoc.md", "bin_rel": ".wibey/docs/AnchorDoc.md", "is_dir": false },
+    { "shared_rel": "docs/StatusVocabulary.md", "bin_rel": ".wibey/docs/StatusVocabulary.md", "is_dir": false },
+    { "shared_rel": "docs/IncidentRCA.md", "bin_rel": ".wibey/docs/IncidentRCA.md", "is_dir": false },
+    { "shared_rel": "docs/templates/Project.md", "bin_rel": ".wibey/docs/templates/Project.md", "is_dir": false },
+    { "shared_rel": "docs/templates/Incident.md", "bin_rel": ".wibey/docs/templates/Incident.md", "is_dir": false }
+  ],
+  "personal_only": [
+    ".wibey/skills/ftm",
+    ".wibey/commands/commitz.md",
+    ".wibey/commands/convo.md",
+    ".wibey/commands/say.md"
+  ],
+  "managed_exact": [
+    "walmart-sync",
+    "walmart-sync.json"
+  ],
+  "managed_prefixes": [],
+  "portability_push_exempt": [
+    "walmart-sync",
+    "docs/AgentRules.md"
+  ],
+  "ref_integrity_exempt": [
+    ".wibey/skills/ailert/SKILL.md"
+  ],
+  "internal_patterns": [
+    ["\\b[\\w-]+\\.corp\\.walmart\\.com\\b", "internal corp hostname"],
+    ["\\bspark\\.walmart\\.com\\b", "internal Spark hostname"],
+    ["\\bpc03\\.my\\.snyk\\.io\\b", "internal Snyk hostname"],
+    ["\\b(?:GENAICA|GENAITK|WICN|CATS|SUPP)-\\d+\\b", "internal Jira ticket ID"],
+    ["\\bkitt\\.ya?ml\\b", "Kitt config (WCNP-specific)"]
+  ],
+  "ref_integrity_patterns": [
+    ["~/src/relationship-shared", "~/src/relationship-shared (work laptop only)"],
+    ["\\$HOME/src/relationship-shared", "$HOME/src/relationship-shared (work laptop only)"]
+  ],
+  "ref_integrity_path_patterns": [
+    ["\\bshared/\\.wibey\\b", "shared/ symlink path (work laptop only)"]
+  ]
+}

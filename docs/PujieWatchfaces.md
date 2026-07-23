@@ -162,69 +162,66 @@ Additional evidence recovered locally:
 - unauthenticated direct export of the doc text returned HTTP 401
 - authenticated browser-session export succeeded via a dedicated Chrome CDP profile
 
-Recovered document contents:
+Recovered document contents (revised):
 
-**Pujie Watch Face Baseline Features**
+## Revised watch face design (top -> bottom)
 
-Line spacing: `1.25`
+### Top crescent (astronomy)
 
-### Infovore Core design and functional elements
+- **Left (sun, orange)**: top = sunset, bottom = sunrise, animated sun glyph traveling the perimeter.
+- **Center**: altitude (if available). Future possibility: heading/distance-to-home if update reliability improves.
+- **Right (moon, white)**: top = second moon event of the day (rise/set), bottom = first moon event of the day (rise/set), animated moon glyph traveling the perimeter, phase-aware if possible.
 
-This document establishes the baseline configuration for the current custom Pujie watch face layout, tracking active operational fields and complications.
+### Calendar band (full width)
 
-### 1. Time, date, and astronomy
+- next calendar event (replaces the old sunrise/sunset header row)
 
-- 12-hour/24-hour time layout
-- seconds counter placeholder
-- date
-- day of week
-- active timezone
-- digital sunrise/sunset times
-- orange horizon tick marks showing where the sun crosses the horizon line
-- custom celestial ring mapping the active position of the Sun, Moon, and visible planets along the horizon/sky line
+### Center time block
 
-### 2. Geolocation and environmental mapping
+- large current time
+- seconds to the right (watch only)
+- time zone label (`PST`/`PDT`) below or adjacent
 
-- real-time distance calculation to home in meters/kilometers
-- compass direction to home (example: `ENE`)
-- hardcoded home GPS coordinate
-- current city string
-- altitude tracker (`121m`)
+### Bottom information grid
 
-### 3. Weather and scheduling
+- **Activity (red)**: top = today's steps, mid = yesterday's steps, bottom = two days ago steps
+- **Heart rate (red)**: top = daily high, mid = current, bottom = daily low
+- **Current weather**: top = current temperature, mid = reserved blank, bottom = `°F` legend
+  - current temperature color is dynamic: use forecast-high color when closer to today's high; forecast-low color when closer to today's low
+- **Forecast columns** (`Today`, `Tomorrow`, `+2 Days`) share the same 3-row pattern:
+  - top = forecast high
+  - mid = rainfall or wind
+  - bottom = forecast low
 
-- next upcoming Google Calendar event title
-- side-by-side 2-day high/low forecast
-- today's anticipated precipitation depth in inches
+### Weather legend triangle (right of forecast grid)
 
-### 4. Biometrics and system metrics
+Reserved for units/legend via conditional visibility:
 
-- current heart rate
-- computed average daily heart rate
-- computed maximum daily heart rate
-- daily step counter
-- dual-device battery percentages for watch vs phone
+- top: `°F` (temperature color)
+- middle: `MPH` (white), shown only when middle-row values are wind
+- bottom: `"` (cyan), shown only when middle-row values are rainfall
 
-## InfoVore 2026: Android Widget
+### Bottom edge
 
-Next project: make a modified version of the Infovore watchface for use only as an Android widget.
+- watch battery %
+- phone battery %
+- center icon area may be obscured by Wear OS notification overlays
 
-### Widget Limits
+### Color scheme
 
-- no second hand / seconds counter, because the widget updates only once every 60 seconds
-- the step counter has never worked on the widget
-- rainfall and wind data are uncertain on the widget; suspected to work, but not confirmed
-- the celestial calculations for placing planets around the watch face do not work in the widget
-- calendar event fetching does not work for you in the widget; **TODO:** check whether this can be debugged or restored
-- watch battery percentage no longer works there because the Pixel 3 watch does not connect to Pujie
+- sun / warm / forecast highs: orange
+- forecast lows: deep blue
+- current temperature: dynamic orange or deep blue (based on proximity to today's high/low)
+- rainfall: cyan
+- wind: white
+- heart/activity: red
+- moon: white
 
-### TODO
+### Deferred or removed
 
-- debug step count
-- N-day forecast: high, low, precip inches, wind speed
-- moonrise, moonset, fraction, wax vs wane indicator
-- death clock: no. of seconds until estimated death
-- fix sun horizon markers
-- add moon horizon markers
-- add moon orrery position
-- debug planet positions
+- location name
+- GPS heading (too stale)
+- distance to home (too stale)
+- calories
+- solar noon (derivable from sunrise/sunset)
+- current weather conditions (until provider reliability improves)
