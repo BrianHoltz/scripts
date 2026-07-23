@@ -20,6 +20,7 @@ from pathlib import Path
 BIN = Path.home() / "bin"
 SHARED = Path.home() / "src" / "relationship-shared"
 CFG_PATH = Path(__file__).with_suffix(".json")
+TOOLS_REPO_LABEL = "~/src/tools"
 
 GREEN = "\033[32m"
 RED = "\033[31m"
@@ -131,7 +132,7 @@ def block_if_managed_changes(cfg, action_label: str):
     for p in managed:
         print(f"  - {p}")
     print()
-    print(c(CYAN, "Suggested: cd ~/bin && git add <files> && git commit"))
+    print(c(CYAN, f"Suggested: cd {TOOLS_REPO_LABEL} && git add <files> && git commit"))
     return False
 
 
@@ -262,10 +263,10 @@ def do_sync(cfg, dry_run=False):
         return False
     if not block_if_managed_changes(cfg, "sync"):
         return False
-    print(c(CYAN, "Pre-sync pull sequence: shared, then ~/bin"))
+    print(c(CYAN, f"Pre-sync pull sequence: shared, then {TOOLS_REPO_LABEL}"))
     if not pull_repo(SHARED, "~/src/relationship-shared"):
         return False
-    if not pull_repo(BIN, "~/bin"):
+    if not pull_repo(BIN, TOOLS_REPO_LABEL):
         return False
 
     changed = []
@@ -366,7 +367,7 @@ def do_push(cfg):
             print(f"    {line[:120]}")
         return False
 
-    print(c(CYAN, f"Pushing ~/bin to {remote}/{branch}…"))
+    print(c(CYAN, f"Pushing {TOOLS_REPO_LABEL} to {remote}/{branch}…"))
     r = run_git(BIN, "push", remote, branch, capture=False)
     if r.returncode != 0:
         print(c(RED + BOLD, "Push failed."))
@@ -398,7 +399,7 @@ def run_audit(cfg, args):
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Audit/sync ~/bin mirror; push on work laptop, pull on personal"
+        description="Audit/sync ~/src/tools mirror; push on work laptop, pull on personal"
     )
     p.add_argument("--consistency", action="store_true")
     p.add_argument("--portability", action="store_true")
@@ -426,7 +427,7 @@ def main():
     if not on_work and not explicit_audit:
         if not block_if_managed_changes(cfg, "pull"):
             sys.exit(1)
-        sys.exit(0 if pull_repo(BIN, "~/bin") else 1)
+        sys.exit(0 if pull_repo(BIN, TOOLS_REPO_LABEL) else 1)
 
     sys.exit(0 if run_audit(cfg, args) else 1)
 
